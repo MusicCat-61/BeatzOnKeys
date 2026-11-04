@@ -480,3 +480,9 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# BeatzOnKeys generated portable runtime and local build state
+Build_Output/
+.build-cache/
+.dsh-acl-recovery/
+*.staging-*/

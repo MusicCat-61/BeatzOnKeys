@@ -1,41 +1,33 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using BeatzOnKeys.Core.Models;
 
 namespace BeatzOnKeys.Core.Services;
 
+/// <summary>Atomic settings persistence; a custom path keeps tests isolated from user data.</summary>
 public sealed class SettingsService
 {
     private readonly SemaphoreSlim _saveGate = new(1, 1);
+    private readonly string _settingsFile;
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNameCaseInsensitive = true,
-        Converters = { new JsonStringEnumConverter() }
+        PropertyNameCaseInsensitive = true
     };
+
+    public SettingsService(string? settingsFile = null) =>
+        _settingsFile = Path.GetFullPath(settingsFile ?? AppPaths.SettingsFile);
 
     public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
-        AppPaths.EnsureCreated();
-        if (!File.Exists(AppPaths.SettingsFile))
-        {
-            return new AppSettings();
-        }
-
+        await _saveGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (!File.Exists(_settingsFile)) { return new AppSettings(); }
             await using var stream = new FileStream(
-                AppPaths.SettingsFile,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                bufferSize: 16 * 1024,
-                useAsync: true);
-
+                _settingsFile, FileMode.Open, FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete, 16 * 1024, useAsync: true);
             var settings = await JsonSerializer.DeserializeAsync<AppSettings>(
-                stream,
-                _jsonOptions,
-                cancellationToken).ConfigureAwait(false) ?? new AppSettings();
+                stream, _jsonOptions, cancellationToken).ConfigureAwait(false) ?? new AppSettings();
             settings.Normalize();
             return settings;
         }
@@ -48,36 +40,37 @@ public sealed class SettingsService
             AppLogger.Error("settings", "Failed to read settings; defaults will be used.", exception);
             return new AppSettings();
         }
+        finally { _saveGate.Release(); }
     }
 
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(settings);
         settings.Normalize();
-        AppPaths.EnsureCreated();
-
+        // Capture the complete JSON before waiting so callers cannot mutate an in-flight save.
+        var json = JsonSerializer.Serialize(settings, _jsonOptions);
         await _saveGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        var temporaryPath = AppPaths.SettingsFile + ".tmp";
+        var temporaryPath = _settingsFile + $".{Guid.NewGuid():N}.tmp";
         try
         {
-            await using (var stream = new FileStream(
-                temporaryPath,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None,
-                bufferSize: 16 * 1024,
-                useAsync: true))
+            Directory.CreateDirectory(Path.GetDirectoryName(_settingsFile)!);
+            await File.WriteAllTextAsync(temporaryPath, json, cancellationToken).ConfigureAwait(false);
+            for (var attempt = 0; ; attempt++)
             {
-                await JsonSerializer.SerializeAsync(stream, settings, _jsonOptions, cancellationToken)
-                    .ConfigureAwait(false);
-                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    File.Move(temporaryPath, _settingsFile, overwrite: true);
+                    break;
+                }
+                catch (Exception exception) when (attempt < 5 &&
+                    exception is IOException or UnauthorizedAccessException)
+                {
+                    await Task.Delay(15 * (attempt + 1), cancellationToken).ConfigureAwait(false);
+                }
             }
-
-            File.Move(temporaryPath, AppPaths.SettingsFile, overwrite: true);
         }
         finally
         {
-            _saveGate.Release();
             try
             {
                 if (File.Exists(temporaryPath))
@@ -85,10 +78,11 @@ public sealed class SettingsService
                     File.Delete(temporaryPath);
                 }
             }
-            catch
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
-                // A stale temporary settings file is harmless.
+                AppLogger.Warning("settings", $"Could not remove a temporary settings file: {exception.Message}");
             }
+            _saveGate.Release();
         }
     }
 
@@ -97,9 +91,9 @@ public sealed class SettingsService
         await _saveGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (File.Exists(AppPaths.SettingsFile))
+            if (File.Exists(_settingsFile))
             {
-                File.Delete(AppPaths.SettingsFile);
+                File.Delete(_settingsFile);
             }
         }
         finally

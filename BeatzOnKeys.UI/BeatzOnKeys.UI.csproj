@@ -15,7 +15,7 @@
     <Description>Turn typing into music.</Description>
     <Company>MusicCat-61</Company>
     <Authors>MusicCat-61</Authors>
-    <Version>1.0.0.0</Version>
+    <Version>1.0.1.0</Version>
     <ApplicationIcon>Assets\BeatzOnKeys.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
@@ -27,9 +27,6 @@
 
   <ItemGroup>
     <Resource Include="Assets\BeatzOnKeys.png" />
-    <Content Include="Tools\transcribe.py">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
     <None Update="Assets\BeatzOnKeys.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

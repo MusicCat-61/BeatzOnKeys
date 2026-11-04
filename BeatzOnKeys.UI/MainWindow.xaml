@@ -5,7 +5,6 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
-        xmlns:converters="clr-namespace:BeatzOnKeys.UI.Converters"
         mc:Ignorable="d"
         Title="BeatzOnKeys"
         Width="1120" Height="780" MinWidth="920" MinHeight="650"
@@ -18,23 +17,19 @@
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Ideal"
-        AllowDrop="True">
+        AllowDrop="True"
+        StateChanged="Window_StateChanged">
 
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6"
                             GlassFrameThickness="-1" UseAeroCaptionButtons="False" CornerRadius="0"/>
     </shell:WindowChrome.WindowChrome>
 
-    <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <converters:TrackStatusBrushConverter x:Key="TrackStatusBrushConverter"/>
-    </Window.Resources>
-
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="54"/>
+            <RowDefinition Height="56"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="54"/>
+            <RowDefinition Height="58"/>
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -45,8 +40,11 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="18,0,0,0" VerticalAlignment="Center">
-                <Image Source="Assets/BeatzOnKeys.png" Width="25" Height="25"
-                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                <Ellipse Width="26" Height="26">
+                    <Ellipse.Fill>
+                        <ImageBrush ImageSource="Assets/BeatzOnKeys.png" Stretch="UniformToFill"/>
+                    </Ellipse.Fill>
+                </Ellipse>
                 <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="{DynamicResource L_AppName}" FontSize="15" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
@@ -91,9 +89,9 @@
 
                 <Button Style="{StaticResource IconButtonStyle}" Command="{Binding ToggleThemeCommand}"
                         ToolTip="{DynamicResource L_Theme}" Margin="0,0,4,0">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="14">
+                    <TextBlock>
                         <TextBlock.Style>
-                            <Style TargetType="TextBlock">
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource SymbolIconStyle}">
                                 <Setter Property="Text" Value="&#xE706;"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsLightTheme}" Value="True">
@@ -106,29 +104,29 @@
                 </Button>
                 <Button Style="{StaticResource IconButtonStyle}" Click="MinimizeClick"
                         ToolTip="{DynamicResource L_Minimize}">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE921;" FontSize="14"/>
+                    <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE921;"/>
                 </Button>
                 <Button Style="{StaticResource IconButtonStyle}" Click="MaximizeClick"
                         ToolTip="{DynamicResource L_Maximize}">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE922;" FontSize="14"/>
+                    <TextBlock x:Name="MaximizeIcon" Style="{StaticResource SymbolIconStyle}" Text="&#xE922;"/>
                 </Button>
                 <Button Style="{StaticResource CloseButtonStyle}" Click="CloseClick"
                         ToolTip="{DynamicResource L_Close}">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8BB;" FontSize="14"/>
+                    <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE8BB;"/>
                 </Button>
             </StackPanel>
         </Grid>
 
-        <Grid Grid.Row="1" Margin="20,6,20,10">
+        <Grid Grid.Row="1" Margin="20,4,20,8">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="500"/>
-                <ColumnDefinition Width="18"/>
-                <ColumnDefinition Width="370"/>
+                <ColumnDefinition Width="*" MinWidth="480"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="360"/>
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="150"/>
+                    <RowDefinition Height="126"/>
                     <RowDefinition Height="12"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
@@ -143,28 +141,28 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <StackPanel Orientation="Horizontal">
-                                <Border Width="42" Height="42" CornerRadius="9"
-                                        Background="{DynamicResource OverlayBrush}" Margin="0,0,13,0">
-                                    <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets" FontSize="20"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource AccentBrush}"/>
-                                </Border>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource L_DropTitle}" FontSize="18" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{DynamicResource L_DropHint}" FontSize="13.5" Margin="0,3,0,0"
-                                               Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                </StackPanel>
+                        <Grid VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="55"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Width="42" Height="42" CornerRadius="9" VerticalAlignment="Center"
+                                    Background="{DynamicResource OverlayBrush}" Margin="0,0,13,0">
+                                <TextBlock Text="&#xE898;" Style="{StaticResource SymbolIconStyle}" FontSize="20"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{DynamicResource L_DropTitle}" FontSize="18" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{DynamicResource L_DropHint}" FontSize="13.5" Margin="0,3,0,0"
+                                           Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap"/>
                             </StackPanel>
-                        </StackPanel>
+                        </Grid>
 
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="22,0,0,0">
-                            <Button Content="{DynamicResource L_AddFiles}" Style="{StaticResource SubtleButtonStyle}"
-                                    Command="{Binding AddFilesCommand}" MinWidth="154" Margin="0,0,0,8"/>
-                            <Button Content="{DynamicResource L_ProcessAll}" Style="{StaticResource AccentButtonStyle}"
-                                    Command="{Binding ProcessAllCommand}" MinWidth="154"/>
-                        </StackPanel>
+                        <Button Grid.Column="1" Content="{DynamicResource L_AddFiles}"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Command="{Binding AddFilesCommand}" MinWidth="148"
+                                VerticalAlignment="Center" Margin="18,0,0,0"/>
                     </Grid>
                 </Border>
 
@@ -175,30 +173,11 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <Grid Margin="2,0,4,9">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="{DynamicResource L_Tracks}" Style="{StaticResource SectionLabelStyle}" Margin="0"/>
-                                <TextBlock Text="{Binding TrackCountText}" FontSize="13" Margin="10,1,0,0"
-                                           Foreground="{DynamicResource TextTertiaryBrush}"/>
-                            </StackPanel>
-                            <Button Grid.Column="1" Content="{DynamicResource L_Cancel}"
-                                    Command="{Binding CancelProcessingCommand}" Padding="10,4">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
-                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsBusy}" Value="True">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-                        </Grid>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,4,9">
+                            <TextBlock Text="{DynamicResource L_Tracks}" Style="{StaticResource SectionLabelStyle}" Margin="0"/>
+                            <TextBlock Text="{Binding TrackCountText}" FontSize="13" Margin="10,1,0,0"
+                                       Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        </StackPanel>
 
                         <Grid Grid.Row="1">
                             <ListBox ItemsSource="{Binding Tracks}" SelectedItem="{Binding SelectedTrack, Mode=TwoWay}"
@@ -218,67 +197,69 @@
                                 </ListBox.Style>
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid ToolTip="{Binding TooltipText}">
+                                        <Grid ToolTip="{Binding TooltipText}" MinHeight="42">
+                                            <Grid.Style>
+                                                <Style TargetType="Grid">
+                                                    <Setter Property="Opacity" Value="1"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsAvailable}" Value="False">
+                                                            <Setter Property="Opacity" Value="0.52"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Grid.Style>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="40"/>
+                                                <ColumnDefinition Width="42"/>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <Border Width="32" Height="32" CornerRadius="7" VerticalAlignment="Center"
+
+                                            <Border Width="34" Height="34" CornerRadius="8" VerticalAlignment="Center"
                                                     Background="{DynamicResource OverlayBrush}">
-                                                <TextBlock Text="&#xE8D6;" FontFamily="Segoe MDL2 Assets" FontSize="15"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="15"
                                                            Foreground="{DynamicResource AccentBrush}"/>
                                             </Border>
 
-                                            <Grid Grid.Column="1" Margin="4,0,12,0">
+                                            <Grid Grid.Column="1" Margin="5,0,12,0" VerticalAlignment="Center">
                                                 <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto"/>
                                                     <RowDefinition Height="Auto"/>
                                                     <RowDefinition Height="Auto"/>
                                                 </Grid.RowDefinitions>
                                                 <TextBlock Text="{Binding FileName}" FontSize="14.5" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
-                                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,3,0,0">
-                                                    <Ellipse Width="7" Height="7" Margin="0,0,7,0" VerticalAlignment="Center"
-                                                             Fill="{Binding Status, Converter={StaticResource TrackStatusBrushConverter}}"/>
-                                                    <TextBlock Text="{Binding StatusText}" FontSize="12.5"
-                                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                                    <TextBlock Text="{Binding StatusDetails}" FontSize="12.5" Margin="8,0,0,0"
-                                                               Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                                </StackPanel>
-                                                <ProgressBar Grid.Row="2" IsIndeterminate="True" Margin="0,7,0,0">
-                                                    <ProgressBar.Style>
-                                                        <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
-                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsProcessing}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ProgressBar.Style>
-                                                </ProgressBar>
+                                                <TextBlock Grid.Row="1" Text="{Binding DirectoryName}" FontSize="12"
+                                                           Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource TextTertiaryBrush}"/>
                                             </Grid>
 
-                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Border Background="{DynamicResource ControlBackgroundBrush}" CornerRadius="4"
-                                                        Padding="6,3" Margin="0,0,8,0">
-                                                    <TextBlock Text="{Binding Extension}" FontSize="10.5" FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                                </Border>
-                                                <Button Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
-                                                        Command="{Binding DataContext.RemoveTrackCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                        CommandParameter="{Binding}" ToolTip="{DynamicResource L_Remove}">
-                                                    <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="13"/>
-                                                </Button>
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                                                        Margin="0,0,10,0">
+                                                <TextBlock Text="&#xE823;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                                                           Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,5,0"/>
+                                                <TextBlock Text="{Binding DurationText}" FontSize="12.5"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </StackPanel>
+
+                                            <Border Grid.Column="3" Background="{DynamicResource ControlBackgroundBrush}"
+                                                    CornerRadius="4" Padding="6,3" Margin="0,0,7,0"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Extension}" FontSize="10.5" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                            </Border>
+                                            <Button Grid.Column="4" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
+                                                    Command="{Binding DataContext.RemoveTrackCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" ToolTip="{DynamicResource L_Remove}">
+                                                <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="13"/>
+                                            </Button>
                                         </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
 
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20">
                                 <StackPanel.Style>
                                     <Style TargetType="StackPanel">
                                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -289,11 +270,13 @@
                                         </Style.Triggers>
                                     </Style>
                                 </StackPanel.Style>
-                                <TextBlock Text="&#xE8D6;" FontFamily="Segoe MDL2 Assets" FontSize="30"
-                                           HorizontalAlignment="Center" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="30"
+                                           Foreground="{DynamicResource TextTertiaryBrush}"/>
                                 <TextBlock Text="{DynamicResource L_EmptyTracks}" FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                            HorizontalAlignment="Center" Margin="0,10,0,0"/>
                                 <TextBlock Text="{DynamicResource L_EmptyTracksHint}" FontSize="13" Margin="0,4,0,0"
+                                           TextAlignment="Center" TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
                             </StackPanel>
                         </Grid>
@@ -301,77 +284,100 @@
                 </Border>
             </Grid>
 
-            <Grid Grid.Column="2">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="12"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="12"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,0,4,0">
+                    <Border Style="{StaticResource CardStyle}">
+                        <StackPanel>
+                            <TextBlock Text="{DynamicResource L_Settings}" Style="{StaticResource SectionLabelStyle}"/>
 
-                <Border Grid.Row="0" Style="{StaticResource CardStyle}">
-                    <StackPanel>
-                        <TextBlock Text="{DynamicResource L_Settings}" Style="{StaticResource SectionLabelStyle}"/>
+                            <DockPanel Margin="0,2,0,0">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding VolumePercent}"
+                                           Style="{StaticResource ValueLabelStyle}"/>
+                                <TextBlock Text="{DynamicResource L_Volume}" Style="{StaticResource ValueLabelStyle}"/>
+                            </DockPanel>
+                            <Slider Minimum="0" Maximum="100"
+                                    Value="{Binding VolumePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    TickFrequency="1" Margin="0,4,0,0"/>
 
-                        <DockPanel Margin="0,2,0,0">
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding VolumePercent}"
-                                       Style="{StaticResource ValueLabelStyle}"/>
-                            <TextBlock Text="{DynamicResource L_Volume}" Style="{StaticResource ValueLabelStyle}"/>
-                        </DockPanel>
-                        <Slider Minimum="0" Maximum="1" Value="{Binding Volume}" TickFrequency="0.01" Margin="0,4,0,0"/>
+                            <DockPanel Margin="0,14,0,0">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding StepSecondsText}"
+                                           Style="{StaticResource ValueLabelStyle}"/>
+                                <TextBlock Text="{DynamicResource L_Step}" Style="{StaticResource ValueLabelStyle}"/>
+                            </DockPanel>
+                            <Slider Minimum="0.05" Maximum="0.5"
+                                    Value="{Binding StepSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    TickFrequency="0.01" SmallChange="0.01" LargeChange="0.05"
+                                    IsSnapToTickEnabled="True" Margin="0,4,0,0"/>
+                            <TextBlock Text="{DynamicResource L_StepHint}" FontSize="12.5" TextWrapping="Wrap"
+                                       Margin="0,3,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
-                        <DockPanel Margin="0,16,0,0">
-                            <TextBlock DockPanel.Dock="Right" Text="{Binding PlaybackSpeedText}"
-                                       Style="{StaticResource ValueLabelStyle}"/>
-                            <TextBlock Text="{DynamicResource L_PlaybackSpeed}" Style="{StaticResource ValueLabelStyle}"/>
-                        </DockPanel>
-                        <Slider Minimum="0.5" Maximum="2" Value="{Binding PlaybackSpeed}"
-                                TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="0,4,0,0"/>
+                            <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,13,0,12"/>
 
-                        <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,15,0,13"/>
-                        <CheckBox Content="{DynamicResource L_AutoAdvance}" IsChecked="{Binding AutoAdvance}"/>
-                        <TextBlock Text="{DynamicResource L_AutoAdvanceHint}" FontSize="12.5" TextWrapping="Wrap"
-                                   Margin="30,5,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
-                    </StackPanel>
-                </Border>
+                            <CheckBox IsChecked="{Binding AutoAdvance}">
+                                <TextBlock Text="{DynamicResource L_AutoAdvance}" TextWrapping="Wrap"/>
+                            </CheckBox>
+                            <TextBlock Text="{DynamicResource L_AutoAdvanceHint}" FontSize="12.5" TextWrapping="Wrap"
+                                       Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
-                <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="14">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="38"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Border Width="30" Height="30" CornerRadius="7" Background="{DynamicResource DropAreaBrush}">
-                            <TextBlock Text="&#xE8D6;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource AccentBrush}"/>
-                        </Border>
-                        <StackPanel Grid.Column="1" Margin="3,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="{DynamicResource L_SelectedTrack}" FontSize="12.5"
-                                       Foreground="{DynamicResource TextTertiaryBrush}"/>
-                            <TextBlock Text="{Binding SelectedTrackText}" FontSize="14" FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                            <CheckBox IsChecked="{Binding Loop}" Margin="0,12,0,0">
+                                <TextBlock Text="{DynamicResource L_Loop}" TextWrapping="Wrap"/>
+                            </CheckBox>
+                            <TextBlock Text="{DynamicResource L_LoopHint}" FontSize="12.5" TextWrapping="Wrap"
+                                       Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
                         </StackPanel>
-                    </Grid>
-                </Border>
+                    </Border>
 
-                <Border Grid.Row="4" Style="{StaticResource CardStyle}" Padding="15" VerticalAlignment="Top">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="16"
-                                       Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center"/>
-                            <TextBlock Text="{DynamicResource L_PrivacyTitle}" FontSize="14.5" FontWeight="SemiBold"
-                                       Margin="9,0,0,0"/>
+                    <Border Style="{StaticResource CardStyle}" Padding="14" Margin="0,12,0,0">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="38"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" CornerRadius="7" Background="{DynamicResource DropAreaBrush}">
+                                    <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="14"
+                                               Foreground="{DynamicResource AccentBrush}"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="3,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{DynamicResource L_SelectedTrack}" FontSize="12.5"
+                                               Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                    <TextBlock Text="{Binding SelectedTrackText}" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,13,0,11"/>
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding PlaybackPositionText}"
+                                           FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{DynamicResource L_PlaybackProgress}" FontSize="12.5"
+                                           Foreground="{DynamicResource TextTertiaryBrush}"/>
+                            </DockPanel>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding PlaybackProgress, Mode=OneWay}"
+                                         Height="5" Margin="0,8,0,0"/>
                         </StackPanel>
-                        <TextBlock Text="{DynamicResource L_PrivacyText}" FontSize="12.5" TextWrapping="Wrap"
-                                   Margin="0,9,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
-                    </StackPanel>
-                </Border>
-            </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Padding="15" Margin="0,12,0,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE72E;" Style="{StaticResource SymbolIconStyle}" FontSize="16"
+                                           Foreground="{DynamicResource SuccessBrush}"/>
+                                <TextBlock Text="{DynamicResource L_PrivacyTitle}" FontSize="14.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center" Margin="9,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Text="{DynamicResource L_PrivacyText}" FontSize="12.5" TextWrapping="Wrap"
+                                       Margin="0,8,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
 
-        <Grid Grid.Row="2" Margin="20,0,20,8">
+        <Grid Grid.Row="2" Margin="20,0,20,7">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
@@ -381,30 +387,30 @@
             <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Click="AboutClick" Style="{StaticResource SubtleButtonStyle}" Padding="10,5"
                         AutomationProperties.Name="{DynamicResource L_About}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                   Foreground="{DynamicResource TextTertiaryBrush}"/>
-                        <TextBlock Text="{DynamicResource L_About}" Margin="7,0,0,0"/>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE946;" Style="{StaticResource SymbolIconStyle}" FontSize="14"
+                                   Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,7,0"/>
+                        <TextBlock Text="{DynamicResource L_About}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
                 <Button Command="{Binding OpenLogsCommand}" Style="{StaticResource SubtleButtonStyle}" Padding="10,5"
                         Margin="8,0,0,0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE838;" FontFamily="Segoe MDL2 Assets" FontSize="14"
-                                   Foreground="{DynamicResource TextTertiaryBrush}"/>
-                        <TextBlock Text="{DynamicResource L_Logs}" Margin="7,0,0,0"/>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE838;" Style="{StaticResource SymbolIconStyle}" FontSize="14"
+                                   Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,7,0"/>
+                        <TextBlock Text="{DynamicResource L_Logs}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
                 <Button Click="ResetClick" Style="{StaticResource DangerButtonStyle}" Padding="10,5"
                         Margin="8,0,0,0" IsEnabled="{Binding CanReset}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE777;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
-                        <TextBlock Text="{DynamicResource L_Reset}" Margin="7,0,0,0"/>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE777;" Style="{StaticResource SymbolIconStyle}" FontSize="14" Margin="0,0,7,0"/>
+                        <TextBlock Text="{DynamicResource L_Reset}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </StackPanel>
 
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="18,0" HorizontalAlignment="Left">
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="18,0" HorizontalAlignment="Stretch">
                 <TextBlock Text="{Binding StatusText}" FontSize="12.5" TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
                 <TextBlock Text="{Binding NowPlayingText}" FontSize="11.5" Margin="0,2,0,0"
@@ -413,9 +419,9 @@
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Content="{DynamicResource L_Stop}" Command="{Binding StopCommand}"
-                        Style="{StaticResource SubtleButtonStyle}" MinWidth="108" Margin="0,0,8,0"/>
+                        Style="{StaticResource SubtleButtonStyle}" MinWidth="104" Margin="0,0,8,0"/>
                 <Button Content="{DynamicResource L_Start}" Command="{Binding StartCommand}"
-                        Style="{StaticResource AccentButtonStyle}" MinWidth="138"/>
+                        Style="{StaticResource AccentButtonStyle}" MinWidth="132"/>
             </StackPanel>
         </Grid>
     </Grid>

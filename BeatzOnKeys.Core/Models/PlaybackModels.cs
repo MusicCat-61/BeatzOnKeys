@@ -1,22 +1,22 @@
 namespace BeatzOnKeys.Core.Models;
 
-/// <summary>An in-memory track ready for key-triggered playback.</summary>
-public sealed record PlaybackTrack(Guid Id, string Name, IReadOnlyList<MusicalNote> Notes);
-
-public sealed record NotePlayedEventArgs(
-    Guid TrackId,
-    string TrackName,
-    MusicalNote Note,
-    int PlayedNoteNumber,
-    int TotalNotes);
+/// <summary>Audio metadata for a playable entry in the playlist.</summary>
+public sealed record PlaybackTrack(Guid Id, string Name, string SourcePath, TimeSpan Duration);
 
 public sealed record PlaybackTrackChangedEventArgs(Guid TrackId, string TrackName, bool AutoAdvanced);
 
-public sealed record PlaybackStep(
-    Guid TrackId,
+public sealed record PlaybackPositionEventArgs(
+    Guid? TrackId,
     string TrackName,
-    MusicalNote Note,
-    int PlayedNoteNumber,
-    int TotalNotes,
-    double Volume,
-    double Speed);
+    double PositionSeconds,
+    double DurationSeconds,
+    bool ReachedEnd = false);
+
+/// <summary>One key press: seek to PositionSeconds and play at most FragmentSeconds.</summary>
+public sealed record PlaybackStep(
+    PlaybackTrack Track,
+    double PositionSeconds,
+    double FragmentSeconds,
+    double Volume);
+
+public sealed record PlaybackFailureEventArgs(Guid? TrackId, Exception Exception);

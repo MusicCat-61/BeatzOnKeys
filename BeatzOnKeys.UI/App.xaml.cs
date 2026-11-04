@@ -123,7 +123,9 @@ public partial class App : System.Windows.Application
     private void SetupTrayIcon()
     {
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "BeatzOnKeys.ico");
-        _trayIconImage = File.Exists(iconPath) ? new Icon(iconPath) : (Icon)SystemIcons.Application.Clone();
+        _trayIconImage = File.Exists(iconPath)
+            ? new Icon(iconPath, Forms.SystemInformation.SmallIconSize)
+            : (Icon)SystemIcons.Application.Clone();
 
         _openMenuItem = new Forms.ToolStripMenuItem();
         _openMenuItem.Click += (_, _) => ShowMainWindow();

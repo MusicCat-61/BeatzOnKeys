@@ -1,50 +1,98 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions DisableDelayedExpansion
 chcp 65001 >nul
 
-set "ROOT=%~dp0"
-set "OUTPUT=%ROOT%Build_Output"
-set "PROJECT=%ROOT%BeatzOnKeys.UI\BeatzOnKeys.UI.csproj"
-if not defined BOK_VERSION set "BOK_VERSION=1.0.0"
+for %%I in ("%~dp0.") do set "ROOT=%%~fI"
+set "PROJECT=%ROOT%\BeatzOnKeys.UI\BeatzOnKeys.UI.csproj"
+for %%I in ("%ROOT%\Build_Output") do set "OUTPUT=%%~fI"
+for %%I in ("%OUTPUT%") do set "OUTPUT_NAME=%%~nxI"
+for %%I in ("%OUTPUT%\..") do set "OUTPUT_PARENT=%%~fI"
+if not defined BOK_VERSION set "BOK_VERSION=1.0.1"
+
+if /I not "%OUTPUT_NAME%"=="Build_Output" goto :unsafe_output
+if /I not "%OUTPUT_PARENT%"=="%ROOT%" goto :unsafe_output
+if not exist "%ROOT%\BeatzOnKeys.sln" goto :unsafe_output
+if not exist "%PROJECT%" goto :unsafe_output
 
 echo ========================================================
-echo  BeatzOnKeys portable publisher (.NET 10 + Basic Pitch)
+echo  BeatzOnKeys %BOK_VERSION% portable publisher (.NET 10)
 echo ========================================================
 echo.
 
 if exist "%OUTPUT%" (
-    echo Removing previous Build_Output...
+    echo [1/3] Removing verified output folder:
+    echo       %OUTPUT%
     rmdir /s /q "%OUTPUT%"
     if exist "%OUTPUT%" goto :fail
+) else (
+    echo [1/3] Output folder is already clean:
+    echo       %OUTPUT%
 )
 
-echo [1/3] Publishing self-contained WPF application...
+echo.
+echo [2/3] Publishing self-contained WPF application...
 dotnet publish "%PROJECT%" -c Release -r win-x64 --self-contained true -p:Version=%BOK_VERSION% -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false -o "%OUTPUT%"
 if errorlevel 1 goto :fail
+if not exist "%OUTPUT%\BeatzOnKeys.exe" goto :fail
 
 echo.
-echo [2/3] Building bundled Python and Basic Pitch runtime...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%build\build-python.ps1" -Destination "%OUTPUT%\python"
+echo [3/3] Copying documentation, assets, and licenses...
+call :copy_file "%ROOT%\README.md" "%OUTPUT%\README.md"
 if errorlevel 1 goto :fail
-
-echo.
-echo [3/3] Copying documentation and licenses...
-copy /y "%ROOT%README.md" "%OUTPUT%\README.md" >nul
-copy /y "%ROOT%README.ru.md" "%OUTPUT%\README.ru.md" >nul
-copy /y "%ROOT%LICENSE" "%OUTPUT%\LICENSE" >nul
-copy /y "%ROOT%THIRD-PARTY-NOTICES.md" "%OUTPUT%\THIRD-PARTY-NOTICES.md" >nul
-xcopy "%ROOT%third-party" "%OUTPUT%\third-party\" /e /i /y >nul
-xcopy "%ROOT%assets" "%OUTPUT%\assets\" /e /i /y >nul
+call :copy_file "%ROOT%\README.ru.md" "%OUTPUT%\README.ru.md"
+if errorlevel 1 goto :fail
+call :copy_file "%ROOT%\RELEASE_NOTES.md" "%OUTPUT%\RELEASE_NOTES.md"
+if errorlevel 1 goto :fail
+call :copy_file "%ROOT%\LICENSE" "%OUTPUT%\LICENSE"
+if errorlevel 1 goto :fail
+call :copy_file "%ROOT%\THIRD-PARTY-NOTICES.md" "%OUTPUT%\THIRD-PARTY-NOTICES.md"
+if errorlevel 1 goto :fail
+call :copy_tree "%ROOT%\third-party" "%OUTPUT%\third-party"
+if errorlevel 1 goto :fail
+call :copy_tree "%ROOT%\assets" "%OUTPUT%\assets"
+if errorlevel 1 goto :fail
 
 echo.
 echo ========================================================
 echo  DONE: %OUTPUT%
 echo.
-echo  BeatzOnKeys.exe and the python folder are one portable set.
-echo  Copy the whole Build_Output folder. No installer, Python,
-echo  administrator rights, or separate .NET runtime is required.
+echo  Copy the complete Build_Output folder. No installer,
+echo  administrator rights, or separate .NET runtime is needed.
 echo ========================================================
 exit /b 0
+
+:copy_file
+if not exist "%~1" (
+    echo ERROR: Required file is missing: %~1
+    exit /b 1
+)
+copy /y "%~1" "%~2" >nul
+if errorlevel 1 (
+    echo ERROR: Could not copy: %~1
+    exit /b 1
+)
+exit /b 0
+
+:copy_tree
+if not exist "%~1\" (
+    echo ERROR: Required directory is missing: %~1
+    exit /b 1
+)
+xcopy "%~1\*" "%~2\" /e /i /y >nul
+if errorlevel 1 (
+    echo ERROR: Could not copy directory: %~1
+    exit /b 1
+)
+exit /b 0
+
+:unsafe_output
+echo.
+echo ========================================================
+echo  PUBLISH ABORTED: unsafe output path.
+echo  Expected: %ROOT%\Build_Output
+echo  Actual:   %OUTPUT%
+echo ========================================================
+exit /b 1
 
 :fail
 echo.

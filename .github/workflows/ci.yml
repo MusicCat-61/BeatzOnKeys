@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-and-test:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,3 +17,5 @@ jobs:
         run: dotnet restore BeatzOnKeys.sln
       - name: Build
         run: dotnet build BeatzOnKeys.sln -c Release --no-restore
+      - name: Run non-interactive test harness
+        run: dotnet run --project BeatzOnKeys.Tests -c Release

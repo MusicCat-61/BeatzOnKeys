@@ -1,0 +1,63 @@
+# BeatzOnKeys 1.0.1
+
+## English
+
+BeatzOnKeys 1.0.1 introduces direct audio scrubbing built around the original source track.
+
+### Highlights
+
+- Fixed unreadable headings in the dark About dialog, icon/text alignment, and narrow-window layout.
+- Removed the design-foundation button from About; required attribution remains in Credits and license notices.
+- Update checks now use GitHub release metadata instead of fragile HTML redirects.
+
+- Add MP3 tracks directly; PCM WAV is available as an additional format.
+- Every non-modifier key advances the cursor by the configured step and plays a short audio slice.
+- Step is configurable from `0.05` to `0.50` seconds and defaults to `0.15` seconds.
+- Fast typing sounds almost continuous, while a pause keeps the in-session cursor ready for the next press.
+- Auto-advance and Loop now have explicit combined behavior:
+  - both off: remain at the end; change tracks, enable Loop, or use Stop → Start to restart;
+  - Loop only: repeat the current track;
+  - Auto-advance only: continue through the list and stop after the final track;
+  - both on: loop the complete track list.
+- Volume is normalized to `0.0`–`1.0`.
+- Tracks, selected track, volume, step, Auto-advance, Loop, language, and theme are stored under `%LOCALAPPDATA%\BeatzOnKeys`.
+- The current fragment position remains runtime state and is not promised to survive an application restart.
+- The portable Windows x64 package is self-contained on .NET 10 and no longer carries unrelated processing runtimes.
+- Logs use the focused `[audio]`, `[playback]`, `[settings]`, `[update]`, and `[ui]` categories.
+
+### Install or update
+
+Download `BeatzOnKeys-win-x64.zip`, extract the complete archive to a writable folder, and run `BeatzOnKeys.exe`. The matching `.sha256` file can be used to verify the archive.
+
+For 1.0.0 users, close the old app and extract 1.0.1 into a new folder using a manual download. Existing per-user preferences and playlist are migrated automatically; the old in-app installer is not compatible with this redesigned package.
+
+## Русский
+
+BeatzOnKeys 1.0.1 переходит на прямой аудиоскраббинг исходного трека.
+
+### Главное
+
+- Исправлены нечитаемые заголовки тёмного окна «О программе», выравнивание иконок/текста и компоновка узкого окна.
+- Кнопка основы дизайна удалена из «О программе»; обязательная атрибуция сохранена в Credits и лицензиях.
+- Проверка обновлений читает данные релиза GitHub вместо ненадёжных HTML-перенаправлений.
+
+- MP3 добавляется напрямую; PCM WAV доступен как дополнительный формат.
+- Каждое нажатие не-модификатора сдвигает курсор на выбранный шаг и проигрывает короткий фрагмент.
+- Шаг настраивается от `0,05` до `0,50` секунды, значение по умолчанию — `0,15` секунды.
+- Быстрый набор звучит почти непрерывно, а пауза сохраняет курсор текущего запуска до следующего нажатия.
+- Автопереход и повтор получили однозначное совместное поведение:
+  - оба выключены: оставаться в конце до повторного выбора трека;
+  - только повтор: повторять текущий трек;
+  - только автопереход: идти по списку и остановиться после последнего трека;
+  - оба включены: зациклить весь список треков.
+- Громкость нормализуется в диапазон `0,0`–`1,0`.
+- Треки, выбранный трек, громкость, шаг, автопереход, повтор, язык и тема хранятся в `%LOCALAPPDATA%\BeatzOnKeys`.
+- Позиция текущего фрагмента остаётся состоянием в памяти и не обещается к восстановлению после перезапуска приложения.
+- Портативный пакет Windows x64 самодостаточен на .NET 10 и больше не содержит посторонних сред обработки.
+- Для логов используются категории `[audio]`, `[playback]`, `[settings]`, `[update]` и `[ui]`.
+
+### Установка или обновление
+
+Скачайте `BeatzOnKeys-win-x64.zip`, распакуйте весь архив в доступную для записи папку и запустите `BeatzOnKeys.exe`. Архив можно проверить по соседнему файлу `.sha256`.
+
+Если у вас 1.0.0, закройте её и распакуйте 1.0.1 в новую папку после ручного скачивания. Настройки и список треков мигрируют автоматически; встроенный установщик старой версии несовместим с новым составом пакета.

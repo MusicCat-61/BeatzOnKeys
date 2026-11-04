@@ -6,6 +6,7 @@
         WindowStartupLocation="CenterOwner"
         WindowStyle="None" ResizeMode="NoResize"
         AllowsTransparency="True" Background="Transparent"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         ShowInTaskbar="False"
         FontFamily="Segoe UI Variable Text, Segoe UI"
         KeyDown="Window_KeyDown">
@@ -23,32 +24,33 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <Image Source="Assets/BeatzOnKeys.png" Width="54" Height="54"
-                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <Ellipse Width="54" Height="54">
+                        <Ellipse.Fill>
+                            <ImageBrush ImageSource="Assets/BeatzOnKeys.png" Stretch="UniformToFill"/>
+                        </Ellipse.Fill>
+                    </Ellipse>
                     <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="BeatzOnKeys" FontSize="22" FontWeight="SemiBold"/>
+                        <TextBlock Text="BeatzOnKeys" FontSize="22" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
                         <TextBlock x:Name="VersionText" FontSize="13.5" Margin="0,3,0,0"
                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
                     </StackPanel>
                     <Button Grid.Column="2" Style="{StaticResource CloseButtonStyle}" Width="32" Height="32"
                             Click="Close_Click" VerticalAlignment="Top" ToolTip="{DynamicResource L_CloseDialog}">
-                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8BB;" FontSize="12"/>
+                        <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE8BB;" FontSize="12"/>
                     </Button>
                 </Grid>
 
                 <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,20,0,18"/>
 
-                <TextBlock Text="{DynamicResource About_Developer}" FontSize="16" FontWeight="SemiBold"/>
+                <TextBlock Text="{DynamicResource About_Developer}" FontSize="16" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock Text="{DynamicResource About_Description}" FontSize="14.5" TextWrapping="Wrap"
                            LineHeight="22" Margin="0,9,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <TextBlock Text="{DynamicResource About_DesignCredit}" FontSize="14.5" TextWrapping="Wrap"
-                           LineHeight="22" Margin="0,7,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
 
                 <WrapPanel Margin="0,15,0,0">
                     <Button Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,0,8,8"
                             Click="ProjectLink_Click" Content="{DynamicResource About_ProjectLink}"/>
-                    <Button Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,0,8,8"
-                            Click="MusicCatLink_Click" Content="{DynamicResource About_MusicCatLink}"/>
                     <Button Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,0,8,8"
                             Click="LicenseLink_Click" Content="{DynamicResource About_LicenseLink}"/>
                     <Button Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,0,8,8"
@@ -59,7 +61,8 @@
 
                 <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,12,0,18"/>
 
-                <TextBlock Text="{DynamicResource Upd_Title}" FontSize="16" FontWeight="SemiBold"/>
+                <TextBlock Text="{DynamicResource Upd_Title}" FontSize="16" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
                 <TextBlock x:Name="UpdateStatusText" Text="{DynamicResource Upd_Idle}"
                            FontSize="14.5" TextWrapping="Wrap" LineHeight="22"
                            Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,10,0,0"/>

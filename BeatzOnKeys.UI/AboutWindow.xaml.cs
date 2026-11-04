@@ -12,7 +12,6 @@ namespace BeatzOnKeys.UI;
 public partial class AboutWindow : Window
 {
     private const string ProjectUrl = "https://github.com/MusicCat-61/BeatzOnKeys";
-    private const string MusicCatUrl = "https://github.com/MusicCat-61/MusicCatRGB";
     private const string LicenseUrl = "https://github.com/MusicCat-61/BeatzOnKeys/blob/main/LICENSE";
     private const string TelegramUrl = "https://t.me/music_cat1";
     private const string DonateUrl = "https://dalink.to/musiccat61";
@@ -55,7 +54,7 @@ public partial class AboutWindow : Window
                 return parsed.Display;
             }
 
-            return assembly.GetName().Version?.ToString(3) ?? "1.0.0";
+            return assembly.GetName().Version?.ToString(3) ?? "1.0.1";
         }
     }
 
@@ -92,6 +91,10 @@ public partial class AboutWindow : Window
         {
             case UpdateStatus.UpToDate:
                 UpdateStatusText.Text = Loc.T("Upd_UpToDate");
+                SetButtons(check: true, download: false, install: false, release: false);
+                break;
+            case UpdateStatus.NoReleases:
+                UpdateStatusText.Text = Loc.T("Upd_NoReleaseYet");
                 SetButtons(check: true, download: false, install: false, release: false);
                 break;
             case UpdateStatus.UpdateAvailable:
@@ -280,8 +283,6 @@ public partial class AboutWindow : Window
     }
 
     private void ProjectLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(ProjectUrl);
-
-    private void MusicCatLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(MusicCatUrl);
 
     private void LicenseLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(LicenseUrl);
 

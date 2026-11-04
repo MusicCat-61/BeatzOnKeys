@@ -9,12 +9,13 @@
     <RootNamespace>BeatzOnKeys.Core</RootNamespace>
     <Product>BeatzOnKeys</Product>
     <Authors>MusicCat-61</Authors>
-    <Description>Audio transcription, MIDI sequencing, keyboard capture and synthesis for BeatzOnKeys.</Description>
+    <Description>Key-driven MP3 audio scrubbing and global keyboard capture for BeatzOnKeys.</Description>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Melanchall.DryWetMidi" Version="8.0.3" />
     <PackageReference Include="NAudio" Version="3.3.0" />
+    <PackageReference Include="NAudio.Midi" Version="3.3.0" ExcludeAssets="all" PrivateAssets="all" />
   </ItemGroup>
 
 </Project>

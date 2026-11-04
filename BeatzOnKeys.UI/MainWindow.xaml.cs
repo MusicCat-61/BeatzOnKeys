@@ -103,6 +103,14 @@ public partial class MainWindow : Window
 
     private void MaximizeClick(object sender, RoutedEventArgs eventArgs) => ToggleMaximize();
 
+    private void Window_StateChanged(object? sender, EventArgs eventArgs)
+    {
+        if (MaximizeIcon is not null)
+        {
+            MaximizeIcon.Text = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";
+        }
+    }
+
     private void CloseClick(object sender, RoutedEventArgs eventArgs) => HideToTray();
 
     private void AboutClick(object sender, RoutedEventArgs eventArgs) =>

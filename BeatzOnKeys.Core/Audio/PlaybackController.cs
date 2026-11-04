@@ -2,38 +2,80 @@ using BeatzOnKeys.Core.Models;
 
 namespace BeatzOnKeys.Core.Audio;
 
-/// <summary>Thread-safe note cursor with optional wrap-around to the next ready track.</summary>
+/// <summary>A thread-safe, key-driven cursor. Wall-clock time never advances the playlist.</summary>
 public sealed class PlaybackController
 {
     private readonly object _gate = new();
     private readonly List<PlaybackTrack> _tracks = [];
     private Guid? _selectedTrackId;
-    private int _noteIndex;
+    private double _currentPosition;
+    private double _volume = 0.7;
+    private double _stepSeconds = AppSettings.DefaultStepSeconds;
+    private bool _autoAdvance;
+    private bool _loop = true;
 
-    public event Action<NotePlayedEventArgs>? NotePlayed;
-
+    public event Action<PlaybackPositionEventArgs>? PositionChanged;
     public event Action<PlaybackTrackChangedEventArgs>? CurrentTrackChanged;
 
-    public double Volume { get; set; } = 0.7;
-
-    public double PlaybackSpeed { get; set; } = 1.0;
-
-    public bool AutoAdvance { get; set; }
-
-    public Guid? SelectedTrackId
+    public double Volume
     {
-        get
+        get { lock (_gate) { return _volume; } }
+        set { lock (_gate) { _volume = Math.Clamp(double.IsFinite(value) ? value : 0.7, 0, 1); } }
+    }
+
+    public double StepSeconds
+    {
+        get { lock (_gate) { return _stepSeconds; } }
+        set
         {
             lock (_gate)
             {
-                return _selectedTrackId;
+                _stepSeconds = Math.Clamp(double.IsFinite(value) ? value : AppSettings.DefaultStepSeconds,
+                    AppSettings.MinimumStepSeconds, AppSettings.MaximumStepSeconds);
             }
         }
+    }
+
+    public bool AutoAdvance
+    {
+        get { lock (_gate) { return _autoAdvance; } }
+        set { lock (_gate) { _autoAdvance = value; } }
+    }
+
+    public bool Loop
+    {
+        get { lock (_gate) { return _loop; } }
+        set { lock (_gate) { _loop = value; } }
+    }
+
+    public Guid? SelectedTrackId
+    {
+        get { lock (_gate) { return _selectedTrackId; } }
+    }
+
+    public double CurrentPosition
+    {
+        get { lock (_gate) { return _currentPosition; } }
+    }
+
+    public PlaybackTrack? CurrentTrack
+    {
+        get { lock (_gate) { return _tracks.FirstOrDefault(track => track.Id == _selectedTrackId); } }
+    }
+
+    public PlaybackTrack? GetTrack(Guid trackId)
+    {
+        lock (_gate) { return _tracks.FirstOrDefault(track => track.Id == trackId); }
     }
 
     public void UpsertTrack(PlaybackTrack track)
     {
         ArgumentNullException.ThrowIfNull(track);
+        if (track.Id == Guid.Empty || string.IsNullOrWhiteSpace(track.SourcePath) || track.Duration <= TimeSpan.Zero)
+        {
+            throw new ArgumentException("A playable track needs an ID, a source path and a positive duration.", nameof(track));
+        }
+
         lock (_gate)
         {
             var index = _tracks.FindIndex(item => item.Id == track.Id);
@@ -42,69 +84,58 @@ public sealed class PlaybackController
                 _tracks[index] = track;
                 if (_selectedTrackId == track.Id)
                 {
-                    _noteIndex = Math.Min(_noteIndex, track.Notes.Count);
+                    _currentPosition = Math.Min(_currentPosition, track.Duration.TotalSeconds);
                 }
             }
             else
             {
                 _tracks.Add(track);
             }
-
-            _selectedTrackId ??= track.Id;
         }
     }
 
     public void RemoveTrack(Guid trackId)
     {
-        PlaybackTrackChangedEventArgs? changed = null;
+        PlaybackPositionEventArgs? position = null;
         lock (_gate)
         {
-            var removedIndex = _tracks.FindIndex(track => track.Id == trackId);
-            if (removedIndex < 0)
-            {
-                return;
-            }
-
-            _tracks.RemoveAt(removedIndex);
+            _tracks.RemoveAll(track => track.Id == trackId);
             if (_selectedTrackId == trackId)
             {
-                var next = _tracks.Count == 0 ? null : _tracks[Math.Min(removedIndex, _tracks.Count - 1)];
-                _selectedTrackId = next?.Id;
-                _noteIndex = 0;
-                if (next is not null)
-                {
-                    changed = new PlaybackTrackChangedEventArgs(next.Id, next.Name, false);
-                }
+                _selectedTrackId = null;
+                _currentPosition = 0;
+                position = EmptyPosition();
             }
         }
-
-        if (changed is not null)
-        {
-            CurrentTrackChanged?.Invoke(changed);
-        }
+        if (position is not null) { PositionChanged?.Invoke(position); }
     }
 
     public bool SelectTrack(Guid trackId, bool restart = true)
     {
-        PlaybackTrack? selected;
+        PlaybackTrack selected;
+        PlaybackPositionEventArgs position;
         lock (_gate)
         {
-            selected = _tracks.FirstOrDefault(track => track.Id == trackId);
-            if (selected is null)
-            {
-                return false;
-            }
-
-            var changed = _selectedTrackId != trackId;
+            var track = _tracks.FirstOrDefault(item => item.Id == trackId);
+            if (track is null) { return false; }
+            selected = track;
+            if (restart || _selectedTrackId != trackId) { _currentPosition = 0; }
             _selectedTrackId = trackId;
-            if (restart || changed)
-            {
-                _noteIndex = 0;
-            }
+            position = PositionFor(selected);
         }
-
         CurrentTrackChanged?.Invoke(new PlaybackTrackChangedEventArgs(selected.Id, selected.Name, false));
+        PositionChanged?.Invoke(position);
         return true;
+    }
+
+    public void Deselect()
+    {
+        lock (_gate)
+        {
+            _selectedTrackId = null;
+            _currentPosition = 0;
+        }
+        PositionChanged?.Invoke(EmptyPosition());
     }
 
     public void Clear()
@@ -113,96 +144,63 @@ public sealed class PlaybackController
         {
             _tracks.Clear();
             _selectedTrackId = null;
-            _noteIndex = 0;
+            _currentPosition = 0;
         }
+        PositionChanged?.Invoke(EmptyPosition());
     }
 
     public bool TryTakeNext(out PlaybackStep? step)
     {
-        NotePlayedEventArgs? played = null;
         PlaybackTrackChangedEventArgs? changed = null;
-
+        PlaybackPositionEventArgs position;
         lock (_gate)
         {
             step = null;
-            if (_tracks.Count == 0)
+            var index = _tracks.FindIndex(track => track.Id == _selectedTrackId);
+            if (index < 0) { return false; }
+            var track = _tracks[index];
+            var nextPosition = _currentPosition + _stepSeconds;
+            // Allow for floating-point rounding at an exact multiple of the step.
+            if (nextPosition >= track.Duration.TotalSeconds - 1e-9)
             {
-                return false;
-            }
-
-            var trackIndex = _selectedTrackId is null
-                ? -1
-                : _tracks.FindIndex(track => track.Id == _selectedTrackId.Value);
-            if (trackIndex < 0)
-            {
-                trackIndex = 0;
-                _selectedTrackId = _tracks[0].Id;
-                _noteIndex = 0;
-                changed = new PlaybackTrackChangedEventArgs(_tracks[0].Id, _tracks[0].Name, false);
-            }
-
-            var track = _tracks[trackIndex];
-            if (track.Notes.Count == 0)
-            {
-                return false;
-            }
-
-            if (_noteIndex >= track.Notes.Count)
-            {
-                if (!AutoAdvance)
+                if (_autoAdvance && (index + 1 < _tracks.Count || _loop))
                 {
-                    return false;
+                    index = (index + 1) % _tracks.Count;
+                    track = _tracks[index];
+                    _selectedTrackId = track.Id;
+                    _currentPosition = 0;
+                    changed = new PlaybackTrackChangedEventArgs(track.Id, track.Name, true);
                 }
-
-                trackIndex = (trackIndex + 1) % _tracks.Count;
-                track = _tracks[trackIndex];
-                _selectedTrackId = track.Id;
-                _noteIndex = 0;
-                changed = new PlaybackTrackChangedEventArgs(track.Id, track.Name, true);
+                else if (!_autoAdvance && _loop)
+                {
+                    _currentPosition = 0;
+                }
+                else
+                {
+                    _currentPosition = track.Duration.TotalSeconds;
+                    position = PositionFor(track, reachedEnd: true);
+                    goto Notify;
+                }
             }
-
-            if (track.Notes.Count == 0)
+            else
             {
-                return false;
+                _currentPosition = nextPosition;
             }
 
-            var note = track.Notes[_noteIndex++];
-            var playedNumber = _noteIndex;
-            step = new PlaybackStep(
-                track.Id,
-                track.Name,
-                note,
-                playedNumber,
-                track.Notes.Count,
-                Math.Clamp(Volume, 0, 1),
-                Math.Clamp(PlaybackSpeed, 0.5, 2));
-            played = new NotePlayedEventArgs(
-                track.Id,
-                track.Name,
-                note,
-                playedNumber,
-                track.Notes.Count);
-
-            if (_noteIndex >= track.Notes.Count && AutoAdvance)
-            {
-                var nextIndex = (trackIndex + 1) % _tracks.Count;
-                var next = _tracks[nextIndex];
-                _selectedTrackId = next.Id;
-                _noteIndex = 0;
-                changed = new PlaybackTrackChangedEventArgs(next.Id, next.Name, true);
-            }
+            step = new PlaybackStep(track, _currentPosition,
+                Math.Min(_stepSeconds, track.Duration.TotalSeconds - _currentPosition), _volume);
+            position = PositionFor(track);
+        Notify:;
         }
 
-        if (played is not null)
-        {
-            NotePlayed?.Invoke(played);
-        }
-
-        if (changed is not null)
-        {
-            CurrentTrackChanged?.Invoke(changed);
-        }
-
+        // Subscribers run outside the cursor lock, including UI dispatch and settings saves.
+        if (changed is not null) { CurrentTrackChanged?.Invoke(changed); }
+        PositionChanged?.Invoke(position);
         return step is not null;
     }
+
+    private PlaybackPositionEventArgs PositionFor(PlaybackTrack track, bool reachedEnd = false) =>
+        new(track.Id, track.Name, _currentPosition, track.Duration.TotalSeconds, reachedEnd);
+
+    private static PlaybackPositionEventArgs EmptyPosition() => new(null, string.Empty, 0, 0);
 }

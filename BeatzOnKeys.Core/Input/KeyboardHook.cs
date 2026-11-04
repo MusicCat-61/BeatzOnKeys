@@ -6,7 +6,7 @@ namespace BeatzOnKeys.Core.Input;
 /// Minimal WH_KEYBOARD_LL hook adapted from MusicCatRGB. It reports only that a
 /// non-modifier key went down; it never records text, window titles, or key codes.
 /// </summary>
-public sealed class KeyboardHook : IDisposable
+public sealed class KeyboardHook : IKeyboardHook
 {
     private const int WhKeyboardLl = 13;
     private const int WmKeyDown = 0x0100;

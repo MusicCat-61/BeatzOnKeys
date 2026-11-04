@@ -1,130 +1,221 @@
 using System.Threading.Channels;
 using BeatzOnKeys.Core.Input;
+using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.Core.Services;
 
 namespace BeatzOnKeys.Core.Audio;
 
-/// <summary>Keeps the global hook callback tiny and performs synthesis on a worker task.</summary>
-public sealed class TypingPlaybackService : IDisposable
+/// <summary>Keeps the hook callback tiny and performs audio work on one cancellable worker.</summary>
+public sealed class TypingPlaybackService : IAsyncDisposable
 {
-    private readonly KeyboardHook _keyboardHook;
+    private readonly IKeyboardHook _keyboardHook;
     private readonly PlaybackController _playbackController;
-    private readonly NoteSynthesizer _synthesizer;
+    private readonly IAudioFragmentPlayer _player;
+    private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+    private readonly object _playbackGate = new();
     private Channel<byte>? _keyEvents;
     private CancellationTokenSource? _workerCancellation;
     private Task? _worker;
+    private Exception? _pendingFailure;
+    private int _isRunning;
     private bool _disposed;
 
     public TypingPlaybackService(
-        KeyboardHook keyboardHook,
+        IKeyboardHook keyboardHook,
         PlaybackController playbackController,
-        NoteSynthesizer synthesizer)
+        IAudioFragmentPlayer player)
     {
         _keyboardHook = keyboardHook;
         _playbackController = playbackController;
-        _synthesizer = synthesizer;
+        _player = player;
         _keyboardHook.KeyDown += OnKeyDown;
+        _player.PlaybackFailed += OnAudioFailed;
     }
 
-    public bool IsRunning { get; private set; }
+    public event Action<PlaybackFailureEventArgs>? PlaybackFailed;
+    public bool IsRunning => Volatile.Read(ref _isRunning) != 0;
 
-    public void Start()
+    /// <summary>Serialize UI selection and decoder changes with the key worker.</summary>
+    public bool SelectTrack(Guid trackId, bool restart = true)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (IsRunning)
+        lock (_playbackGate)
         {
-            return;
-        }
-
-        _synthesizer.Start();
-        _keyEvents = Channel.CreateBounded<byte>(new BoundedChannelOptions(256)
-        {
-            FullMode = BoundedChannelFullMode.DropOldest,
-            SingleReader = true,
-            SingleWriter = true
-        });
-        _workerCancellation = new CancellationTokenSource();
-        _worker = Task.Run(() => ProcessKeysAsync(_keyEvents.Reader, _workerCancellation.Token));
-
-        try
-        {
-            _keyboardHook.Install();
-            IsRunning = true;
-            AppLogger.Info("playback", "Global keyboard playback started.");
-        }
-        catch
-        {
-            _workerCancellation.Cancel();
-            _keyEvents.Writer.TryComplete();
-            _keyEvents = null;
-            _workerCancellation.Dispose();
-            _workerCancellation = null;
-            _worker = null;
-            throw;
+            var track = _playbackController.GetTrack(trackId);
+            if (track is null) { return false; }
+            var duration = _player.LoadTrack(track);
+            if (duration != track.Duration)
+            {
+                _playbackController.UpsertTrack(track with { Duration = duration });
+            }
+            return _playbackController.SelectTrack(trackId, restart);
         }
     }
 
-    public void Stop()
+    public void Deselect()
     {
-        if (!IsRunning && _worker is null)
+        lock (_playbackGate)
         {
-            return;
+            _player.Unload();
+            _playbackController.Deselect();
         }
+    }
 
+    public void Unload()
+    {
+        lock (_playbackGate) { _player.Unload(); }
+    }
+
+    // Install/uninstall is deliberately performed on the caller's UI thread, which pumps hook messages.
+    public async Task StartAsync()
+    {
+        await _lifecycleGate.WaitAsync().ConfigureAwait(true);
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (IsRunning) { return; }
+            if (_worker is not null) { await StopCoreAsync().ConfigureAwait(true); }
+            lock (_playbackGate)
+            {
+                var track = _playbackController.CurrentTrack ??
+                            throw new InvalidOperationException("Select a playable audio track first.");
+                _player.LoadTrack(track);
+                _player.PrepareOutput();
+            }
+
+            var events = Channel.CreateBounded<byte>(new BoundedChannelOptions(256)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+                SingleWriter = false,
+                AllowSynchronousContinuations = false
+            });
+            var cancellation = new CancellationTokenSource();
+            _keyEvents = events;
+            _workerCancellation = cancellation;
+            _pendingFailure = null;
+            Volatile.Write(ref _isRunning, 1);
+            _worker = Task.Run(() => ProcessKeysAsync(events.Reader, cancellation.Token));
+            try
+            {
+                _keyboardHook.Install();
+                AppLogger.Info("playback", "Global keyboard audio scrubbing started.");
+            }
+            catch
+            {
+                await StopCoreAsync().ConfigureAwait(true);
+                throw;
+            }
+        }
+        finally { _lifecycleGate.Release(); }
+    }
+
+    public async Task StopAsync()
+    {
+        await _lifecycleGate.WaitAsync().ConfigureAwait(true);
+        try { await StopCoreAsync().ConfigureAwait(true); }
+        finally { _lifecycleGate.Release(); }
+    }
+
+    private async Task StopCoreAsync()
+    {
+        var hadWorker = _worker is not null || IsRunning;
+        Volatile.Write(ref _isRunning, 0);
         _keyboardHook.Uninstall();
-        IsRunning = false;
-        _keyEvents?.Writer.TryComplete();
-        _workerCancellation?.Cancel();
-        _synthesizer.StopAll();
-        _workerCancellation?.Dispose();
-        _workerCancellation = null;
-        _worker = null;
+        var events = _keyEvents;
         _keyEvents = null;
-        AppLogger.Info("playback", "Global keyboard playback stopped.");
+        _workerCancellation?.Cancel();
+        events?.Writer.TryComplete();
+        try
+        {
+            // Do not destroy the CTS/player until every previously queued key has been cancelled.
+            if (_worker is not null) { await _worker.ConfigureAwait(true); }
+        }
+        finally
+        {
+            _worker = null;
+            _workerCancellation?.Dispose();
+            _workerCancellation = null;
+            _pendingFailure = null;
+            lock (_playbackGate) { _player.Pause(); }
+        }
+        if (hadWorker) { AppLogger.Info("playback", "Global keyboard audio scrubbing stopped."); }
     }
 
     private void OnKeyDown()
     {
-        if (IsRunning)
-        {
-            _keyEvents?.Writer.TryWrite(0);
-        }
+        if (IsRunning) { _keyEvents?.Writer.TryWrite(0); }
+    }
+
+    private void OnAudioFailed(Exception exception)
+    {
+        if (!IsRunning) { return; }
+        Interlocked.CompareExchange(ref _pendingFailure, exception, null);
+        _keyEvents?.Writer.TryWrite(0);
     }
 
     private async Task ProcessKeysAsync(ChannelReader<byte> reader, CancellationToken cancellationToken)
     {
+        Exception? failure = null;
         try
         {
             await foreach (var _ in reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
-                if (_playbackController.TryTakeNext(out var step) && step is not null)
+                cancellationToken.ThrowIfCancellationRequested();
+                if (Interlocked.Exchange(ref _pendingFailure, null) is { } audioFailure) { throw audioFailure; }
+                lock (_playbackGate)
                 {
-                    _synthesizer.Play(step.Note, step.Volume, step.Speed);
+                    if (!IsRunning || cancellationToken.IsCancellationRequested) { break; }
+                    if (_playbackController.TryTakeNext(out var step) && step is not null)
+                    {
+                        _player.PlayFragment(step);
+                    }
+                    else
+                    {
+                        _player.Pause();
+                    }
                 }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // Normal stop.
+            // Normal Stop or shutdown.
         }
         catch (Exception exception)
         {
-            AppLogger.Error("playback", "Keyboard playback worker failed.", exception);
+            failure = exception;
+        }
+        finally
+        {
+            Volatile.Write(ref _isRunning, 0);
+            try { lock (_playbackGate) { _player.Pause(); } }
+            catch (Exception exception) { failure ??= exception; }
+        }
+        if (failure is not null)
+        {
+            AppLogger.Error("playback", "Audio scrubbing stopped after a playback failure.", failure);
+            try { PlaybackFailed?.Invoke(new PlaybackFailureEventArgs(_playbackController.SelectedTrackId, failure)); }
+            catch (Exception exception) { AppLogger.Error("playback", "A failure subscriber failed.", exception); }
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        if (_disposed)
+        await _lifecycleGate.WaitAsync().ConfigureAwait(true);
+        try
         {
-            return;
+            if (_disposed) { return; }
+            _disposed = true;
+            try { await StopCoreAsync().ConfigureAwait(true); }
+            finally
+            {
+                _keyboardHook.KeyDown -= OnKeyDown;
+                _player.PlaybackFailed -= OnAudioFailed;
+                _keyboardHook.Dispose();
+                _player.Dispose();
+            }
         }
-
-        Stop();
-        _keyboardHook.KeyDown -= OnKeyDown;
-        _keyboardHook.Dispose();
-        _synthesizer.Dispose();
-        _disposed = true;
+        finally { _lifecycleGate.Release(); }
         GC.SuppressFinalize(this);
     }
 }

@@ -16,7 +16,8 @@ public enum UpdateStatus
     UpToDate,
     UpdateAvailable,
     NoDownload,
-    Failed
+    Failed,
+    NoReleases
 }
 
 public sealed record UpdateCheckResult
@@ -58,7 +59,7 @@ public static class UpdateService
     public const string AssetFileName = "BeatzOnKeys-win-x64.zip";
     public const string ChecksumFileName = "BeatzOnKeys-win-x64.zip.sha256";
 
-    private const string LatestReleaseUrl = "https://github.com/" + Repository + "/releases/latest";
+    private const string LatestReleaseUrl = "https://api.github.com/repos/" + Repository + "/releases/latest";
     private const string PreparedManifestName = "prepared.json";
     private static readonly SemaphoreSlim CheckGate = new(1, 1);
     private static readonly SemaphoreSlim DownloadGate = new(1, 1);
@@ -146,46 +147,32 @@ public static class UpdateService
         }
     }
 
-    private static async Task<UpdateCheckResult> CheckCoreAsync(CancellationToken cancellationToken)
+    private static Task<UpdateCheckResult> CheckCoreAsync(CancellationToken cancellationToken) =>
+        CheckUsingClientAsync(ReleaseClient, cancellationToken);
+
+    internal static async Task<UpdateCheckResult> CheckUsingClientAsync(
+        HttpClient client, CancellationToken cancellationToken = default)
     {
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseUrl);
-            using var response = await ReleaseClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken).ConfigureAwait(false);
-
-            if (response.Headers.Location is { } location)
-            {
-                if (!location.IsAbsoluteUri)
-                {
-                    location = new Uri(new Uri("https://github.com"), location);
-                }
-
-                return await FromReleaseRedirectAsync(location, cancellationToken).ConfigureAwait(false);
-            }
-
+            request.Headers.Accept.ParseAdd("application/vnd.github+json");
+            using var response = await client.SendAsync(request,
+                HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                return Failed("The GitHub repository or its first release does not exist yet.");
+                return new UpdateCheckResult { Status = UpdateStatus.NoReleases, Current = CurrentVersion };
             }
-
             if (!response.IsSuccessStatusCode)
             {
                 return Failed($"GitHub answered HTTP {(int)response.StatusCode}.");
             }
-
-            return new UpdateCheckResult
-            {
-                Status = UpdateStatus.UpToDate,
-                Current = CurrentVersion,
-                Latest = CurrentVersion
-            };
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            return ParseRelease(json, CurrentVersion);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return Failed("The update check was cancelled.");
+            throw;
         }
         catch (Exception exception)
         {
@@ -193,63 +180,75 @@ public static class UpdateService
         }
     }
 
-    private static async Task<UpdateCheckResult> FromReleaseRedirectAsync(
-        Uri location,
-        CancellationToken cancellationToken)
+    internal static UpdateCheckResult ParseRelease(string json, ReleaseVersion current)
     {
-        var tag = TagFromLocation(location);
-        if (tag is null || !ReleaseVersion.TryParse(tag, out var latest))
+        using var document = JsonDocument.Parse(json);
+        var release = document.RootElement;
+        if ((release.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True) ||
+            (release.TryGetProperty("prerelease", out var prerelease) && prerelease.ValueKind == JsonValueKind.True))
         {
-            return Failed($"Unexpected release address: {location}");
+            return new UpdateCheckResult { Status = UpdateStatus.NoReleases, Current = current };
         }
-
-        var releaseUrl = $"https://github.com/{Repository}/releases/tag/{tag}";
-        if (latest <= CurrentVersion)
-        {
-            return new UpdateCheckResult
-            {
-                Status = UpdateStatus.UpToDate,
-                Current = CurrentVersion,
-                Latest = latest,
-                Tag = tag,
-                ReleaseUrl = releaseUrl
-            };
-        }
-
-        var assetUrl = $"https://github.com/{Repository}/releases/download/{tag}/{AssetFileName}";
-        var asset = await ProbeAssetAsync(assetUrl, cancellationToken).ConfigureAwait(false);
-        if (!asset.Exists)
+        var tag = release.TryGetProperty("tag_name", out var tagValue) ? tagValue.GetString() : null;
+        if (!ReleaseVersion.TryParse(tag, out var latest))
         {
             return new UpdateCheckResult
             {
-                Status = UpdateStatus.NoDownload,
-                Current = CurrentVersion,
-                Latest = latest,
-                Tag = tag,
-                ReleaseUrl = releaseUrl,
-                Error = $"Release {tag} does not contain {AssetFileName}."
+                Status = UpdateStatus.Failed, Current = current, Error = "GitHub returned an invalid release version."
+            };
+        }
+        var releaseUrl = $"https://github.com/{Repository}/releases/tag/{Uri.EscapeDataString(tag!)}";
+        if (latest <= current)
+        {
+            return new UpdateCheckResult
+            {
+                Status = UpdateStatus.UpToDate, Current = current, Latest = latest, Tag = tag, ReleaseUrl = releaseUrl
             };
         }
 
+        string? downloadUrl = null;
+        string? checksumUrl = null;
+        long assetSize = 0;
+        if (release.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var asset in assets.EnumerateArray())
+            {
+                if (!asset.TryGetProperty("name", out var nameValue) ||
+                    !asset.TryGetProperty("browser_download_url", out var urlValue)) { continue; }
+                var name = nameValue.GetString();
+                var url = urlValue.GetString();
+                if (!IsRepositoryAssetUrl(url)) { continue; }
+                if (name == AssetFileName)
+                {
+                    downloadUrl = url;
+                    if (asset.TryGetProperty("size", out var sizeValue)) { sizeValue.TryGetInt64(out assetSize); }
+                }
+                else if (name == ChecksumFileName) { checksumUrl = url; }
+            }
+        }
         return new UpdateCheckResult
         {
-            Status = UpdateStatus.UpdateAvailable,
-            Current = CurrentVersion,
-            Latest = latest,
-            Tag = tag,
-            DownloadUrl = assetUrl,
-            ChecksumUrl = assetUrl + ".sha256",
-            ReleaseUrl = releaseUrl,
-            AssetSize = asset.Size
+            Status = downloadUrl is not null && checksumUrl is not null ? UpdateStatus.UpdateAvailable : UpdateStatus.NoDownload,
+            Current = current, Latest = latest, Tag = tag, ReleaseUrl = releaseUrl,
+            DownloadUrl = downloadUrl, ChecksumUrl = checksumUrl, AssetSize = assetSize,
+            Error = downloadUrl is not null && checksumUrl is not null ? null :
+                $"Release {tag} must contain {AssetFileName} and {ChecksumFileName}."
         };
     }
 
+    private static bool IsRepositoryAssetUrl(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var address) && address.Scheme == "https" &&
+        address.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) &&
+        address.AbsolutePath.StartsWith($"/{Repository}/releases/download/", StringComparison.OrdinalIgnoreCase);
+
     public static string? TagFromLocation(Uri location)
     {
-        var segments = location.AbsolutePath.Trim('/').Split('/');
-        return segments.Length >= 2 && segments[^2].Equals("tag", StringComparison.OrdinalIgnoreCase)
-            ? Uri.UnescapeDataString(segments[^1])
-            : null;
+        if (!location.IsAbsoluteUri || location.Scheme != "https" ||
+            !location.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase)) { return null; }
+        var prefix = $"/{Repository}/releases/tag/";
+        if (!location.AbsolutePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) { return null; }
+        var tag = Uri.UnescapeDataString(location.AbsolutePath[prefix.Length..].TrimEnd('/'));
+        return !tag.Contains('/') && ReleaseVersion.TryParse(tag, out _) ? tag : null;
     }
 
     public static async Task<PreparedUpdate> DownloadAndPrepareAsync(
@@ -603,13 +602,19 @@ public static class UpdateService
         }
     }
 
-    private static void ValidatePayload(string payloadDirectory)
+    internal static void ValidatePayload(string payloadDirectory)
     {
         var required = new[]
         {
             Path.Combine(payloadDirectory, "BeatzOnKeys.exe"),
-            Path.Combine(payloadDirectory, "python", "python.exe"),
-            Path.Combine(payloadDirectory, "Tools", "transcribe.py")
+            Path.Combine(payloadDirectory, "BeatzOnKeys.dll"),
+            Path.Combine(payloadDirectory, "BeatzOnKeys.Core.dll"),
+            Path.Combine(payloadDirectory, "BeatzOnKeys.deps.json"),
+            Path.Combine(payloadDirectory, "BeatzOnKeys.runtimeconfig.json"),
+            Path.Combine(payloadDirectory, "NAudio.dll"),
+            Path.Combine(payloadDirectory, "NAudio.Core.dll"),
+            Path.Combine(payloadDirectory, "NAudio.WinMM.dll"),
+            Path.Combine(payloadDirectory, "NAudio.Wasapi.dll")
         };
         var missing = required.FirstOrDefault(path => !File.Exists(path) || new FileInfo(path).Length == 0);
         if (missing is not null)
@@ -630,6 +635,7 @@ public static class UpdateService
         UpdateStatus.UpToDate => $"Up to date ({CurrentVersion.Display}).",
         UpdateStatus.UpdateAvailable => $"Update {result.Latest?.Display} is available.",
         UpdateStatus.NoDownload => result.Error ?? "The latest release has no portable archive.",
+        UpdateStatus.NoReleases => "No public releases have been published yet.",
         UpdateStatus.Failed => $"Update check failed: {result.Error}",
         _ => "Update state is unknown."
     };

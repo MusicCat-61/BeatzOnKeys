@@ -4,28 +4,33 @@ internal static class Program
 {
     private static readonly (string Name, Func<Task> Run)[] Tests =
     [
-        ("PlaybackController.ZeroTrackMatrix", PlaybackControllerTests.ZeroTrackMatrix),
-        ("PlaybackController.StepAndIdleCursor", PlaybackControllerTests.StepAndIdleCursor),
-        ("PlaybackController.TailAndExactBoundary", PlaybackControllerTests.TailAndExactBoundary),
-        ("PlaybackController.SingleTrackModeMatrix", PlaybackControllerTests.SingleTrackModeMatrix),
-        ("PlaybackController.MultipleTrackModeMatrix", PlaybackControllerTests.MultipleTrackModeMatrix),
+        ("PlaybackController.EmptyPlaylistAndDefaults", PlaybackControllerTests.EmptyPlaylistAndDefaults),
+        ("PlaybackController.NaturalEndModeMatrix", PlaybackControllerTests.NaturalEndModeMatrix),
         ("PlaybackController.SelectionUpsertRemoveAndClear", PlaybackControllerTests.SelectionUpsertRemoveAndClear),
-        ("PlaybackController.VolumeAndStepClamping", PlaybackControllerTests.VolumeAndStepClamping),
-        ("PlaybackController.EventsRunOutsideControllerLock", PlaybackControllerTests.EventsRunOutsideControllerLock),
-        ("Audio.FragmentUsesExactFramesAndSilenceDoesNotAdvance", AudioFragmentTests.FragmentUsesExactFramesAndSilenceDoesNotAdvance),
-        ("Audio.FragmentTailVolumeAndValidation", AudioFragmentTests.FragmentTailVolumeAndValidation),
-        ("Audio.PlayerLifecycleAndFailureForwarding", AudioFragmentTests.PlayerLifecycleAndFailureForwarding),
-        ("Audio.OldIdleTimerCannotPauseNewFragment", AudioFragmentTests.OldIdleTimerCannotPauseNewFragment),
-        ("Audio.ReplayWaitsForDelayedStopAndOutputInitializesOffContext", AudioFragmentTests.ReplayWaitsForDelayedStopAndOutputInitializesOffContext),
-        ("Audio.TrackLoaderValidatesPathAndFormat", AudioFragmentTests.TrackLoaderValidatesPathAndFormat),
-        ("MP3.RawAudioFileReaderSeekReadProfile", Mp3ShortReadRegressionTests.RawAudioFileReaderSeekReadProfile),
-        ("MP3.SequentialReadAndPrerollAvoidSeekPriming", Mp3ShortReadRegressionTests.SequentialReadAndPrerollAvoidSeekPriming),
-        ("MP3.ProviderFillsEveryPacketUntilFragmentBudget", Mp3ShortReadRegressionTests.ProviderFillsEveryPacketUntilFragmentBudget),
-        ("MP3.RapidMp3SeeksHaveNoIntermediateSilentPacket", Mp3ShortReadRegressionTests.RapidMp3SeeksHaveNoIntermediateSilentPacket),
+        ("PlaybackController.EventsRunOutsidePlaylistLock", PlaybackControllerTests.EventsRunOutsidePlaylistLock),
+        ("Volume.AttackHoldAndRelease", VolumeEnvelopeTests.AttackHoldAndRelease),
+        ("Volume.RetriggerAndRapidKeysStaySmooth", VolumeEnvelopeTests.RetriggerAndRapidKeysStaySmooth),
+        ("Volume.InstantResumeAndMasterVolumeCeiling", VolumeEnvelopeTests.InstantResumeAndMasterVolumeCeiling),
+        ("Volume.ConsecutiveBuffersAreSampleSmoothAndStereoLinked", VolumeEnvelopeTests.ConsecutiveBuffersAreSampleSmoothAndStereoLinked),
+        ("Volume.RenderingAheadDoesNotPrematurelyReleaseLogicalGain", VolumeEnvelopeTests.RenderingAheadDoesNotPrematurelyReleaseLogicalGain),
+        ("Audio.SequentialProviderAdvancesDuringQuietAndEndsNormally", ContinuousAudioTests.SequentialProviderAdvancesDuringQuietAndEndsNormally),
+        ("Audio.IdlePauseResumeKeepsDecoderAndPosition", ContinuousAudioTests.IdlePauseResumeKeepsDecoderAndPosition),
+        ("Audio.DisabledPauseAndLiveSettings", ContinuousAudioTests.DisabledPauseAndLiveSettings),
+        ("Audio.StaleIdleCallbacksCannotPauseNewActivityOrRun", ContinuousAudioTests.StaleIdleCallbacksCannotPauseNewActivityOrRun),
+        ("Audio.StopStartResetsToZeroAndUnloadReleasesFile", ContinuousAudioTests.StopStartResetsToZeroAndUnloadReleasesFile),
+        ("Audio.NaturalEndFailureAndExplicitStopAreDistinct", ContinuousAudioTests.NaturalEndFailureAndExplicitStopAreDistinct),
+        ("Audio.StopWaitsForOutputAndInitializationAvoidsUiContext", ContinuousAudioTests.StopWaitsForOutputAndInitializationAvoidsUiContext),
+        ("Audio.InvalidReplacementPreservesWorkingTrackAndLoaderValidatesFormat", ContinuousAudioTests.InvalidReplacementPreservesWorkingTrackAndLoaderValidatesFormat),
+        ("MP3.SequentialPacketsMatchOriginalRecording", Mp3ContinuousTests.SequentialPacketsMatchOriginalRecording),
+        ("MP3.RapidVolumePulsesNeverInterruptMp3Packets", Mp3ContinuousTests.RapidVolumePulsesNeverInterruptMp3Packets),
+        ("MP3.Mp3StartAndIdleResumeKeepOneStream", Mp3ContinuousTests.Mp3StartAndIdleResumeKeepOneStream),
         ("TypingPlaybackService.StartRequiresTrackAndLifecycleHasOneWorker", TypingPlaybackServiceTests.StartRequiresTrackAndLifecycleHasOneWorker),
         ("TypingPlaybackService.StopAwaitsInFlightAndCancelsQueuedKeys", TypingPlaybackServiceTests.StopAwaitsInFlightAndCancelsQueuedKeys),
-        ("TypingPlaybackService.FailedInstallDoesNotLeaveOldWorker", TypingPlaybackServiceTests.FailedInstallDoesNotLeaveOldWorker),
+        ("TypingPlaybackService.FailedInstallAndStartRecoverWithoutOldWorker", TypingPlaybackServiceTests.FailedInstallAndStartRecoverWithoutOldWorker),
         ("TypingPlaybackService.SelectionDurationAndPlaybackFailure", TypingPlaybackServiceTests.SelectionDurationAndPlaybackFailure),
+        ("TypingPlaybackService.NaturalEndAdvancesWithoutTypingAndLoopWraps", TypingPlaybackServiceTests.NaturalEndAdvancesWithoutTypingAndLoopWraps),
+        ("TypingPlaybackService.LateTrackEndAfterUnloadDoesNotAdvance", TypingPlaybackServiceTests.LateTrackEndAfterUnloadDoesNotAdvance),
+        ("TypingPlaybackService.LateFailureCannotStopReplacementOrNewSession", TypingPlaybackServiceTests.LateFailureCannotStopReplacementOrNewSession),
         ("UpdateService.ReleaseMetadataAndCurrentRelease", UpdateServiceTests.ReleaseMetadataAndCurrentRelease),
         ("UpdateService.NewReleaseAndMissingAssets", UpdateServiceTests.NewReleaseAndMissingAssets),
         ("UpdateService.DraftPrereleaseAndInvalidVersion", UpdateServiceTests.DraftPrereleaseAndInvalidVersion),
@@ -35,7 +40,7 @@ internal static class Program
         ("UpdateService.PayloadRequiresOnlyCurrentRuntimeFiles", UpdateServiceTests.PayloadRequiresOnlyCurrentRuntimeFiles),
         ("Settings.DefaultsAndNormalization", SettingsTests.DefaultsAndNormalization),
         ("Settings.RoundTripAllFieldsAndDelete", SettingsTests.RoundTripAllFieldsAndDelete),
-        ("Settings.LegacyUnknownPropertiesAreIgnored", SettingsTests.LegacyUnknownPropertiesAreIgnored),
+        ("Settings.LegacyVolumeMigratesAndNewFieldsTakePrecedence", SettingsTests.LegacyVolumeMigratesAndNewFieldsTakePrecedence),
         ("Settings.MissingAndCorruptJsonUseDefaults", SettingsTests.MissingAndCorruptJsonUseDefaults),
         ("Settings.ConcurrentSavesRemainAtomic", SettingsTests.ConcurrentSavesRemainAtomic)
     ];
@@ -44,22 +49,11 @@ internal static class Program
     {
         var failures = 0;
         Console.WriteLine($"BeatzOnKeys.Tests: running {Tests.Length} tests");
-
         foreach (var test in Tests)
         {
-            try
-            {
-                await test.Run().ConfigureAwait(false);
-                Console.WriteLine($"PASS {test.Name}");
-            }
-            catch (Exception exception)
-            {
-                failures++;
-                Console.Error.WriteLine($"FAIL {test.Name}");
-                Console.Error.WriteLine(exception);
-            }
+            try { await test.Run().ConfigureAwait(false); Console.WriteLine($"PASS {test.Name}"); }
+            catch (Exception exception) { failures++; Console.Error.WriteLine($"FAIL {test.Name}"); Console.Error.WriteLine(exception); }
         }
-
         Console.WriteLine($"RESULT: {Tests.Length - failures} passed, {failures} failed, {Tests.Length} total");
         return failures == 0 ? 0 : 1;
     }

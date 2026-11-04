@@ -26,8 +26,23 @@ public sealed class SettingsService
             await using var stream = new FileStream(
                 _settingsFile, FileMode.Open, FileAccess.Read,
                 FileShare.ReadWrite | FileShare.Delete, 16 * 1024, useAsync: true);
-            var settings = await JsonSerializer.DeserializeAsync<AppSettings>(
-                stream, _jsonOptions, cancellationToken).ConfigureAwait(false) ?? new AppSettings();
+            using var document = await JsonDocument.ParseAsync(
+                stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+            var settings = document.RootElement.Deserialize<AppSettings>(_jsonOptions) ?? new AppSettings();
+            if (document.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                var properties = document.RootElement.EnumerateObject().ToArray();
+                if (!properties.Any(property => string.Equals(
+                    property.Name, nameof(AppSettings.MaxVolume), StringComparison.OrdinalIgnoreCase)))
+                {
+                    var legacyVolume = properties.FirstOrDefault(property =>
+                        string.Equals(property.Name, "Volume", StringComparison.OrdinalIgnoreCase)).Value;
+                    if (legacyVolume.ValueKind == JsonValueKind.Number && legacyVolume.TryGetDouble(out var volume))
+                    {
+                        settings.MaxVolume = volume;
+                    }
+                }
+            }
             settings.Normalize();
             return settings;
         }

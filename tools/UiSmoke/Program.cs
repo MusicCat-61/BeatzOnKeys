@@ -119,7 +119,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     private MainWindow? _window;
     private MainViewModel? _vm;
     private FakeKeyboardHook? _hook;
-    private AudioFragmentPlayer? _player;
+    private ContinuousAudioPlayer? _player;
     private string[] _fixtures = [];
     private string SettingsPath => Path.Combine(session, "settings.json");
     private string ArtifactDirectory => Path.Combine(root, "artifacts", "ui-smoke");
@@ -143,7 +143,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             Check("startup.operationAborted", abortedStartupCount > 0,
                 "Exact BeatzOnKeys.UI.App constructor-posted startup operations aborted before the dispatcher pump: " + abortedStartupCount);
             _info["session"] = Friendly(session);
-            _info["audioImplementation"] = typeof(AudioFragmentPlayer).FullName;
+            _info["audioImplementation"] = typeof(ContinuousAudioPlayer).FullName;
             _info["keyboard"] = "Signal-only injectable fake; no physical typing, text data, or Notepad automation.";
             _info["loopMatrix"] = "Delegated to the core-test owner; this run tests UI AutoAdvance wiring only.";
             _info["physicalAudibility"] = "Not claimed. Real WaveOut state and MP3 decoder tested; no loopback recording requested.";
@@ -152,12 +152,14 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             Loc.Initialize("en");
             Theme.Apply(AppTheme.Dark, notify: false);
             _hook = new FakeKeyboardHook();
-            _player = new AudioFragmentPlayer();
+            _player = new ContinuousAudioPlayer();
             var settingsService = MakeSettingsService(SettingsPath);
-            _vm = Own(new MainViewModel(new AppSettings { Volume = 0.15, Language = "en" }, settingsService, _hook, _player));
+            _vm = Own(new MainViewModel(new AppSettings { Language = "en" }, settingsService, _hook, _player));
             _vm.UserMessageRequested += message => _messages.Add(message);
             await _vm.InitializeAsync();
             Check("defaults.loop", _vm.Loop, "A fresh VM keeps Loop=true.");
+            Check("defaults.typingVolumeAndIdle", Near(_vm.MinVolume, 0.2) && Near(_vm.MaxVolume, 1) && Near(_vm.IdleTimeout, 3) && _vm.PauseOnIdle,
+                $"Fresh settings: Min={_vm.MinVolumePercent}, Max={_vm.MaxVolumePercent}, Idle={_vm.IdleTimeout}s, Pause={_vm.PauseOnIdle}.");
             Check("initialize.empty", _vm.Tracks.Count == 0 && !_vm.IsRunning && _vm.CanReset, _vm.StatusText);
             await _vm.AddFilesAsync(_fixtures.Take(3));
             Check("import.mp3", _vm.Tracks.Count == 3 && _vm.Tracks.All(track => track.IsAvailable && track.Duration > TimeSpan.Zero),
@@ -303,41 +305,49 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         var hook = _hook!;
         var player = _player!;
         if (WaveOut.DeviceCount == 0) throw new InvalidOperationException("No WaveOut output device; real audio smoke cannot pass in this environment.");
-        vm.StepSeconds = 0.2;
-        vm.VolumePercentValue = 15;
+        vm.MinVolumePercentValue = 20;
+        vm.MaxVolumePercentValue = 100;
+        vm.IdleTimeout = 3;
+        vm.PauseOnIdle = true;
         vm.AutoAdvance = false;
         vm.Loop = true;
-        Check("sliders.vmUnits", Near(vm.Volume, 0.15) && Near(vm.VolumePercentValue, 15) && vm.VolumePercent == "15%", vm.VolumePercent);
-        var stepSlider = Descendants<Slider>(_window!).Single(s => Near(s.Minimum, 0.05));
-        Slider.IncreaseSmall.Execute(null, stepSlider);
+        Check("sliders.vmUnits", Near(vm.MinVolume, 0.2) && Near(vm.MaxVolume, 1) &&
+            vm.MinVolumePercent == "20%" && vm.MaxVolumePercent == "100%", $"Min={vm.MinVolumePercent}, Max={vm.MaxVolumePercent}.");
+        var minSlider = Descendants<Slider>(_window!).Single(s => BindingOperations.GetBinding(s, RangeBase.ValueProperty)?.Path?.Path == nameof(vm.MinVolumePercentValue));
+        var maxSlider = Descendants<Slider>(_window!).Single(s => BindingOperations.GetBinding(s, RangeBase.ValueProperty)?.Path?.Path == nameof(vm.MaxVolumePercentValue));
+        var idleSlider = Descendants<Slider>(_window!).Single(s => BindingOperations.GetBinding(s, RangeBase.ValueProperty)?.Path?.Path == nameof(vm.IdleTimeout));
+        Check("sliders.boundRanges", Near(minSlider.Minimum, 0) && Near(minSlider.Maximum, 50) &&
+            Near(maxSlider.Minimum, 0) && Near(maxSlider.Maximum, 100) && Near(idleSlider.Minimum, 1) && Near(idleSlider.Maximum, 10),
+            "Actual rendered Min/Max/IdleTimeout sliders use percent/second units and required ranges.");
+        var increment = minSlider.SmallChange;
+        Slider.IncreaseSmall.Execute(null, minSlider);
         await SettleAsync();
-        Check("sliders.stepSmallIncrement", Near(stepSlider.SmallChange, 0.01) && Near(stepSlider.LargeChange, 0.05) &&
-            Near(vm.StepSeconds, 0.21), $"Actual rendered slider IncreaseSmall: value={vm.StepSeconds}, small={stepSlider.SmallChange}, large={stepSlider.LargeChange}.");
-        Slider.DecreaseSmall.Execute(null, stepSlider);
+        Check("sliders.minSmallIncrement", increment > 0 && Near(vm.MinVolumePercentValue, 20 + increment),
+            $"Actual IncreaseSmall: min={vm.MinVolumePercentValue}, small={increment}.");
+        Slider.DecreaseSmall.Execute(null, minSlider);
         await SettleAsync();
-        Check("sliders.stepSmallDecrement", Near(vm.StepSeconds, 0.2), "Actual slider DecreaseSmall returns the bound VM step to 0.20 seconds.");
+        Check("sliders.minSmallDecrement", Near(vm.MinVolumePercentValue, 20), "DecreaseSmall restores the bound quiet-volume value.");
+        var idleCheckbox = Descendants<CheckBox>(_window!).Single(c => BindingOperations.GetBinding(c, ToggleButton.IsCheckedProperty)?.Path?.Path == nameof(vm.PauseOnIdle));
+        Check("idleCheckbox.bound", idleCheckbox.IsChecked == true, "Rendered PauseOnIdle checkbox is bound and enabled by default.");
         vm.StartCommand.Execute(null);
         await UntilAsync(() => vm.IsRunning && !_window!.IsVisible && vm.StopCommand.CanExecute(null), 5000, "StartCommand");
         Check("start.hiddenTrayHook", !_window!.IsVisible && Tray?.Visible == true && hook.IsInstalled && vm.IsRunning,
             $"Visible={_window!.IsVisible}; tray={Tray?.Visible}; hook={hook.IsInstalled}; running={vm.IsRunning}.");
-        Check("start.idleSilent", !player.IsPlaying, "Starting installs/warms output but does not play without a signal.");
-        var before = vm.PlaybackProgress;
+        var startPosition = player.Position;
+        var startProgress = vm.PlaybackProgress;
+        Check("start.continuousAtMinimum", player.IsPlaying && !player.IsIdlePaused &&
+            Output?.PlaybackState == PlaybackState.Playing && Math.Abs(player.CurrentGain - 0.2) < 0.01 && startPosition.TotalSeconds < 0.75,
+            $"Output={Output?.GetType().Name}, state={Output?.PlaybackState}, gain={player.CurrentGain:F3}, position={startPosition.TotalSeconds:F3}s.");
+        await Task.Delay(600);
+        Check("start.advancesWithoutKeys", hook.SignalCount == 0 && player.IsPlaying && player.Position > startPosition + TimeSpan.FromMilliseconds(300) &&
+            vm.PlaybackProgress > startProgress, $"No keys: position={player.Position.TotalSeconds:F3}s, progress={vm.PlaybackProgress:F4}%.");
         hook.Signal();
-        await UntilAsync(() => player.IsPlaying && vm.PlaybackProgress > before, 2000, "first fake signal");
-        Check("signal.actualWaveOutPlaying", Output is WaveOut && Output.PlaybackState == PlaybackState.Playing,
-            $"Output={Output?.GetType().Name}, state={Output?.PlaybackState}, IsPlaying={player.IsPlaying}");
-        await UntilAsync(() => !player.IsPlaying, 2000, "slice pause");
-        var frozen = vm.PlaybackProgress;
-        var frozenText = vm.PlaybackPositionText;
-        await Task.Delay(350);
-        Check("idle.pausedFrozen", Near(vm.PlaybackProgress, frozen) && vm.PlaybackPositionText == frozenText &&
-            Output?.PlaybackState == PlaybackState.Paused && vm.IsRunning && hook.IsInstalled,
-            $"Progress={frozen:F4}, position={frozenText}, actual device={Output?.PlaybackState}.");
-        var fastStart = vm.PlaybackProgress;
+        await UntilAsync(() => player.CurrentGain >= 0.99, 1500, "typing volume attack");
+        Check("signal.actualWaveOutPlaying", Output is WaveOut && Output.PlaybackState == PlaybackState.Playing && player.IsPlaying,
+            $"Output={Output?.GetType().Name}, state={Output?.PlaybackState}, gain={player.CurrentGain:F3}.");
+        var typingPosition = player.Position;
         var gaps = 0;
         var samples = 0;
-        hook.Signal();
-        await UntilAsync(() => player.IsPlaying, 2000, "rapid burst start");
         for (var key = 0; key < 24; key++)
         {
             hook.Signal();
@@ -348,9 +358,42 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 if (!player.IsPlaying || Output?.PlaybackState != PlaybackState.Playing) gaps++;
             }
         }
-        Check("rapidSignals.noDevicePause", gaps == 0 && vm.PlaybackProgress > fastStart,
-            $"24 fast signals; {samples} samples of actual IsPlaying/WaveOut state; idle/pause gaps={gaps}; forward={vm.PlaybackProgress-fastStart:F4}%.");
-        await UntilAsync(() => !player.IsPlaying, 2000, "rapid burst pause");
+        Check("rapidSignals.volumeOnlyNoDevicePause", gaps == 0 && player.Position > typingPosition && player.CurrentGain >= 0.99,
+            $"24 signals; {samples} actual device/state samples, gaps={gaps}; position progresses normally.");
+        var releasedPosition = player.Position;
+        await UntilAsync(() => Math.Abs(player.CurrentGain - 0.2) < 0.01, 1500, "typing release to minimum");
+        Check("release.quietButPlaying", player.IsPlaying && !player.IsIdlePaused && Output?.PlaybackState == PlaybackState.Playing && player.Position > releasedPosition,
+            $"After hold/release: gain={player.CurrentGain:F3}, state={Output?.PlaybackState}, position={player.Position.TotalSeconds:F3}s.");
+        await UntilAsync(() => player.IsIdlePaused, 4500, "3-second idle pause");
+        await SettleAsync();
+        var frozenPosition = player.Position;
+        var frozen = vm.PlaybackProgress;
+        var frozenText = vm.PlaybackPositionText;
+        await Task.Delay(350);
+        Check("idle.pausedFrozen", !player.IsPlaying && player.IsIdlePaused && player.Position == frozenPosition && Near(vm.PlaybackProgress, frozen) &&
+            vm.PlaybackPositionText == frozenText && Output?.PlaybackState == PlaybackState.Paused && vm.IsRunning && hook.IsInstalled,
+            $"Progress={frozen:F4}%, position={frozenText}, actual device={Output?.PlaybackState}.");
+        hook.Signal();
+        await UntilAsync(() => player.IsPlaying && !player.IsIdlePaused, 1000, "idle resume");
+        Check("idle.resumeSamePositionInstantMaximum", player.CurrentGain >= 0.99 && player.Position >= frozenPosition &&
+            player.Position - frozenPosition < TimeSpan.FromMilliseconds(750) && Output?.PlaybackState == PlaybackState.Playing,
+            $"First key: gain={player.CurrentGain:F3}; {frozenPosition.TotalSeconds:F3}s -> {player.Position.TotalSeconds:F3}s (normal output buffering allowed).");
+        vm.PauseOnIdle = false;
+        var continuousPosition = player.Position;
+        var idleClock = Stopwatch.StartNew();
+        var idleSamples = 0;
+        var idleGaps = 0;
+        while (idleClock.Elapsed.TotalSeconds < vm.IdleTimeout + 0.5)
+        {
+            await Task.Delay(20);
+            idleSamples++;
+            if (!player.IsPlaying || player.IsIdlePaused || Output?.PlaybackState != PlaybackState.Playing) idleGaps++;
+        }
+        var continuousAdvance = (player.Position - continuousPosition).TotalSeconds;
+        Check("idle.disabledStaysPlayingAtMinimum", idleGaps == 0 && continuousAdvance > 3 &&
+            Math.Abs(player.CurrentGain - 0.2) < 0.01, $"{idleSamples} actual state samples over {idleClock.Elapsed.TotalSeconds:F2}s; audio advanced {continuousAdvance:F3}s; gaps={idleGaps}, gain={player.CurrentGain:F3}.");
+        vm.PauseOnIdle = true;
+        await UntilAsync(() => player.IsIdlePaused, 1500, "idle pause re-enabled");
         app.ShowMainWindow();
         await SettleAsync();
         Check("tray.showRestores", _window!.IsVisible && vm.IsRunning, "ShowMainWindow restores the real window without stopping the fake hook.");
@@ -362,27 +405,29 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         await SettleAsync();
         Check("tray.showNormalizesMinimized", _window.IsVisible && _window.WindowState == WindowState.Normal, _window.WindowState.ToString());
         await StopAsync(vm);
-        Check("stop.unhooksSilences", !vm.IsRunning && !hook.IsInstalled && !player.IsPlaying && Output?.PlaybackState == PlaybackState.Stopped,
+        Check("stop.unhooksSilences", !vm.IsRunning && !hook.IsInstalled && !player.IsPlaying && !player.IsIdlePaused && Output?.PlaybackState == PlaybackState.Stopped,
             $"Running={vm.IsRunning}; hook={hook.IsInstalled}; audio={player.IsPlaying}; device={Output?.PlaybackState}.");
-        var afterStop = vm.PlaybackProgress;
+        var afterStop = player.Position;
         hook.Signal();
         await Task.Delay(80);
-        Check("stop.ignoresSignals", Near(vm.PlaybackProgress, afterStop), "Signal after uninstall is ignored.");
+        Check("stop.ignoresSignals", player.Position == afterStop, "Signal after uninstall is ignored.");
+        var restartsAtBeginning = true;
         for (var cycle = 0; cycle < 3; cycle++)
         {
             vm.StartCommand.Execute(null);
             await UntilAsync(() => vm.IsRunning && vm.StopCommand.CanExecute(null), 5000, "restart cycle");
-            hook.Signal();
-            await UntilAsync(() => player.IsPlaying, 2000, "restart playback");
+            restartsAtBeginning &= player.IsPlaying && !player.IsIdlePaused && player.Position.TotalSeconds < 0.75;
+            await Task.Delay(100);
             await StopAsync(vm);
         }
-        Check("lifecycle.repeatedStartStop", !vm.IsRunning && !hook.IsInstalled && !player.IsPlaying,
-            "Three additional Start/key/Stop cycles complete without stale worker/hook/audio.");
-        // Keep the exact same genuine VM position/running state for all four preview renders.
+        Check("lifecycle.repeatedStartStopFromBeginning", restartsAtBeginning && !vm.IsRunning && !hook.IsInstalled && !player.IsPlaying,
+            "Three additional Start/Stop cycles play immediately from the beginning without stale worker/hook/audio.");
+        // Preserve one genuine idle-paused position for every theme/language preview; never alter audio position.
         vm.StartCommand.Execute(null);
         await UntilAsync(() => vm.IsRunning && vm.StopCommand.CanExecute(null), 5000, "preview start");
+        await Task.Delay(700);
         for (var key = 0; key < 64; key++) { hook.Signal(); await Task.Delay(5); }
-        await UntilAsync(() => !player.IsPlaying, 2000, "preview idle");
+        await UntilAsync(() => player.IsIdlePaused, 4500, "preview idle pause");
         app.ShowMainWindow();
         await SettleAsync();
     }
@@ -535,8 +580,9 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             $"{accentCount} accent buttons; fg={foreground}, bg={background}, ratio={contrast:F2}; " + string.Join("; ", accentFailures));
         var sliders = Descendants<Slider>(window).ToArray();
         if (window is MainWindow)
-            Check(label + ".sliderLimits", sliders.Length == 2 && sliders.Any(s => Near(s.Minimum, 0) && Near(s.Maximum, 100)) &&
-                sliders.Any(s => Near(s.Minimum, 0.05) && Near(s.Maximum, 0.5)) && sliders.All(s => s.Value >= s.Minimum && s.Value <= s.Maximum),
+            Check(label + ".sliderLimits", sliders.Length == 3 && sliders.Any(s => Near(s.Minimum, 0) && Near(s.Maximum, 100)) &&
+                sliders.Any(s => Near(s.Minimum, 0) && Near(s.Maximum, 50)) && sliders.Any(s => Near(s.Minimum, 1) && Near(s.Maximum, 10)) &&
+                sliders.All(s => s.Value >= s.Minimum && s.Value <= s.Maximum),
                 string.Join("; ", sliders.Select(s => $"[{s.Minimum},{s.Maximum}]={s.Value}")));
     }
 
@@ -566,8 +612,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     private async Task AutoAdvanceAsync()
     {
         var hook = new FakeKeyboardHook();
-        var player = new AudioFragmentPlayer();
-        var vm = Own(new MainViewModel(new AppSettings { Volume = 0.15, StepSeconds = 0.15, AutoAdvance = true, Loop = false },
+        var player = new ContinuousAudioPlayer();
+        var vm = Own(new MainViewModel(new AppSettings { MinVolume = 0.2, MaxVolume = 1, IdleTimeout = 3, PauseOnIdle = true, AutoAdvance = true, Loop = false },
             MakeSettingsService(Path.Combine(session, "auto-advance-settings.json")), hook, player));
         vm.UserMessageRequested += message => _messages.Add("AutoAdvance: " + message);
         await vm.InitializeAsync();
@@ -576,10 +622,10 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         var nextTrack = vm.Tracks[1];
         vm.StartCommand.Execute(null);
         await UntilAsync(() => vm.IsRunning && vm.StopCommand.CanExecute(null), 5000, "auto advance start");
-        for (var signal = 0; signal < 10 && vm.SelectedTrack == shortTrack; signal++) { hook.Signal(); await Task.Delay(30); }
-        await UntilAsync(() => vm.SelectedTrack == nextTrack, 3000, "auto advance selection");
-        Check("autoAdvance.shortMp3SelectsNext", vm.SelectedTrack == nextTrack && vm.IsRunning && hook.IsInstalled,
-            $"{shortTrack.FileName} ({shortTrack.Duration.TotalSeconds:F3}s) -> {vm.SelectedTrackText}; progress={vm.PlaybackProgress:F4}%.");
+        await UntilAsync(() => vm.SelectedTrack == nextTrack, 3000, "natural end auto advance selection");
+        Check("autoAdvance.naturalEndWithoutTyping", vm.SelectedTrack == nextTrack && vm.IsRunning && hook.IsInstalled &&
+            hook.SignalCount == 0 && player.IsPlaying,
+            $"{shortTrack.FileName} ({shortTrack.Duration.TotalSeconds:F3}s) -> {vm.SelectedTrackText}; zero keyboard signals; progress={vm.PlaybackProgress:F4}%.");
         await StopAsync(vm);
         await vm.DisposeAsync();
         _ownedModels.Remove(vm);
@@ -590,8 +636,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     {
         var hook = new FakeKeyboardHook();
         var missing = new TrackState { SourcePath = Path.Combine(session, "explicit-missing-fixture.mp3") };
-        var vm = Own(new MainViewModel(new AppSettings { Volume = 0.15, Tracks = new List<TrackState> { missing }, SelectedTrackId = missing.Id },
-            MakeSettingsService(Path.Combine(session, "missing-track-settings.json")), hook, new AudioFragmentPlayer()));
+        var vm = Own(new MainViewModel(new AppSettings { Tracks = new List<TrackState> { missing }, SelectedTrackId = missing.Id },
+            MakeSettingsService(Path.Combine(session, "missing-track-settings.json")), hook, new ContinuousAudioPlayer()));
         await vm.InitializeAsync();
         var track = vm.Tracks.Single();
         Check("missingTrack.unavailableNoStart", !track.IsAvailable && !vm.StartCommand.CanExecute(null), "A genuinely absent fixture remains unavailable and cannot start.");
@@ -611,8 +657,10 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     {
         var vm = _vm!;
         await StopAsync(vm);
-        vm.VolumePercentValue = 18;
-        vm.StepSeconds = 0.25;
+        vm.MinVolumePercentValue = 25;
+        vm.MaxVolumePercentValue = 80;
+        vm.IdleTimeout = 4;
+        vm.PauseOnIdle = false;
         vm.AutoAdvance = true;
         vm.Loop = false;
         vm.SetLanguageCommand.Execute("ru");
@@ -628,23 +676,31 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("dispose.unhooksAndSaves", _hook!.IsDisposed && !_hook.IsInstalled && !_player!.IsPlaying, "DisposeAsync waits for the worker, unhooks, and disposes audio.");
         var service = MakeSettingsService(SettingsPath);
         var loaded = await service.LoadAsync();
-        Check("settings.allFieldsPersisted", loaded.SchemaVersion == AppSettings.CurrentSchemaVersion && Near(loaded.Volume, 0.18) &&
-            Near(loaded.StepSeconds, 0.25) && loaded.AutoAdvance && !loaded.Loop && loaded.Language == "ru" && loaded.Theme == "light" && loaded.SelectedTrackId == selected &&
+        Check("settings.allFieldsPersisted", loaded.SchemaVersion == 3 && loaded.SchemaVersion == AppSettings.CurrentSchemaVersion &&
+            Near(loaded.MinVolume, 0.25) && Near(loaded.MaxVolume, 0.8) && Near(loaded.IdleTimeout, 4) && !loaded.PauseOnIdle &&
+            loaded.AutoAdvance && !loaded.Loop && loaded.Language == "ru" && loaded.Theme == "light" && loaded.SelectedTrackId == selected &&
             loaded.Tracks.Count == expectedTracks.Length && loaded.Tracks.Zip(expectedTracks).All(pair => pair.First.Id == pair.Second.Id &&
                 pair.First.SourcePath == pair.Second.SourcePath && pair.First.AddedAt == pair.Second.AddedAt),
-            $"schema={loaded.SchemaVersion}, volume={loaded.Volume}, step={loaded.StepSeconds}, auto={loaded.AutoAdvance}, loop={loaded.Loop}, language={loaded.Language}, theme={loaded.Theme}, selected={loaded.SelectedTrackId}; path={Friendly(SettingsPath)}.");
+            $"schema={loaded.SchemaVersion}, min={loaded.MinVolume}, max={loaded.MaxVolume}, idle={loaded.IdleTimeout}s, pause={loaded.PauseOnIdle}, auto={loaded.AutoAdvance}, loop={loaded.Loop}, language={loaded.Language}, theme={loaded.Theme}, selected={loaded.SelectedTrackId}; path={Friendly(SettingsPath)}.");
         var raw = await File.ReadAllTextAsync(SettingsPath);
-        Check("settings.noLegacyTranscriptionFields", !Regex.IsMatch(raw, @"\""(?:Status|MidiPath|NoteEvents|Transcription|Sensitivity|Instrument)\""", RegexOptions.IgnoreCase),
-            "Persisted schema has no transcription/status/instrument fields.");
+        using var document = JsonDocument.Parse(raw);
+        var fields = document.RootElement.EnumerateObject().ToArray();
+        JsonElement Value(string name) => fields.Single(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).Value;
+        Check("settings.jsonUnits", Near(Value(nameof(AppSettings.MinVolume)).GetDouble(), 0.25) &&
+            Near(Value(nameof(AppSettings.MaxVolume)).GetDouble(), 0.8) && Near(Value(nameof(AppSettings.IdleTimeout)).GetDouble(), 4) &&
+            !Value(nameof(AppSettings.PauseOnIdle)).GetBoolean(), "JSON volumes are normalized fractions; idle timeout is seconds; PauseOnIdle is boolean.");
+        Check("settings.schema3Only", !Regex.IsMatch(raw, @"""(?:Volume|StepSeconds|Status|MidiPath|NoteEvents|Transcription|Sensitivity|Instrument)""", RegexOptions.IgnoreCase),
+            "Persisted schema excludes obsolete volume/timing/transcription/status/instrument fields.");
         Loc.Initialize(loaded.Language);
         Theme.Apply(Theme.Parse(loaded.Theme));
         var restoredHook = new FakeKeyboardHook();
-        var restored = Own(new MainViewModel(loaded, service, restoredHook, new AudioFragmentPlayer()));
+        var restored = Own(new MainViewModel(loaded, service, restoredHook, new ContinuousAudioPlayer()));
         await restored.InitializeAsync();
-        Check("settings.newVmRoundtrip", Near(restored.Volume, 0.18) && Near(restored.VolumePercentValue, 18) && restored.VolumePercent == "18%" &&
-            Near(restored.StepSeconds, 0.25) && restored.AutoAdvance && !restored.Loop && restored.IsRussian && restored.IsLightTheme &&
+        Check("settings.newVmRoundtrip", Near(restored.MinVolume, 0.25) && Near(restored.MinVolumePercentValue, 25) && restored.MinVolumePercent == "25%" &&
+            Near(restored.MaxVolume, 0.8) && Near(restored.MaxVolumePercentValue, 80) && restored.MaxVolumePercent == "80%" &&
+            Near(restored.IdleTimeout, 4) && !restored.PauseOnIdle && restored.AutoAdvance && !restored.Loop && restored.IsRussian && restored.IsLightTheme &&
             restored.SelectedTrack?.Id == selected && restored.Tracks.Count == 3 && restored.Tracks.All(t => t.IsAvailable) && !restored.IsRunning && !restoredHook.IsInstalled,
-            $"New VM: {restored.VolumePercent}; {restored.StepSecondsText}; {restored.SelectedTrackText}; {restored.PlaybackPositionText}.");
+            $"New VM: Min={restored.MinVolumePercent}, Max={restored.MaxVolumePercent}, idle={restored.IdleTimeoutText}, pause={restored.PauseOnIdle}; {restored.SelectedTrackText}; {restored.PlaybackPositionText}.");
         await restored.DisposeAsync();
         _ownedModels.Remove(restored);
         _info["roundtripSettingsPath"] = Friendly(SettingsPath);

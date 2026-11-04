@@ -9,8 +9,8 @@
     <RootNamespace>BeatzOnKeys.Core</RootNamespace>
     <Product>BeatzOnKeys</Product>
     <Authors>MusicCat-61</Authors>
-    <Description>Key-driven MP3 audio scrubbing and global keyboard capture for BeatzOnKeys.</Description>
-    <Version>1.0.1</Version>
+    <Description>Continuous audio playback with typing-reactive volume and idle pause for BeatzOnKeys.</Description>
+    <Version>1.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

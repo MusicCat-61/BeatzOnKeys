@@ -166,10 +166,17 @@ internal sealed class FakeWavePlayer : IWavePlayer
         handler?.Invoke(this, new StoppedEventArgs(null));
     }
 
+    public void CompleteTrack()
+    {
+        EventHandler<StoppedEventArgs>? handler;
+        lock (_gate) { _state = PlaybackState.Stopped; handler = PlaybackStopped; }
+        handler?.Invoke(this, new StoppedEventArgs(null));
+    }
+
     public void RaiseFailure(Exception exception)
     {
         EventHandler<StoppedEventArgs>? handler;
-        lock (_gate) { handler = PlaybackStopped; }
+        lock (_gate) { _state = PlaybackState.Stopped; handler = PlaybackStopped; }
         handler?.Invoke(this, new StoppedEventArgs(exception));
     }
 
@@ -230,79 +237,89 @@ internal sealed class FakeKeyboardHook : IKeyboardHook
     }
 }
 
-internal sealed class FakeAudioFragmentPlayer : IAudioFragmentPlayer
+internal sealed class FakeContinuousAudioPlayer : IContinuousAudioPlayer
 {
     private readonly object _gate = new();
-    private readonly List<PlaybackStep> _steps = [];
     private bool _disposed;
+    private bool _started;
     private bool _isPlaying;
-    private double _volume = 0.7;
+    private PlaybackTrack? _track;
+    private int _keyPressCalls;
+    private int _notifyCalls;
+    public int NotifyCalls { get { lock (_gate) { return _notifyCalls; } } }
 
-    public event Action<Exception>? PlaybackFailed;
-
+    public event Action<PlaybackFailureEventArgs>? PlaybackFailed;
+    public event Action<PlaybackEndedEventArgs>? TrackEnded;
+    private Guid _playbackId;
+    public Guid PlaybackId { get { lock (_gate) { return _playbackId; } } }
+    public double MinVolume { get; set; } = 0.2;
+    public double MaxVolume { get; set; } = 1;
+    public double IdleTimeout { get; set; } = 3;
+    public bool PauseOnIdle { get; set; } = true;
+    public bool IsIdlePaused => false;
+    public TimeSpan Position { get; set; }
+    public TimeSpan Duration => LoadDurationOverride ?? _track?.Duration ?? TimeSpan.Zero;
     public TimeSpan? LoadDurationOverride { get; set; }
-    public bool ThrowOnPrepare { get; set; }
-    public bool BlockPlay { get; set; }
+    public bool ThrowOnStart { get; set; }
+    public bool BlockNotify { get; set; }
     public ManualResetEventSlim PlayEntered { get; } = new(false);
     public ManualResetEventSlim PlayRelease { get; } = new(false);
     public int LoadCalls { get; private set; }
-    public int PrepareCalls { get; private set; }
-    public int PauseCalls { get; private set; }
+    public int StartCalls { get; private set; }
+    public int StopCalls { get; private set; }
     public int UnloadCalls { get; private set; }
+    public int KeyPressCalls { get { lock (_gate) { return _keyPressCalls; } } }
     public bool IsDisposed { get { lock (_gate) { return _disposed; } } }
-    public IReadOnlyList<PlaybackStep> Steps { get { lock (_gate) { return _steps.ToArray(); } } }
-
-    public double Volume
-    {
-        get { lock (_gate) { return _volume; } }
-        set { lock (_gate) { _volume = value; } }
-    }
-
     public bool IsPlaying { get { lock (_gate) { return _isPlaying; } } }
 
     public TimeSpan LoadTrack(PlaybackTrack track)
     {
-        ArgumentNullException.ThrowIfNull(track);
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             LoadCalls++;
-            return LoadDurationOverride ?? track.Duration;
+            _track = track;
+            return Duration;
         }
     }
 
-    public void PrepareOutput()
+    public void Start()
     {
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            PrepareCalls++;
-            if (ThrowOnPrepare) { throw new InvalidOperationException("prepare failed"); }
+            if (ThrowOnStart) { throw new IOException("start failed"); }
+            StartCalls++;
+            _playbackId = Guid.NewGuid();
+            Position = TimeSpan.Zero;
+            _started = _isPlaying = true;
         }
     }
 
-    public void PlayFragment(PlaybackStep step)
+    public void NotifyKeyPress()
     {
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            _steps.Add(step);
-            _isPlaying = true;
+            _notifyCalls++;
+            if (!_started) { return; }
+            _keyPressCalls++;
         }
         PlayEntered.Set();
-        if (BlockPlay && !PlayRelease.Wait(TimeSpan.FromSeconds(5)))
+        if (BlockNotify && !PlayRelease.Wait(TimeSpan.FromSeconds(5)))
         {
-            throw new TimeoutException("The fake audio player was not released by the test.");
+            throw new TimeoutException("The fake player was not released by the test.");
         }
     }
 
-    public void Pause()
+    public void Stop()
     {
         lock (_gate)
         {
             if (_disposed) { return; }
-            PauseCalls++;
-            _isPlaying = false;
+            StopCalls++;
+            _playbackId = Guid.Empty;
+            _started = _isPlaying = false;
         }
     }
 
@@ -312,20 +329,96 @@ internal sealed class FakeAudioFragmentPlayer : IAudioFragmentPlayer
         {
             if (_disposed) { return; }
             UnloadCalls++;
-            _isPlaying = false;
+            _playbackId = Guid.Empty;
+            _started = _isPlaying = false;
+            _track = null;
         }
     }
 
-    public void RaiseFailure(Exception exception) => PlaybackFailed?.Invoke(exception);
+    public void RaiseFailure(Exception exception, Guid? playbackId = null, Guid? trackId = null)
+    {
+        PlaybackFailureEventArgs failure;
+        lock (_gate)
+        {
+            var id = playbackId ?? _playbackId;
+            if (id == _playbackId) { _started = _isPlaying = false; }
+            failure = new(trackId ?? _track?.Id, exception) { PlaybackId = id };
+        }
+        PlaybackFailed?.Invoke(failure);
+    }
+
+    public void RaiseTrackEnded(Guid? playbackId = null)
+    {
+        PlaybackEndedEventArgs ended;
+        lock (_gate)
+        {
+            var id = playbackId ?? _playbackId;
+            if (id == _playbackId) { _started = _isPlaying = false; }
+            ended = new(_track?.Id, id);
+        }
+        TrackEnded?.Invoke(ended);
+    }
 
     public void Dispose()
     {
-        lock (_gate)
-        {
-            _isPlaying = false;
-            _disposed = true;
-        }
+        lock (_gate) { _started = _isPlaying = false; _disposed = true; }
         PlayEntered.Dispose();
         PlayRelease.Dispose();
+    }
+}
+
+/// <summary>Advances deadlines without sleeps, real audio devices or user app-data.</summary>
+internal sealed class ManualTimeProvider : TimeProvider
+{
+    private readonly object _gate = new();
+    private readonly List<TestTimer> _timers = [];
+    private long _ticks;
+    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+    public override long GetTimestamp() { lock (_gate) { return _ticks; } }
+    public override DateTimeOffset GetUtcNow() => DateTimeOffset.UnixEpoch.AddTicks(GetTimestamp());
+
+    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+    {
+        var timer = new TestTimer(this, callback, state);
+        lock (_gate) { _timers.Add(timer); }
+        timer.Change(dueTime, period);
+        return timer;
+    }
+
+    public void Advance(double seconds)
+    {
+        TestTimer[] due;
+        lock (_gate)
+        {
+            _ticks += TimeSpan.FromSeconds(seconds).Ticks;
+            due = _timers.Where(timer => !timer.Disposed && timer.DueAt <= _ticks).ToArray();
+            foreach (var timer in due) { timer.DueAt = long.MaxValue; }
+        }
+        foreach (var timer in due) { timer.Invoke(); }
+    }
+
+    public void FireStaleCallbacks()
+    {
+        TestTimer[] timers;
+        lock (_gate) { timers = _timers.ToArray(); }
+        foreach (var timer in timers) { timer.Invoke(); }
+    }
+
+    private sealed class TestTimer(ManualTimeProvider clock, TimerCallback callback, object? state) : ITimer
+    {
+        public long DueAt { get; set; } = long.MaxValue;
+        public bool Disposed { get; private set; }
+        public bool Change(TimeSpan dueTime, TimeSpan period)
+        {
+            lock (clock._gate)
+            {
+                if (Disposed) { return false; }
+                DueAt = dueTime == Timeout.InfiniteTimeSpan ? long.MaxValue : clock._ticks + dueTime.Ticks;
+                return true;
+            }
+        }
+        public void Invoke() => callback(state);
+        public void Dispose() { lock (clock._gate) { Disposed = true; DueAt = long.MaxValue; } }
+        public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
     }
 }

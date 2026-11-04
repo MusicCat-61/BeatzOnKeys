@@ -292,25 +292,40 @@
                             <TextBlock Text="{DynamicResource L_Settings}" Style="{StaticResource SectionLabelStyle}"/>
 
                             <DockPanel Margin="0,2,0,0">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding VolumePercent}"
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding MaxVolumePercent}"
                                            Style="{StaticResource ValueLabelStyle}"/>
-                                <TextBlock Text="{DynamicResource L_Volume}" Style="{StaticResource ValueLabelStyle}"/>
+                                <TextBlock Text="{DynamicResource L_MaxVolume}" Style="{StaticResource ValueLabelStyle}"/>
                             </DockPanel>
                             <Slider Minimum="0" Maximum="100"
-                                    Value="{Binding VolumePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    Value="{Binding MaxVolumePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ToolTip="{DynamicResource L_MaxVolumeHint}"
                                     TickFrequency="1" Margin="0,4,0,0"/>
 
                             <DockPanel Margin="0,14,0,0">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding StepSecondsText}"
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding MinVolumePercent}"
                                            Style="{StaticResource ValueLabelStyle}"/>
-                                <TextBlock Text="{DynamicResource L_Step}" Style="{StaticResource ValueLabelStyle}"/>
+                                <TextBlock Text="{DynamicResource L_MinVolume}" Style="{StaticResource ValueLabelStyle}"/>
                             </DockPanel>
-                            <Slider Minimum="0.05" Maximum="0.5"
-                                    Value="{Binding StepSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                    TickFrequency="0.01" SmallChange="0.01" LargeChange="0.05"
+                            <Slider Minimum="0" Maximum="50"
+                                    Value="{Binding MinVolumePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ToolTip="{DynamicResource L_MinVolumeHint}"
+                                    TickFrequency="1" Margin="0,4,0,0"/>
+
+                            <DockPanel Margin="0,14,0,0">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding IdleTimeoutText}"
+                                           Style="{StaticResource ValueLabelStyle}"/>
+                                <TextBlock Text="{DynamicResource L_IdleTimeout}" Style="{StaticResource ValueLabelStyle}"/>
+                            </DockPanel>
+                            <Slider Minimum="1" Maximum="10"
+                                    Value="{Binding IdleTimeout, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ToolTip="{DynamicResource L_IdleTimeoutHint}"
+                                    TickFrequency="0.1" SmallChange="0.1" LargeChange="1"
                                     IsSnapToTickEnabled="True" Margin="0,4,0,0"/>
-                            <TextBlock Text="{DynamicResource L_StepHint}" FontSize="12.5" TextWrapping="Wrap"
-                                       Margin="0,3,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+
+                            <CheckBox IsChecked="{Binding PauseOnIdle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      ToolTip="{DynamicResource L_IdleTimeoutHint}" Margin="0,12,0,0">
+                                <TextBlock Text="{DynamicResource L_PauseOnIdle}" TextWrapping="Wrap"/>
+                            </CheckBox>
 
                             <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,13,0,12"/>
 
@@ -419,8 +434,10 @@
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button Content="{DynamicResource L_Stop}" Command="{Binding StopCommand}"
+                        ToolTip="{DynamicResource L_StopHint}"
                         Style="{StaticResource SubtleButtonStyle}" MinWidth="104" Margin="0,0,8,0"/>
                 <Button Content="{DynamicResource L_Start}" Command="{Binding StartCommand}"
+                        ToolTip="{DynamicResource L_StartHint}"
                         Style="{StaticResource AccentButtonStyle}" MinWidth="132"/>
             </StackPanel>
         </Grid>

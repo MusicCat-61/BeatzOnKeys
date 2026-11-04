@@ -5,37 +5,38 @@ using BeatzOnKeys.Core.Services;
 
 namespace BeatzOnKeys.Core.Audio;
 
-/// <summary>Keeps the hook callback tiny and performs audio work on one cancellable worker.</summary>
+/// <summary>The global hook only wakes a worker; gain/output changes stay off the input thread.</summary>
 public sealed class TypingPlaybackService : IAsyncDisposable
 {
     private readonly IKeyboardHook _keyboardHook;
     private readonly PlaybackController _playbackController;
-    private readonly IAudioFragmentPlayer _player;
+    private readonly IContinuousAudioPlayer _player;
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
     private readonly object _playbackGate = new();
     private Channel<byte>? _keyEvents;
     private CancellationTokenSource? _workerCancellation;
     private Task? _worker;
-    private Exception? _pendingFailure;
+    private PlaybackFailureEventArgs? _pendingFailure;
+    private long _sessionId;
+    private int _pendingKey;
+    private PlaybackEndedEventArgs? _pendingTrackEnd;
     private int _isRunning;
     private bool _disposed;
 
-    public TypingPlaybackService(
-        IKeyboardHook keyboardHook,
-        PlaybackController playbackController,
-        IAudioFragmentPlayer player)
+    public TypingPlaybackService(IKeyboardHook keyboardHook, PlaybackController playbackController, IContinuousAudioPlayer player)
     {
         _keyboardHook = keyboardHook;
         _playbackController = playbackController;
         _player = player;
         _keyboardHook.KeyDown += OnKeyDown;
         _player.PlaybackFailed += OnAudioFailed;
+        _player.TrackEnded += OnTrackEnded;
     }
 
     public event Action<PlaybackFailureEventArgs>? PlaybackFailed;
     public bool IsRunning => Volatile.Read(ref _isRunning) != 0;
+    public long SessionId => Volatile.Read(ref _sessionId);
 
-    /// <summary>Serialize UI selection and decoder changes with the key worker.</summary>
     public bool SelectTrack(Guid trackId, bool restart = true)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -44,11 +45,12 @@ public sealed class TypingPlaybackService : IAsyncDisposable
             var track = _playbackController.GetTrack(trackId);
             if (track is null) { return false; }
             var duration = _player.LoadTrack(track);
-            if (duration != track.Duration)
-            {
-                _playbackController.UpsertTrack(track with { Duration = duration });
-            }
-            return _playbackController.SelectTrack(trackId, restart);
+            if (duration != track.Duration) { _playbackController.UpsertTrack(track with { Duration = duration }); }
+            Interlocked.Exchange(ref _pendingFailure, null);
+            Interlocked.Exchange(ref _pendingTrackEnd, null);
+            if (!_playbackController.SelectTrack(trackId, restart)) { return false; }
+            if (IsRunning) { _player.Start(); }
+            return true;
         }
     }
 
@@ -56,6 +58,8 @@ public sealed class TypingPlaybackService : IAsyncDisposable
     {
         lock (_playbackGate)
         {
+            Interlocked.Exchange(ref _pendingFailure, null);
+            Interlocked.Exchange(ref _pendingTrackEnd, null);
             _player.Unload();
             _playbackController.Deselect();
         }
@@ -63,10 +67,15 @@ public sealed class TypingPlaybackService : IAsyncDisposable
 
     public void Unload()
     {
-        lock (_playbackGate) { _player.Unload(); }
+        lock (_playbackGate)
+        {
+            Interlocked.Exchange(ref _pendingFailure, null);
+            Interlocked.Exchange(ref _pendingTrackEnd, null);
+            _player.Unload();
+        }
     }
 
-    // Install/uninstall is deliberately performed on the caller's UI thread, which pumps hook messages.
+    // Install/uninstall runs on the caller's UI thread, which pumps Windows hook messages.
     public async Task StartAsync()
     {
         await _lifecycleGate.WaitAsync().ConfigureAwait(true);
@@ -77,35 +86,33 @@ public sealed class TypingPlaybackService : IAsyncDisposable
             if (_worker is not null) { await StopCoreAsync().ConfigureAwait(true); }
             lock (_playbackGate)
             {
-                var track = _playbackController.CurrentTrack ??
-                            throw new InvalidOperationException("Select a playable audio track first.");
-                _player.LoadTrack(track);
-                _player.PrepareOutput();
+                var track = _playbackController.CurrentTrack ?? throw new InvalidOperationException("Select a playable audio track first.");
+                var duration = _player.LoadTrack(track);
+                if (duration != track.Duration) { _playbackController.UpsertTrack(track with { Duration = duration }); }
             }
 
-            var events = Channel.CreateBounded<byte>(new BoundedChannelOptions(256)
+            // Coalesce bursts so delayed signals cannot prolong activity after typing has stopped.
+            var events = Channel.CreateBounded<byte>(new BoundedChannelOptions(1)
             {
-                FullMode = BoundedChannelFullMode.DropOldest,
-                SingleReader = true,
-                SingleWriter = false,
-                AllowSynchronousContinuations = false
+                FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true,
+                SingleWriter = false, AllowSynchronousContinuations = false
             });
             var cancellation = new CancellationTokenSource();
             _keyEvents = events;
             _workerCancellation = cancellation;
             _pendingFailure = null;
+            _pendingKey = 0;
+            _pendingTrackEnd = null;
+            var sessionId = Interlocked.Increment(ref _sessionId);
             Volatile.Write(ref _isRunning, 1);
-            _worker = Task.Run(() => ProcessKeysAsync(events.Reader, cancellation.Token));
+            _worker = Task.Run(() => ProcessEventsAsync(events.Reader, cancellation.Token, sessionId));
             try
             {
                 _keyboardHook.Install();
-                AppLogger.Info("playback", "Global keyboard audio scrubbing started.");
+                lock (_playbackGate) { _player.Start(); }
+                AppLogger.Info("playback", "Continuous typing-reactive playback started.");
             }
-            catch
-            {
-                await StopCoreAsync().ConfigureAwait(true);
-                throw;
-            }
+            catch { await StopCoreAsync().ConfigureAwait(true); throw; }
         }
         finally { _lifecycleGate.Release(); }
     }
@@ -126,75 +133,113 @@ public sealed class TypingPlaybackService : IAsyncDisposable
         _keyEvents = null;
         _workerCancellation?.Cancel();
         events?.Writer.TryComplete();
-        try
-        {
-            // Do not destroy the CTS/player until every previously queued key has been cancelled.
-            if (_worker is not null) { await _worker.ConfigureAwait(true); }
-        }
+        try { if (_worker is not null) { await _worker.ConfigureAwait(true); } }
         finally
         {
             _worker = null;
             _workerCancellation?.Dispose();
             _workerCancellation = null;
             _pendingFailure = null;
-            lock (_playbackGate) { _player.Pause(); }
+            _pendingKey = 0;
+            _pendingTrackEnd = null;
+            lock (_playbackGate) { _player.Stop(); }
         }
-        if (hadWorker) { AppLogger.Info("playback", "Global keyboard audio scrubbing stopped."); }
+        if (hadWorker) { AppLogger.Info("playback", "Continuous typing-reactive playback stopped."); }
     }
 
     private void OnKeyDown()
     {
-        if (IsRunning) { _keyEvents?.Writer.TryWrite(0); }
-    }
-
-    private void OnAudioFailed(Exception exception)
-    {
         if (!IsRunning) { return; }
-        Interlocked.CompareExchange(ref _pendingFailure, exception, null);
+        Interlocked.Exchange(ref _pendingKey, 1);
         _keyEvents?.Writer.TryWrite(0);
     }
 
-    private async Task ProcessKeysAsync(ChannelReader<byte> reader, CancellationToken cancellationToken)
+    private void OnAudioFailed(PlaybackFailureEventArgs failure)
     {
-        Exception? failure = null;
+        if (!IsRunning) { return; }
+        lock (_playbackGate)
+        {
+            if (!IsRunning || failure.PlaybackId != _player.PlaybackId) { return; }
+            Interlocked.CompareExchange(ref _pendingFailure, failure with { SessionId = SessionId }, null);
+            _keyEvents?.Writer.TryWrite(0);
+        }
+    }
+
+    private void OnTrackEnded(PlaybackEndedEventArgs ended)
+    {
+        if (!IsRunning) { return; }
+        lock (_playbackGate)
+        {
+            if (!IsRunning || ended.PlaybackId != _player.PlaybackId) { return; }
+            Interlocked.Exchange(ref _pendingTrackEnd, ended);
+            _keyEvents?.Writer.TryWrite(0);
+        }
+    }
+
+    private async Task ProcessEventsAsync(ChannelReader<byte> reader, CancellationToken cancellationToken, long sessionId)
+    {
+        PlaybackFailureEventArgs? failure = null;
         try
         {
             await foreach (var _ in reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (Interlocked.Exchange(ref _pendingFailure, null) is { } audioFailure) { throw audioFailure; }
                 lock (_playbackGate)
                 {
                     if (!IsRunning || cancellationToken.IsCancellationRequested) { break; }
-                    if (_playbackController.TryTakeNext(out var step) && step is not null)
+                    try
                     {
-                        _player.PlayFragment(step);
+                        var pending = Interlocked.Exchange(ref _pendingFailure, null);
+                        if (pending is not null && pending.PlaybackId == _player.PlaybackId)
+                        {
+                            failure = pending;
+                            // Select cannot start another track between observing failure and stopping this worker.
+                            Volatile.Write(ref _isRunning, 0);
+                            break;
+                        }
+                        var ended = Interlocked.Exchange(ref _pendingTrackEnd, null);
+                        var trackEnded = ended is not null && ended.PlaybackId == _player.PlaybackId;
+                        var keyPressed = Interlocked.Exchange(ref _pendingKey, 0) != 0;
+                        if (trackEnded && !_player.IsPlaying && !_player.IsIdlePaused &&
+                            _playbackController.TryAdvanceAtEnd(out var next) && next is not null)
+                        {
+                            var duration = _player.LoadTrack(next);
+                            if (duration != next.Duration) { _playbackController.UpsertTrack(next with { Duration = duration }); }
+                            _player.Start();
+                        }
+                        if (keyPressed) { _player.NotifyKeyPress(); }
                     }
-                    else
+                    catch (Exception exception)
                     {
-                        _player.Pause();
+                        failure = new(_playbackController.SelectedTrackId, exception) { PlaybackId = _player.PlaybackId, SessionId = sessionId };
+                        Volatile.Write(ref _isRunning, 0);
+                        break;
                     }
                 }
             }
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Normal Stop or shutdown.
-        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception)
         {
-            failure = exception;
+            lock (_playbackGate)
+            {
+                Volatile.Write(ref _isRunning, 0);
+                failure = new(_playbackController.SelectedTrackId, exception) { PlaybackId = _player.PlaybackId, SessionId = sessionId };
+            }
         }
         finally
         {
             Volatile.Write(ref _isRunning, 0);
-            try { lock (_playbackGate) { _player.Pause(); } }
-            catch (Exception exception) { failure ??= exception; }
+            try { lock (_playbackGate) { _player.Stop(); } }
+            catch (Exception exception)
+            {
+                failure ??= new(_playbackController.SelectedTrackId, exception) { PlaybackId = _player.PlaybackId, SessionId = sessionId };
+            }
         }
         if (failure is not null)
         {
-            AppLogger.Error("playback", "Audio scrubbing stopped after a playback failure.", failure);
-            try { PlaybackFailed?.Invoke(new PlaybackFailureEventArgs(_playbackController.SelectedTrackId, failure)); }
+            AppLogger.Error("playback", "Continuous playback stopped after an audio failure.", failure.Exception);
+            try { PlaybackFailed?.Invoke(failure); }
             catch (Exception exception) { AppLogger.Error("playback", "A failure subscriber failed.", exception); }
         }
     }
@@ -211,6 +256,7 @@ public sealed class TypingPlaybackService : IAsyncDisposable
             {
                 _keyboardHook.KeyDown -= OnKeyDown;
                 _player.PlaybackFailed -= OnAudioFailed;
+                _player.TrackEnded -= OnTrackEnded;
                 _keyboardHook.Dispose();
                 _player.Dispose();
             }

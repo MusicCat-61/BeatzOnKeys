@@ -18,16 +18,21 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly SettingsService _settingsService;
     private readonly PlaybackController _playbackController;
-    private readonly IAudioFragmentPlayer _audioPlayer;
+    private readonly IContinuousAudioPlayer _audioPlayer;
     private readonly TypingPlaybackService _typingPlayback;
     private readonly DispatcherTimer _saveTimer;
+    private readonly DispatcherTimer _playbackTimer;
     private readonly Guid? _savedSelectedTrackId;
     private readonly CancellationTokenSource _lifetime = new();
     private Task _fileImportTask = Task.CompletedTask;
     private TrackViewModel? _selectedTrack;
-    private PlaybackPositionEventArgs? _lastPosition;
-    private double _volume;
-    private double _stepSeconds;
+    private double _positionSeconds;
+    private double _durationSeconds;
+    private double _minVolume;
+    private double _maxVolume;
+    private double _idleTimeout;
+    private bool _pauseOnIdle;
+    private bool _trackEnded;
     private bool _autoAdvance;
     private bool _loop;
     private bool _isRunning;
@@ -41,25 +46,26 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private string _nowPlayingText = string.Empty;
 
     public MainViewModel(AppSettings settings, SettingsService settingsService,
-        IKeyboardHook? keyboardHook = null, IAudioFragmentPlayer? audioPlayer = null)
+        IKeyboardHook? keyboardHook = null, IContinuousAudioPlayer? audioPlayer = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         settings.Normalize();
         _settingsService = settingsService;
         _savedSelectedTrackId = settings.SelectedTrackId;
-        _volume = settings.Volume;
-        _stepSeconds = settings.StepSeconds;
+        _minVolume = Math.Clamp(settings.MinVolume, 0, 0.5);
+        _maxVolume = settings.MaxVolume;
+        _idleTimeout = settings.IdleTimeout;
+        _pauseOnIdle = settings.PauseOnIdle;
         _autoAdvance = settings.AutoAdvance;
         _loop = settings.Loop;
         _statusText = Loc.T("L_StatusRestoring");
-        _playbackController = new PlaybackController
-        {
-            Volume = _volume, StepSeconds = _stepSeconds, AutoAdvance = _autoAdvance, Loop = _loop
-        };
-        _audioPlayer = audioPlayer ?? new AudioFragmentPlayer();
-        _audioPlayer.Volume = _volume;
+        _playbackController = new PlaybackController { AutoAdvance = _autoAdvance, Loop = _loop };
+        _audioPlayer = audioPlayer ?? new ContinuousAudioPlayer();
+        _audioPlayer.MinVolume = _minVolume;
+        _audioPlayer.MaxVolume = _maxVolume;
+        _audioPlayer.IdleTimeout = _idleTimeout;
+        _audioPlayer.PauseOnIdle = _pauseOnIdle;
         _typingPlayback = new TypingPlaybackService(keyboardHook ?? new KeyboardHook(), _playbackController, _audioPlayer);
-        _playbackController.PositionChanged += OnPositionChanged;
         _playbackController.CurrentTrackChanged += OnPlaybackTrackChanged;
         _typingPlayback.PlaybackFailed += OnPlaybackFailed;
 
@@ -71,6 +77,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
         _saveTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(450) };
         _saveTimer.Tick += SaveTimerOnTick;
+        _playbackTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(100) };
+        _playbackTimer.Tick += PlaybackTimerOnTick;
         AddFilesCommand = new RelayCommand(() => FilePickerRequested?.Invoke(), () => !_closing && !_initializing);
         StartCommand = new AsyncRelayCommand(StartPlaybackAsync, CanStartPlayback);
         StopCommand = new AsyncRelayCommand(StopPlaybackAsync, () => IsRunning && !_changingPlayback);
@@ -84,6 +92,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         Tracks.CollectionChanged += OnTracksChanged;
         Loc.LanguageChanged += OnLanguageChanged;
         Theme.Changed += OnThemeChanged;
+        _playbackTimer.Start();
     }
 
     public ObservableCollection<TrackViewModel> Tracks { get; } = [];
@@ -122,42 +131,63 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
                 }
                 else { _typingPlayback.Deselect(); }
             }
+            _trackEnded = false;
+            RefreshPlaybackProgress();
             QueueSave();
             RefreshCommands();
         }
     }
 
     public string SelectedTrackText => SelectedTrack?.FileName ?? Loc.T("L_NoTrackSelected");
-    public double Volume
+    public double MaxVolume
     {
-        get => _volume;
+        get => _maxVolume;
         set
         {
-            var normalized = Math.Clamp(double.IsFinite(value) ? value : 0.7, 0, 1);
-            if (!SetProperty(ref _volume, normalized)) { return; }
-            _playbackController.Volume = normalized;
-            _audioPlayer.Volume = normalized;
-            OnPropertyChanged(nameof(VolumePercentValue));
-            OnPropertyChanged(nameof(VolumePercent));
+            var normalized = Math.Clamp(double.IsFinite(value) ? value : 1, 0, 1);
+            if (!SetProperty(ref _maxVolume, normalized)) { return; }
+            _audioPlayer.MaxVolume = normalized;
+            OnPropertyChanged(nameof(MaxVolumePercentValue));
+            OnPropertyChanged(nameof(MaxVolumePercent));
             QueueSave();
         }
     }
-    public double VolumePercentValue { get => Volume * 100; set => Volume = value / 100; }
-    public string VolumePercent => $"{Math.Round(Volume * 100):0}%";
-    public double StepSeconds
+    public double MaxVolumePercentValue { get => MaxVolume * 100; set => MaxVolume = value / 100; }
+    public string MaxVolumePercent => $"{Math.Round(MaxVolume * 100):0}%";
+    public double MinVolume
     {
-        get => _stepSeconds;
+        get => _minVolume;
         set
         {
-            var normalized = Math.Clamp(double.IsFinite(value) ? value : AppSettings.DefaultStepSeconds,
-                AppSettings.MinimumStepSeconds, AppSettings.MaximumStepSeconds);
-            if (!SetProperty(ref _stepSeconds, normalized)) { return; }
-            _playbackController.StepSeconds = normalized;
-            OnPropertyChanged(nameof(StepSecondsText));
+            var normalized = Math.Clamp(double.IsFinite(value) ? value : 0.2, 0, 0.5);
+            if (!SetProperty(ref _minVolume, normalized)) { return; }
+            // Keep configured limits independent; the player caps the effective minimum at MaxVolume.
+            _audioPlayer.MinVolume = normalized;
+            OnPropertyChanged(nameof(MinVolumePercentValue));
+            OnPropertyChanged(nameof(MinVolumePercent));
             QueueSave();
         }
     }
-    public string StepSecondsText => Loc.F("L_StepSecondsFormat", StepSeconds.ToString("0.00", CultureInfo.CurrentUICulture));
+    public double MinVolumePercentValue { get => MinVolume * 100; set => MinVolume = value / 100; }
+    public string MinVolumePercent => $"{Math.Round(MinVolume * 100):0}%";
+    public double IdleTimeout
+    {
+        get => _idleTimeout;
+        set
+        {
+            var normalized = Math.Clamp(double.IsFinite(value) ? value : 3, 1, 10);
+            if (!SetProperty(ref _idleTimeout, normalized)) { return; }
+            _audioPlayer.IdleTimeout = normalized;
+            OnPropertyChanged(nameof(IdleTimeoutText));
+            QueueSave();
+        }
+    }
+    public string IdleTimeoutText => Loc.F("L_IdleTimeoutSecondsFormat", IdleTimeout.ToString("0.#", CultureInfo.CurrentUICulture));
+    public bool PauseOnIdle
+    {
+        get => _pauseOnIdle;
+        set { if (SetProperty(ref _pauseOnIdle, value)) { _audioPlayer.PauseOnIdle = value; QueueSave(); } }
+    }
     public bool AutoAdvance
     {
         get => _autoAdvance;
@@ -181,10 +211,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public bool IsLightTheme => Theme.IsLight;
     public string StatusText { get => _statusText; private set => SetProperty(ref _statusText, value); }
     public string NowPlayingText { get => _nowPlayingText; private set => SetProperty(ref _nowPlayingText, value); }
-    public double PlaybackProgress => _lastPosition is { DurationSeconds: > 0 } position
-        ? Math.Clamp(position.PositionSeconds / position.DurationSeconds * 100, 0, 100) : 0;
-    public string PlaybackPositionText => $"{FormatPosition(_lastPosition?.PositionSeconds ?? 0)} / " +
-        FormatPosition(_lastPosition?.DurationSeconds ?? SelectedTrack?.Duration.TotalSeconds ?? 0);
+    public double PlaybackProgress => _durationSeconds > 0
+        ? Math.Clamp(_positionSeconds / _durationSeconds * 100, 0, 100) : 0;
+    public string PlaybackPositionText => $"{FormatPosition(_positionSeconds)} / {FormatPosition(_durationSeconds)}";
+    private string PlaybackStatusText => _trackEnded ? Loc.T("L_TrackEnded") :
+        IsRunning ? Loc.T(_audioPlayer.IsIdlePaused ? "L_StatusIdlePaused" : "L_StatusListening") : Loc.T("L_ReadyToType");
 
     public async Task InitializeAsync()
     {
@@ -192,6 +223,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         var saved = _savedSelectedTrackId is Guid id ? Tracks.FirstOrDefault(track => track.Id == id) : null;
         SelectedTrack = saved ?? Tracks.FirstOrDefault(track => track.IsAvailable) ?? Tracks.FirstOrDefault();
         _initializing = false;
+        RefreshPlaybackProgress();
         StatusText = Loc.T("L_ReadyToType");
         RefreshCommands();
         // Rewrite older settings as the new schema without discarding the user's playlist/preferences.
@@ -291,18 +323,21 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         try
         {
             SelectedTrack = track;
-            var ended = _playbackController.CurrentPosition >= track.Duration.TotalSeconds;
-            if (!_typingPlayback.SelectTrack(track.Id, restart: ended)) { return; }
+            if (!_typingPlayback.SelectTrack(track.Id, restart: true)) { return; }
             await _typingPlayback.StartAsync().ConfigureAwait(true);
-            IsRunning = true;
-            StatusText = Loc.T("L_StatusListening");
+            IsRunning = _typingPlayback.IsRunning;
+            _trackEnded = false;
+            RefreshPlaybackProgress();
+            StatusText = PlaybackStatusText;
+            if (!IsRunning) { return; }
             // Start persists preferences before leaving the visible window, even if debounce has not fired.
             await SaveAsync().ConfigureAwait(true);
+            if (!IsRunning || !_typingPlayback.IsRunning) { return; }
             HideToTrayRequested?.Invoke();
         }
         catch (Exception exception)
         {
-            AppLogger.Error("playback", "Failed to start audio scrubbing.", exception);
+            AppLogger.Error("playback", "Failed to start continuous playback.", exception);
             UserMessageRequested?.Invoke(Loc.F("L_StartFailedFormat", exception.Message));
         }
         finally { _changingPlayback = false; RefreshCommands(); }
@@ -313,11 +348,13 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _changingPlayback = true;
         RefreshCommands();
         try { await _typingPlayback.StopAsync().ConfigureAwait(true); }
-        catch (Exception exception) { AppLogger.Error("playback", "Could not stop audio scrubbing cleanly.", exception); }
+        catch (Exception exception) { AppLogger.Error("playback", "Could not stop continuous playback cleanly.", exception); }
         finally
         {
             IsRunning = false;
+            _trackEnded = false;
             _changingPlayback = false;
+            RefreshPlaybackProgress();
             StatusText = Loc.T("L_ReadyToType");
             RefreshCommands();
         }
@@ -349,8 +386,10 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _playbackController.Clear();
         Tracks.Clear();
         SelectedTrack = null;
-        Volume = 0.7;
-        StepSeconds = AppSettings.DefaultStepSeconds;
+        MaxVolume = 1;
+        MinVolume = 0.2;
+        IdleTimeout = 3;
+        PauseOnIdle = true;
         AutoAdvance = false;
         Loop = true;
         Loc.SetLanguage(Loc.DetectSystemLanguage());
@@ -365,7 +404,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     {
         var snapshot = new AppSettings
         {
-            Volume = Volume, StepSeconds = StepSeconds, AutoAdvance = AutoAdvance, Loop = Loop,
+            MinVolume = MinVolume, MaxVolume = MaxVolume, IdleTimeout = IdleTimeout, PauseOnIdle = PauseOnIdle,
+            AutoAdvance = AutoAdvance, Loop = Loop,
             SelectedTrackId = SelectedTrack?.Id, Language = Loc.CurrentCode, Theme = Theme.CurrentCode,
             Tracks = Tracks.Select(track => track.ToState()).ToList()
         };
@@ -373,17 +413,32 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         catch (Exception exception) { AppLogger.Error("settings", "Failed to save settings.", exception); }
     }
 
-    private void OnPositionChanged(PlaybackPositionEventArgs position) => RunOnUiThread(() =>
+    private void PlaybackTimerOnTick(object? sender, EventArgs args)
     {
-        if (_closing || position.TrackId != _playbackController.SelectedTrackId) { return; }
-        _lastPosition = position;
-        OnPropertyChanged(nameof(PlaybackPositionText));
-        OnPropertyChanged(nameof(PlaybackProgress));
-        NowPlayingText = position.TrackId is null ? string.Empty :
-            Loc.F("L_NowPlayingFormat", position.TrackName, FormatPosition(position.PositionSeconds), FormatPosition(position.DurationSeconds));
-        if (position.ReachedEnd) { StatusText = Loc.T("L_TrackEnded"); }
-        else if (IsRunning) { StatusText = Loc.T("L_StatusListening"); }
-    });
+        if (!_closing && !_initializing) { RefreshPlaybackProgress(); }
+    }
+
+    private void RefreshPlaybackProgress()
+    {
+        var position = _audioPlayer.Position.TotalSeconds;
+        var duration = _audioPlayer.Duration.TotalSeconds;
+        position = Math.Max(0, double.IsFinite(position) ? position : 0);
+        duration = double.IsFinite(duration) && duration > 0 ? duration : SelectedTrack?.Duration.TotalSeconds ?? 0;
+        if (_positionSeconds != position || _durationSeconds != duration)
+        {
+            _positionSeconds = position;
+            _durationSeconds = duration;
+            OnPropertyChanged(nameof(PlaybackPositionText));
+            OnPropertyChanged(nameof(PlaybackProgress));
+        }
+        NowPlayingText = _playbackController.SelectedTrackId is null || SelectedTrack is null ? string.Empty :
+            Loc.F("L_NowPlayingFormat", SelectedTrack.FileName, FormatPosition(position), FormatPosition(duration));
+        if (IsRunning)
+        {
+            _trackEnded = !_audioPlayer.IsPlaying && !_audioPlayer.IsIdlePaused && duration > 0 && position >= duration;
+            StatusText = PlaybackStatusText;
+        }
+    }
 
     private void OnPlaybackTrackChanged(PlaybackTrackChangedEventArgs args) => RunOnUiThread(() =>
     {
@@ -397,7 +452,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void OnPlaybackFailed(PlaybackFailureEventArgs args) => RunOnUiThread(async () =>
     {
-        if (_closing) { return; }
+        if (_closing || args.SessionId != _typingPlayback.SessionId) { return; }
         await StopPlaybackAsync().ConfigureAwait(true);
         StatusText = Loc.T("L_PlaybackStopped");
         if (args.Exception is IOException or UnauthorizedAccessException)
@@ -443,10 +498,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(IsRussian));
         OnPropertyChanged(nameof(TrackCountText));
         OnPropertyChanged(nameof(SelectedTrackText));
-        OnPropertyChanged(nameof(StepSecondsText));
-        if (_lastPosition is { } position) { OnPositionChanged(position); }
-        StatusText = _lastPosition?.ReachedEnd == true ? Loc.T("L_TrackEnded") :
-            IsRunning ? Loc.T("L_StatusListening") : Loc.T("L_ReadyToType");
+        OnPropertyChanged(nameof(IdleTimeoutText));
+        RefreshPlaybackProgress();
+        StatusText = PlaybackStatusText;
         StateChanged?.Invoke();
         QueueSave();
     }
@@ -481,6 +535,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         if (_disposed || _closing) { return; }
         _closing = true;
         _saveTimer.Stop();
+        _playbackTimer.Stop();
         _lifetime.Cancel();
         await _fileImportTask.ConfigureAwait(true);
         await StopPlaybackAsync().ConfigureAwait(true);
@@ -488,7 +543,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         Tracks.CollectionChanged -= OnTracksChanged;
         Loc.LanguageChanged -= OnLanguageChanged;
         Theme.Changed -= OnThemeChanged;
-        _playbackController.PositionChanged -= OnPositionChanged;
+        _saveTimer.Tick -= SaveTimerOnTick;
+        _playbackTimer.Tick -= PlaybackTimerOnTick;
         _playbackController.CurrentTrackChanged -= OnPlaybackTrackChanged;
         _typingPlayback.PlaybackFailed -= OnPlaybackFailed;
         await _typingPlayback.DisposeAsync().ConfigureAwait(true);

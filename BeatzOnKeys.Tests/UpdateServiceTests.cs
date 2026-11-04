@@ -17,18 +17,18 @@ internal static class UpdateServiceTests
         var assemblyVersion = AssertEx.NotNull(typeof(UpdateService).Assembly.GetName().Version);
         AssertEx.Equal(1, assemblyVersion.Major);
         AssertEx.Equal(0, assemblyVersion.Minor);
-        AssertEx.Equal(1, assemblyVersion.Build);
-        AssertEx.Equal("1.0.1", UpdateService.CurrentVersion.Display);
+        AssertEx.Equal(2, assemblyVersion.Build);
+        AssertEx.Equal("1.0.2", UpdateService.CurrentVersion.Display);
 
-        var current = Version("1.0.1");
-        var result = UpdateService.ParseRelease(ReleaseJson("v1.0.1"), current);
+        var current = Version("1.0.2");
+        var result = UpdateService.ParseRelease(ReleaseJson("v1.0.2"), current);
         AssertEx.Equal(UpdateStatus.UpToDate, result.Status);
         AssertEx.False(result.HasUpdate);
         AssertEx.Equal(current, result.Current);
         AssertEx.Equal(current, result.Latest);
-        AssertEx.Equal("v1.0.1", result.Tag);
+        AssertEx.Equal("v1.0.2", result.Tag);
         AssertEx.Equal(
-            "https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.1",
+            "https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.2",
             result.ReleaseUrl);
         return Task.CompletedTask;
     }

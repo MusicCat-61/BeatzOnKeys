@@ -104,7 +104,7 @@ try {
 
     if (-not (Test-Path -LiteralPath $getPipPath)) {
         Write-Host 'Downloading the official pip bootstrap...'
-        Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/pip/3.10/get-pip.py' -OutFile $getPipPath -UseBasicParsing
+        Invoke-WebRequest -Uri 'https://bootstrap.pypa.io/get-pip.py' -OutFile $getPipPath -UseBasicParsing
     }
 
     $stagingPython = Join-Path $stagingPath 'python.exe'

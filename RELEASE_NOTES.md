@@ -1,3 +1,22 @@
+# BeatzOnKeys 1.1.2
+
+## English
+
+1.1.2 makes the two failures that look like a broken player visible, and stops Start from freezing the window.
+
+- **An unwritable settings file is reported.** When the per-user settings cannot be saved, the app now says so once instead of silently losing the playlist and volume levels at the next launch.
+- **Inaudible output is explained.** If the Windows output is muted or below 20%, startup says so: at that level even the maximum typing volume is practically silent.
+- **Start no longer blocks the window.** Installing the keyboard watcher waits up to five seconds for it to report readiness; that handshake now runs in the background instead of on the UI thread.
+
+## Русский
+
+1.1.2 показывает две ошибки, из-за которых приложение кажется сломанным, и убирает зависание окна при запуске.
+
+- **Если настройки не записываются, это видно.** Когда файл настроек сохранить не удаётся, приложение сообщает об этом один раз, а не теряет плейлист и уровни громкости молча.
+- **Неслышимый вывод объясняется.** Если вывод Windows выключен или его громкость ниже 20%, при запуске появляется подсказка: на таком уровне не слышно даже максимальную громкость набора.
+- **«Старт» больше не блокирует окно.** Установка перехватчика клавиатуры ждёт его готовности до пяти секунд; теперь это ожидание идёт в фоне, а не в потоке интерфейса.
+
+---
 # BeatzOnKeys 1.1.1
 
 ## English

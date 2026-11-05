@@ -54,7 +54,7 @@ public partial class AboutWindow : Window
                 return parsed.Display;
             }
 
-            return assembly.GetName().Version?.ToString(3) ?? "1.1.1";
+            return assembly.GetName().Version?.ToString(3) ?? "1.1.2";
         }
     }
 

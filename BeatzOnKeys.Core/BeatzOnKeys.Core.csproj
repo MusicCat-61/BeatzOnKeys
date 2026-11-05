@@ -10,7 +10,7 @@
     <Product>BeatzOnKeys</Product>
     <Authors>MusicCat-61</Authors>
     <Description>Continuous audio playback with typing-reactive volume and idle pause for BeatzOnKeys.</Description>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

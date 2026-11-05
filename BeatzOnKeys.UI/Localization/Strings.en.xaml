@@ -63,6 +63,9 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_ResetTitle">Reset BeatzOnKeys?</sys:String>
     <sys:String x:Key="L_ResetMessage">This removes all tracks and saved settings. Your original audio files are not touched.</sys:String>
     <sys:String x:Key="L_Confirm">Reset</sys:String>
+    <sys:String x:Key="L_Yes">Yes</sys:String>
+    <sys:String x:Key="L_No">No</sys:String>
+    <sys:String x:Key="L_Ok">OK</sys:String>
     <sys:String x:Key="L_Keep">Keep everything</sys:String>
     <sys:String x:Key="L_ResetComplete">BeatzOnKeys was reset.</sys:String>
     <sys:String x:Key="L_TrayOpen">Open BeatzOnKeys</sys:String>

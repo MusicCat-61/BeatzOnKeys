@@ -63,6 +63,9 @@
     <sys:String x:Key="L_ResetTitle">Сбросить BeatzOnKeys?</sys:String>
     <sys:String x:Key="L_ResetMessage">Будут удалены все треки и настройки. Исходные аудиофайлы останутся нетронутыми.</sys:String>
     <sys:String x:Key="L_Confirm">Сбросить</sys:String>
+    <sys:String x:Key="L_Yes">Да</sys:String>
+    <sys:String x:Key="L_No">Нет</sys:String>
+    <sys:String x:Key="L_Ok">ОК</sys:String>
     <sys:String x:Key="L_Keep">Оставить всё</sys:String>
     <sys:String x:Key="L_ResetComplete">Настройки BeatzOnKeys сброшены.</sys:String>
     <sys:String x:Key="L_TrayOpen">Открыть BeatzOnKeys</sys:String>

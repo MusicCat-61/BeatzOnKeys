@@ -306,6 +306,8 @@ public sealed class KeyboardHook : IKeyboardHook
             try
             {
                 var data = Marshal.PtrToStructure<KbdLlHookStruct>(lParam);
+                // Nothing may log or block here: this is the hook thread, and blocking I/O makes
+                // Windows drop the hook for the whole desktop after LowLevelHooksTimeout.
                 if ((data.Flags & LlkfInjected) == 0 && !IsBareModifier(data.VirtualKey))
                 {
                     KeyDown?.Invoke();

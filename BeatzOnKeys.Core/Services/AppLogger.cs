@@ -74,6 +74,19 @@ public static class AppLogger
         {
             // Nothing else can be done without risking the caller.
         }
+
+        // Last resort: next to the executable, where a portable copy is usually writable.
+        try
+        {
+            var besideExe = Path.Combine(AppContext.BaseDirectory, $"beatzonkeys-crash-{now:yyyyMMdd}.log");
+            File.AppendAllText(besideExe,
+                $"{now:yyyy-MM-dd HH:mm:ss.fff zzz} [WRN] [log] Primary log unavailable: {_lastFailure}{Environment.NewLine}{line}",
+                Utf8);
+        }
+        catch
+        {
+            // Diagnostics are best effort; they must never take the app down.
+        }
     }
 
     private static void CleanupOldLogs()

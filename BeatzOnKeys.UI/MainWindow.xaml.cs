@@ -128,14 +128,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var answer = MessageBox.Show(
-            this,
-            Loc.T("L_ResetMessage"),
-            Loc.T("L_ResetTitle"),
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning,
-            MessageBoxResult.No);
-        if (answer == MessageBoxResult.Yes)
+        var answer = MessageDialog.Ask(this, Loc.T("L_ResetMessage"), Loc.T("L_ResetTitle"));
+        if (answer)
         {
             await ViewModel.ResetAsync().ConfigureAwait(true);
         }
@@ -191,7 +185,7 @@ public partial class MainWindow : Window
 
     private void ShowUserMessage(string message)
     {
-        MessageBox.Show(this, message, Loc.T("L_AppName"), MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageDialog.Notify(this, message, Loc.T("L_AppName"));
     }
 
     private void OnThemeChanged()

@@ -43,6 +43,7 @@ public sealed class WatcherKeyboardHook : IKeyboardHook
     private int _installed;
     private long _lastDeliveredTicks;
     private long _deliveredKeys;
+    private long _typingPresses;
     private bool _disposed;
 
     public WatcherKeyboardHook(string? pipeName = null, Func<string, string[], Process?>? startWatcher = null)
@@ -159,6 +160,12 @@ public sealed class WatcherKeyboardHook : IKeyboardHook
                         continue;
                     }
                     if (value != WatcherProtocol.KeyPress || !IsInstalled) { continue; }
+                    var presses = Interlocked.Increment(ref _typingPresses);
+                    if (presses is 1 or 10 or 50 || presses % 200 == 0)
+                    {
+                        BeatzOnKeys.Core.Services.AppLogger.Info("input",
+                            $"Typing key press #{presses} delivered to playback.");
+                    }
                     try { KeyDown?.Invoke(); }
                     catch { /* A subscriber must never break the pipe. */ }
                 }

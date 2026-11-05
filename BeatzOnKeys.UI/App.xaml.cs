@@ -172,17 +172,30 @@ public partial class App : System.Windows.Application
         _trayIcon.Visible = true;
         _mainWindow.Hide();
         AppLogger.Info("ui", $"Window hidden to tray; playback running={_viewModel?.IsRunning == true}; pid={Environment.ProcessId}.");
+
+        // A balloon is a hint that never blocks typing or playback; a modal dialog would freeze
+        // the app until dismissed, which is exactly what this app must not do.
         ShowTrayNotice(Loc.T("L_TrayHint"));
     }
 
     public void ShowMainWindow()
     {
-        if (_mainWindow is null)
+        if (_mainWindow is null || _isExiting)
         {
             return;
         }
 
-        _mainWindow.Show();
+        // The window is only ever hidden, but guard anyway: Show() on a closed window throws.
+        try
+        {
+            _mainWindow.Show();
+        }
+        catch (InvalidOperationException exception)
+        {
+            AppLogger.Error("ui", "The main window can no longer be shown.", exception);
+            return;
+        }
+
         if (_mainWindow.WindowState == WindowState.Minimized)
         {
             _mainWindow.WindowState = WindowState.Normal;
@@ -406,12 +419,10 @@ public partial class App : System.Windows.Application
             StopActivationListener();
             _singleInstance?.Dispose();
             _singleInstance = null;
-            if (_mainWindow is not null)
-            {
-                _mainWindow.AllowClose = true;
-                _mainWindow.Close();
-            }
 
+            // Deliberately do NOT Close() the window. MusicCatRGB keeps it alive and relies on
+            // Shutdown(); closing it here makes any later Show() by the tray throw
+            // "cannot set Visibility ... after a Window has been closed".
             Shutdown(0);
         }
     }

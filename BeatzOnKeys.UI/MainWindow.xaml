@@ -18,7 +18,8 @@
         SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Ideal"
         AllowDrop="True"
-        StateChanged="Window_StateChanged">
+        StateChanged="Window_StateChanged"
+        PreviewKeyDown="Window_PreviewKeyDown">
 
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0" ResizeBorderThickness="6"
@@ -87,6 +88,11 @@
                     </StackPanel>
                 </Border>
 
+                <Button Style="{StaticResource IconButtonStyle}" Click="GuideClick"
+                        ToolTip="{DynamicResource L_Guide}" Margin="0,0,4,0"
+                        AutomationProperties.Name="{DynamicResource L_Guide}">
+                    <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE897;"/>
+                </Button>
                 <Button Style="{StaticResource IconButtonStyle}" Command="{Binding ToggleThemeCommand}"
                         ToolTip="{DynamicResource L_Theme}" Margin="0,0,4,0">
                     <TextBlock>

@@ -116,6 +116,21 @@ public partial class MainWindow : Window
     private void AboutClick(object sender, RoutedEventArgs eventArgs) =>
         ((App)System.Windows.Application.Current).ShowAboutWindow();
 
+    private void GuideClick(object sender, RoutedEventArgs eventArgs) =>
+        ((App)System.Windows.Application.Current).ShowGuideWindow();
+
+    /// <summary>F1 opens the reference without disturbing playback or the playlist.</summary>
+    private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs eventArgs)
+    {
+        if (eventArgs.Key != Key.F1)
+        {
+            return;
+        }
+
+        eventArgs.Handled = true;
+        GuideClick(sender, eventArgs);
+    }
+
     private void ToggleMaximize() =>
         WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
 

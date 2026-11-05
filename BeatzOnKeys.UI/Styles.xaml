@@ -391,6 +391,52 @@
         </Setter>
     </Style>
 
+    <Style x:Key="GuideSectionCard" TargetType="Border" BasedOn="{StaticResource CardStyle}">
+        <Setter Property="Margin" Value="0,0,0,12"/>
+        <Setter Property="Padding" Value="16,14,16,4"/>
+    </Style>
+
+    <Style x:Key="GuideItemTitleStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <Style x:Key="GuideItemTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Margin" Value="0,3,0,0"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="LineHeight" Value="19"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+    </Style>
+
+    <DataTemplate x:Key="GuideItemTemplate">
+        <Grid Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="18"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Ellipse Width="6" Height="6" Fill="{DynamicResource AccentBrush}"
+                     VerticalAlignment="Top" Margin="0,7,0,0"/>
+            <StackPanel Grid.Column="1">
+                <TextBlock Text="{Binding Title}" Style="{StaticResource GuideItemTitleStyle}"/>
+                <TextBlock Text="{Binding Text}" Style="{StaticResource GuideItemTextStyle}"/>
+            </StackPanel>
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="GuideSectionTemplate">
+        <Border Style="{StaticResource GuideSectionCard}">
+            <StackPanel>
+                <TextBlock Text="{Binding Title}" Style="{StaticResource SectionLabelStyle}"
+                           FontSize="14.5" Margin="0,0,0,10"/>
+                <ItemsControl ItemsSource="{Binding Items}" Focusable="False"
+                              ItemTemplate="{StaticResource GuideItemTemplate}"/>
+            </StackPanel>
+        </Border>
+    </DataTemplate>
+
     <Style TargetType="ToolTip">
         <Setter Property="Background" Value="{DynamicResource PopupBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>

@@ -34,6 +34,7 @@ BeatzOnKeys is written in C# with .NET 10 and WPF, with NAudio for decoding and 
 | 🔕 **Tray mode** | The window stays open after Start and hides only when you explicitly close it to the tray |
 | 💾 **Saved preferences** | Playlist, selection, volume levels, idle options, language, theme, auto-advance, and loop |
 | 🗒 **Logs and updates** | Daily UTF-8 diagnostics, quiet update checks, and SHA-256-verified downloads |
+| 📖 **Built-in guide** | One window explains every button, slider, switch, tray action, status, and path — open it with F1 |
 
 ## How it works
 

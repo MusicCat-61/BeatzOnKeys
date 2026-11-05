@@ -18,10 +18,12 @@ public partial class App : System.Windows.Application
     private MainViewModel? _viewModel;
     private MainWindow? _mainWindow;
     private AboutWindow? _aboutWindow;
+    private GuideWindow? _guideWindow;
     private Forms.NotifyIcon? _trayIcon;
     private Forms.ContextMenuStrip? _trayMenu;
     private Forms.ToolStripMenuItem? _openMenuItem;
     private Forms.ToolStripMenuItem? _aboutMenuItem;
+    private Forms.ToolStripMenuItem? _guideMenuItem;
     private Forms.ToolStripMenuItem? _stopMenuItem;
     private Forms.ToolStripMenuItem? _exitMenuItem;
     private DispatcherTimer? _updateTimer;
@@ -227,6 +229,24 @@ public partial class App : System.Windows.Application
         _aboutWindow.Activate();
     }
 
+    /// <summary>Opens the reference window; a second request just focuses the open one.</summary>
+    public void ShowGuideWindow()
+    {
+        if (_guideWindow is not null)
+        {
+            _guideWindow.Activate();
+            return;
+        }
+
+        _guideWindow = new GuideWindow
+        {
+            Owner = _mainWindow?.IsVisible == true ? _mainWindow : null
+        };
+        _guideWindow.Closed += (_, _) => _guideWindow = null;
+        _guideWindow.Show();
+        _guideWindow.Activate();
+    }
+
     private void SetupTrayIcon()
     {
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "BeatzOnKeys.ico");
@@ -238,6 +258,8 @@ public partial class App : System.Windows.Application
         _openMenuItem.Click += (_, _) => ShowMainWindow();
         _aboutMenuItem = new Forms.ToolStripMenuItem();
         _aboutMenuItem.Click += (_, _) => ShowAboutWindow();
+        _guideMenuItem = new Forms.ToolStripMenuItem();
+        _guideMenuItem.Click += (_, _) => ShowGuideWindow();
         _stopMenuItem = new Forms.ToolStripMenuItem();
         _stopMenuItem.Click += (_, _) =>
         {
@@ -252,6 +274,7 @@ public partial class App : System.Windows.Application
         _trayMenu = new Forms.ContextMenuStrip();
         _trayMenu.Items.AddRange([
             _openMenuItem,
+            _guideMenuItem,
             _aboutMenuItem,
             new Forms.ToolStripSeparator(),
             _stopMenuItem,
@@ -310,6 +333,11 @@ public partial class App : System.Windows.Application
         if (_aboutMenuItem is not null)
         {
             _aboutMenuItem.Text = Loc.T("L_About");
+        }
+
+        if (_guideMenuItem is not null)
+        {
+            _guideMenuItem.Text = Loc.T("L_Guide");
         }
 
         if (_stopMenuItem is not null)
@@ -426,6 +454,7 @@ public partial class App : System.Windows.Application
         _updateTimer?.Stop();
         _updateCancellation?.Cancel();
         _aboutWindow?.Close();
+        _guideWindow?.Close();
         try
         {
             if (_viewModel is not null)

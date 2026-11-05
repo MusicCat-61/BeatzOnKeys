@@ -109,4 +109,104 @@
     <sys:String x:Key="Upd_PreviousFailed">Предыдущее обновление установить не удалось. Откройте «О программе» и повторите попытку.</sys:String>
     <sys:String x:Key="Upd_NoReleaseYet">В репозитории пока нет опубликованных релизов.</sys:String>
     <sys:String x:Key="L_CloseDialog">Закрыть</sys:String>
+
+    <sys:String x:Key="Guide_WindowTitle">Гайд по BeatzOnKeys</sys:String>
+    <sys:String x:Key="L_Guide">Гайд</sys:String>
+    <sys:String x:Key="Guide_SecQuick">Быстрый старт</sys:String>
+    <sys:String x:Key="Guide_Q1T">1. Добавьте MP3 или WAV</sys:String>
+    <sys:String x:Key="Guide_Q1X">Перетащите файлы в верхнюю карточку или нажмите «Добавить файлы». Поддерживаются только существующие .mp3 и PCM .wav, повторно тот же файл не добавляется.</sys:String>
+    <sys:String x:Key="Guide_Q2T">2. Выберите трек</sys:String>
+    <sys:String x:Key="Guide_Q2X">Щёлкните строку в списке «Треки». Выбранный трек и его длительность показаны в карточке справа.</sys:String>
+    <sys:String x:Key="Guide_Q3T">3. Настройте уровни</sys:String>
+    <sys:String x:Key="Guide_Q3X">Ползунки громкости и таймаут простоя описаны ниже. Изменения сохраняются автоматически.</sys:String>
+    <sys:String x:Key="Guide_Q4T">4. Нажмите «Старт»</sys:String>
+    <sys:String x:Key="Guide_Q4X">Трек начинается с 0:00 на тихом уровне, окно остаётся открытым, перехват клавиатуры включается автоматически.</sys:String>
+    <sys:String x:Key="Guide_Q5T">5. Печатайте в любом приложении</sys:String>
+    <sys:String x:Key="Guide_Q5X">Обычная клавиша поднимает громкость за 50 мс; через 150 мс без ввода она плавно опускается за 200 мс.</sys:String>
+    <sys:String x:Key="Guide_Q6T">6. Сверните окно в трей</sys:String>
+    <sys:String x:Key="Guide_Q6X">Крестик не завершает программу, а скрывает окно: музыка и реакция на печать продолжают работать.</sys:String>
+
+    <sys:String x:Key="Guide_SecControls">Кнопки и элементы управления</sys:String>
+    <sys:String x:Key="Guide_StartT">Старт</sys:String>
+    <sys:String x:Key="Guide_StartX">Играет выбранный трек с начала на тихом уровне и включает перехват клавиатуры. Окно не закрывается. После «Стоп» следующий «Старт» снова начинает с 0:00.</sys:String>
+    <sys:String x:Key="Guide_StopT">Стоп</sys:String>
+    <sys:String x:Key="Guide_StopX">Останавливает музыку и снимает перехват клавиатуры. Пауза при простое — не остановка: она сохраняет позицию внутри текущего запуска.</sys:String>
+    <sys:String x:Key="Guide_ResetT">Сброс</sys:String>
+    <sys:String x:Key="Guide_ResetX">После подтверждения удаляет треки и сохранённые настройки. Исходные аудиофайлы на диске остаются нетронутыми.</sys:String>
+    <sys:String x:Key="Guide_AddT">Добавить файлы и перетаскивание</sys:String>
+    <sys:String x:Key="Guide_AddX">Открывает выбор файлов или принимает перетаскивание. Верхняя карточка — зона перетаскивания.</sys:String>
+    <sys:String x:Key="Guide_RemoveT">Удалить трек</sys:String>
+    <sys:String x:Key="Guide_RemoveX">Значок корзины справа от строки убирает запись из списка; сам файл на диске не удаляется.</sys:String>
+    <sys:String x:Key="Guide_GuideT">Гайд</sys:String>
+    <sys:String x:Key="Guide_GuideX">Открывает этот экран. Он же доступен по клавише F1 и из меню значка в области уведомлений.</sys:String>
+    <sys:String x:Key="Guide_LogsT">Логи</sys:String>
+    <sys:String x:Key="Guide_LogsX">Открывает папку с ежедневными журналами UTF-8 — они нужны, если что-то работает не так.</sys:String>
+    <sys:String x:Key="Guide_AboutT">О программе</sys:String>
+    <sys:String x:Key="Guide_AboutX">Показывает версию, автора, ссылки и кнопки проверки обновлений.</sys:String>
+    <sys:String x:Key="Guide_LangT">EN | RU</sys:String>
+    <sys:String x:Key="Guide_LangX">Переключает язык интерфейса сразу и сохраняет выбор.</sys:String>
+    <sys:String x:Key="Guide_ThemeT">Солнце и луна</sys:String>
+    <sys:String x:Key="Guide_ThemeX">Переключает светлую и тёмную тему. Выбор сохраняется.</sys:String>
+    <sys:String x:Key="Guide_WinT">Кнопки окна</sys:String>
+    <sys:String x:Key="Guide_WinX">Свернуть, развернуть или восстановить (двойной щелчок по заголовку) и скрыть в трей. Крестик программу не завершает.</sys:String>
+
+    <sys:String x:Key="Guide_SecSliders">Ползунки и уровни</sys:String>
+    <sys:String x:Key="Guide_MaxT">Максимальная громкость: 0–100%</sys:String>
+    <sys:String x:Key="Guide_MaxX">Уровень, до которого набор поднимает громкость. По умолчанию 100%. Это потолок: минимальная громкость не может оказаться выше.</sys:String>
+    <sys:String x:Key="Guide_MinT">Минимальная громкость: 0–50%</sys:String>
+    <sys:String x:Key="Guide_MinX">Тихий уровень, пока вы не печатаете. По умолчанию 20%. Действует меньшее из минимума и максимума.</sys:String>
+    <sys:String x:Key="Guide_IdleT">Таймаут простоя: 1–10 с</sys:String>
+    <sys:String x:Key="Guide_IdleX">Сколько секунд без ввода ждать перед паузой, если включено «Ставить на паузу при простое». По умолчанию 3 с.</sys:String>
+    <sys:String x:Key="Guide_ProgT">Полоса позиции</sys:String>
+    <sys:String x:Key="Guide_ProgX">Показывает позицию и длительность выбранного трека. Она только отображает: перемотки в приложении нет.</sys:String>
+    <sys:String x:Key="Guide_SysVolT">Важно: громкость Windows</sys:String>
+    <sys:String x:Key="Guide_SysVolX">Приложение умножает свой уровень на системную громкость. При 6% в системе даже 100% в приложении звучат почти беззвучно — проверьте громкость и мьют.</sys:String>
+
+    <sys:String x:Key="Guide_SecSwitches">Переключатели</sys:String>
+    <sys:String x:Key="Guide_PauseT">Ставить на паузу при простое</sys:String>
+    <sys:String x:Key="Guide_PauseX">Включено по умолчанию. После таймаута трек встаёт на паузу; первая же клавиша продолжает с той же позиции и сразу на максимальной громкости.</sys:String>
+    <sys:String x:Key="Guide_AutoT">Автоперелистывание треков</sys:String>
+    <sys:String x:Key="Guide_AutoX">В конце трека переходит к следующему доступному. Если выключено, трек остаётся в конце.</sys:String>
+    <sys:String x:Key="Guide_LoopT">Зацикливать воспроизведение</sys:String>
+    <sys:String x:Key="Guide_LoopX">Повторяет текущий трек. Вместе с автоперелистыванием повторяется весь список.</sys:String>
+    <sys:String x:Key="Guide_MatrixT">Поведение в конце трека</sys:String>
+    <sys:String x:Key="Guide_MatrixX">Авто выкл + повтор выкл — остаётся в конце. Авто выкл + повтор вкл — повтор текущего. Авто вкл + повтор выкл — следующий трек, после последнего стоп. Авто вкл + повтор вкл — следующий, после последнего — с начала списка.</sys:String>
+
+    <sys:String x:Key="Guide_SecTray">Область уведомлений (трей)</sys:String>
+    <sys:String x:Key="Guide_TrayIconT">Значок в области уведомлений</sys:String>
+    <sys:String x:Key="Guide_TrayIconX">Двойной щелчок по значку возвращает окно. Значок существует, пока программа запущена.</sys:String>
+    <sys:String x:Key="Guide_TrayMenuT">Меню значка</sys:String>
+    <sys:String x:Key="Guide_TrayMenuX">Открыть BeatzOnKeys, Гайд, О программе, Остановить воспроизведение и Выход. Выход действительно завершает программу.</sys:String>
+    <sys:String x:Key="Guide_TrayLaunchT">Повторный запуск</sys:String>
+    <sys:String x:Key="Guide_TrayLaunchX">Если программа уже работает, новый запуск поднимает её окно, а не открывает вторую копию.</sys:String>
+
+    <sys:String x:Key="Guide_SecStatus">Строка состояния</sys:String>
+    <sys:String x:Key="Guide_StatusT">Строка внизу окна</sys:String>
+    <sys:String x:Key="Guide_StatusX">«Готово» — можно начинать. «Играет» — трек идёт, печатайте. «Пауза при простое» — нажмите любую клавишу. «Трек закончился» — включите повтор или нажмите «Стоп», затем «Старт». Ниже показан текущий трек и его позиция.</sys:String>
+
+    <sys:String x:Key="Guide_SecKeys">Клавиатура</sys:String>
+    <sys:String x:Key="Guide_KeysT">Какие клавиши считаются набором</sys:String>
+    <sys:String x:Key="Guide_KeysX">Shift, Ctrl и Alt сами по себе игнорируются, как и CapsLock и клавиши Windows. Остальные клавиши, включая Enter, стрелки и Backspace, поднимают громкость.</sys:String>
+
+    <sys:String x:Key="Guide_SecPrivacy">Приватность</sys:String>
+    <sys:String x:Key="Guide_PrivacyT">Что видит перехватчик</sys:String>
+    <sys:String x:Key="Guide_PrivacyX">Только факт нажатия. Символы, буфер обмена, заголовки окон и имена программ не читаются и не записываются. Перехват работает только после «Старт».</sys:String>
+
+    <sys:String x:Key="Guide_SecTrouble">Если что-то не работает</sys:String>
+    <sys:String x:Key="Guide_NoSoundT">Нет звука</sys:String>
+    <sys:String x:Key="Guide_NoSoundX">Проверьте, что трек доступен, устройство вывода выбрано, системная громкость поднята и мьют снят. В простое приложение специально играет тихо.</sys:String>
+    <sys:String x:Key="Guide_QuietT">Слишком тихо в простое</sys:String>
+    <sys:String x:Key="Guide_QuietX">Поднимите минимальную громкость, помня, что она не может превышать максимальную.</sys:String>
+    <sys:String x:Key="Guide_PausesT">Неожиданные паузы</sys:String>
+    <sys:String x:Key="Guide_PausesX">Это таймаут простоя: увеличьте его или выключите «Ставить на паузу при простое».</sys:String>
+    <sys:String x:Key="Guide_HiddenT">Окно исчезло</sys:String>
+    <sys:String x:Key="Guide_HiddenX">Крестик скрывает окно в трей. Дважды щёлкните значок в области уведомлений или запустите BeatzOnKeys снова.</sys:String>
+    <sys:String x:Key="Guide_EndT">Трек остаётся в конце</sys:String>
+    <sys:String x:Key="Guide_EndX">Нажмите «Стоп», затем «Старт», включите повтор или автоперелистывание.</sys:String>
+    <sys:String x:Key="Guide_NotSavedT">Настройки не сохраняются</sys:String>
+    <sys:String x:Key="Guide_NotSavedX">Если папка профиля недоступна для записи, приложение сообщает об этом при запуске. Настройки хранятся в профиле пользователя.</sys:String>
+
+    <sys:String x:Key="Guide_SecFiles">Где лежат данные</sys:String>
+    <sys:String x:Key="Guide_FilesT">Пути</sys:String>
+    <sys:String x:Key="Guide_FilesX">%LOCALAPPDATA%\BeatzOnKeys\settings.json — настройки и плейлист; logs\ — ежедневные журналы; updates\ — подготовленные обновления. В папке программы достаточно одного BeatzOnKeys.exe.</sys:String>
 </ResourceDictionary>

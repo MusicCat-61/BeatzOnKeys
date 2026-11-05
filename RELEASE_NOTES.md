@@ -2,16 +2,18 @@
 
 ## English
 
-1.1.2 makes the two failures that look like a broken player visible, and stops Start from freezing the window.
+1.1.2 adds an in-app guide and makes the two failures that look like a broken player visible; Start also stops freezing the window.
 
+- **A built-in guide.** The new Guide window explains every button, slider, switch, tray action, status, and data path in the current language. Open it with the help button in the title bar, with **F1**, or from the tray menu.
 - **An unwritable settings file is reported.** When the per-user settings cannot be saved, the app now says so once instead of silently losing the playlist and volume levels at the next launch.
 - **Inaudible output is explained.** If the Windows output is muted or below 20%, startup says so: at that level even the maximum typing volume is practically silent.
 - **Start no longer blocks the window.** Installing the keyboard watcher waits up to five seconds for it to report readiness; that handshake now runs in the background instead of on the UI thread.
 
 ## Русский
 
-1.1.2 показывает две ошибки, из-за которых приложение кажется сломанным, и убирает зависание окна при запуске.
+1.1.2 добавляет встроенный гайд и показывает две ошибки, из-за которых приложение кажется сломанным; «Старт» больше не подвешивает окно.
 
+- **Встроенный гайд.** Новое окно «Гайд» описывает каждую кнопку, ползунок, переключатель, действие в трее, статус и путь к данным на текущем языке. Открывается кнопкой со знаком вопроса в заголовке, клавишей **F1** или из меню значка в области уведомлений.
 - **Если настройки не записываются, это видно.** Когда файл настроек сохранить не удаётся, приложение сообщает об этом один раз, а не теряет плейлист и уровни громкости молча.
 - **Неслышимый вывод объясняется.** Если вывод Windows выключен или его громкость ниже 20%, при запуске появляется подсказка: на таком уровне не слышно даже максимальную громкость набора.
 - **«Старт» больше не блокирует окно.** Установка перехватчика клавиатуры ждёт его готовности до пяти секунд; теперь это ожидание идёт в фоне, а не в потоке интерфейса.

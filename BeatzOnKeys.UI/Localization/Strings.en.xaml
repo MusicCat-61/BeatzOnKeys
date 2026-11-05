@@ -109,4 +109,104 @@ Details: {1}</sys:String>
     <sys:String x:Key="Upd_PreviousFailed">The previous update could not be installed. Open About and try again.</sys:String>
     <sys:String x:Key="Upd_NoReleaseYet">The repository has no published release yet.</sys:String>
     <sys:String x:Key="L_CloseDialog">Close</sys:String>
+
+    <sys:String x:Key="Guide_WindowTitle">BeatzOnKeys guide</sys:String>
+    <sys:String x:Key="L_Guide">Guide</sys:String>
+    <sys:String x:Key="Guide_SecQuick">Quick start</sys:String>
+    <sys:String x:Key="Guide_Q1T">1. Add MP3 or WAV files</sys:String>
+    <sys:String x:Key="Guide_Q1X">Drop files onto the top card or press Add files. Only existing .mp3 and PCM .wav files are accepted, and the same file is not added twice.</sys:String>
+    <sys:String x:Key="Guide_Q2T">2. Pick a track</sys:String>
+    <sys:String x:Key="Guide_Q2X">Click a row in the Tracks list. The selected track and its duration appear in the card on the right.</sys:String>
+    <sys:String x:Key="Guide_Q3T">3. Set the levels</sys:String>
+    <sys:String x:Key="Guide_Q3X">The volume sliders and the idle timeout are described below. Changes are saved automatically.</sys:String>
+    <sys:String x:Key="Guide_Q4T">4. Press Start</sys:String>
+    <sys:String x:Key="Guide_Q4X">The track starts at 0:00 at the quiet level, the window stays open, and keyboard capture is installed.</sys:String>
+    <sys:String x:Key="Guide_Q5T">5. Type in any application</sys:String>
+    <sys:String x:Key="Guide_Q5X">An ordinary key raises the volume over 50 ms; after 150 ms without input it falls back over 200 ms.</sys:String>
+    <sys:String x:Key="Guide_Q6T">6. Hide the window to the tray</sys:String>
+    <sys:String x:Key="Guide_Q6X">The close button does not quit: it hides the window while music and typing reactivity keep running.</sys:String>
+
+    <sys:String x:Key="Guide_SecControls">Buttons and controls</sys:String>
+    <sys:String x:Key="Guide_StartT">Start</sys:String>
+    <sys:String x:Key="Guide_StartX">Plays the selected track from the beginning at the quiet level and installs the keyboard hook. The window stays open. After Stop, the next Start begins at 0:00 again.</sys:String>
+    <sys:String x:Key="Guide_StopT">Stop</sys:String>
+    <sys:String x:Key="Guide_StopX">Stops the music and removes the keyboard hook. An idle pause is not a stop: it keeps the position of the current run.</sys:String>
+    <sys:String x:Key="Guide_ResetT">Reset</sys:String>
+    <sys:String x:Key="Guide_ResetX">After confirmation, removes the tracks and the saved settings. The original audio files on disk are untouched.</sys:String>
+    <sys:String x:Key="Guide_AddT">Add files and drag and drop</sys:String>
+    <sys:String x:Key="Guide_AddX">Opens the file picker or accepts a drop. The top card is the drop area.</sys:String>
+    <sys:String x:Key="Guide_RemoveT">Remove a track</sys:String>
+    <sys:String x:Key="Guide_RemoveX">The bin icon on a row removes the entry from the list; the file on disk stays.</sys:String>
+    <sys:String x:Key="Guide_GuideT">Guide</sys:String>
+    <sys:String x:Key="Guide_GuideX">Opens this screen. It is also available with F1 and from the notification-area menu.</sys:String>
+    <sys:String x:Key="Guide_LogsT">Logs</sys:String>
+    <sys:String x:Key="Guide_LogsX">Opens the folder with daily UTF-8 journals, which help when something misbehaves.</sys:String>
+    <sys:String x:Key="Guide_AboutT">About</sys:String>
+    <sys:String x:Key="Guide_AboutX">Shows the version, the author, links, and the update controls.</sys:String>
+    <sys:String x:Key="Guide_LangT">EN | RU</sys:String>
+    <sys:String x:Key="Guide_LangX">Switches the interface language immediately and remembers the choice.</sys:String>
+    <sys:String x:Key="Guide_ThemeT">Sun and moon</sys:String>
+    <sys:String x:Key="Guide_ThemeX">Switches the light and dark theme. The choice is saved.</sys:String>
+    <sys:String x:Key="Guide_WinT">Window buttons</sys:String>
+    <sys:String x:Key="Guide_WinX">Minimize, maximize or restore (double-click the title bar), and hide to the tray. The close button never quits the app.</sys:String>
+
+    <sys:String x:Key="Guide_SecSliders">Sliders and levels</sys:String>
+    <sys:String x:Key="Guide_MaxT">Maximum volume: 0–100%</sys:String>
+    <sys:String x:Key="Guide_MaxX">The level typing raises the volume to. Defaults to 100%. It is the ceiling: the quiet level can never exceed it.</sys:String>
+    <sys:String x:Key="Guide_MinT">Minimum volume: 0–50%</sys:String>
+    <sys:String x:Key="Guide_MinX">The quiet level while you are not typing. Defaults to 20%. The lower of the minimum and the maximum applies.</sys:String>
+    <sys:String x:Key="Guide_IdleT">Idle timeout: 1–10 s</sys:String>
+    <sys:String x:Key="Guide_IdleX">How many seconds without input to wait before pausing, when Pause on idle is on. Defaults to 3 s.</sys:String>
+    <sys:String x:Key="Guide_ProgT">Position bar</sys:String>
+    <sys:String x:Key="Guide_ProgX">Shows the position and duration of the selected track. It only reports: the app has no seeking.</sys:String>
+    <sys:String x:Key="Guide_SysVolT">Important: the Windows volume</sys:String>
+    <sys:String x:Key="Guide_SysVolX">The app multiplies its own level by the system volume. At 6% system level even 100% in the app is practically silent, so check the volume and the mute state.</sys:String>
+
+    <sys:String x:Key="Guide_SecSwitches">Switches</sys:String>
+    <sys:String x:Key="Guide_PauseT">Pause on idle</sys:String>
+    <sys:String x:Key="Guide_PauseX">On by default. After the timeout the track pauses; the first key resumes at the same position and immediately at the maximum level.</sys:String>
+    <sys:String x:Key="Guide_AutoT">Advance to the next track</sys:String>
+    <sys:String x:Key="Guide_AutoX">At the end of a track, continue with the next available one. Without it the track stays at its end.</sys:String>
+    <sys:String x:Key="Guide_LoopT">Loop playback</sys:String>
+    <sys:String x:Key="Guide_LoopX">Repeats the current track. Together with auto-advance the whole list repeats.</sys:String>
+    <sys:String x:Key="Guide_MatrixT">Behaviour at the end of a track</sys:String>
+    <sys:String x:Key="Guide_MatrixX">Advance off + loop off: stays at the end. Advance off + loop on: repeats the current track. Advance on + loop off: next track, stop after the last. Advance on + loop on: next track, and the list wraps to its start.</sys:String>
+
+    <sys:String x:Key="Guide_SecTray">Notification area (tray)</sys:String>
+    <sys:String x:Key="Guide_TrayIconT">The tray icon</sys:String>
+    <sys:String x:Key="Guide_TrayIconX">Double-click the icon to bring the window back. The icon exists while the app runs.</sys:String>
+    <sys:String x:Key="Guide_TrayMenuT">The icon menu</sys:String>
+    <sys:String x:Key="Guide_TrayMenuX">Open BeatzOnKeys, Guide, About, Stop playback, and Exit. Exit really quits the app.</sys:String>
+    <sys:String x:Key="Guide_TrayLaunchT">Launching again</sys:String>
+    <sys:String x:Key="Guide_TrayLaunchX">When the app already runs, a second launch restores its window instead of starting another copy.</sys:String>
+
+    <sys:String x:Key="Guide_SecStatus">Status line</sys:String>
+    <sys:String x:Key="Guide_StatusT">The line at the bottom</sys:String>
+    <sys:String x:Key="Guide_StatusX">Ready means you can start. Playing means the track runs and typing raises the volume. Idle paused means press any key. Track ended means enable loop or press Stop, then Start. The current track and position appear below it.</sys:String>
+
+    <sys:String x:Key="Guide_SecKeys">Keyboard</sys:String>
+    <sys:String x:Key="Guide_KeysT">Which keys count as typing</sys:String>
+    <sys:String x:Key="Guide_KeysX">Shift, Ctrl, and Alt alone are ignored, as are CapsLock and the Windows keys. Every other key, including Enter, the arrows, and Backspace, raises the volume.</sys:String>
+
+    <sys:String x:Key="Guide_SecPrivacy">Privacy</sys:String>
+    <sys:String x:Key="Guide_PrivacyT">What the hook sees</sys:String>
+    <sys:String x:Key="Guide_PrivacyX">Only that a key was pressed. Characters, the clipboard, window titles, and application names are never read or recorded. The hook runs only after Start.</sys:String>
+
+    <sys:String x:Key="Guide_SecTrouble">If something does not work</sys:String>
+    <sys:String x:Key="Guide_NoSoundT">No sound</sys:String>
+    <sys:String x:Key="Guide_NoSoundX">Check that the track is available, an output device is selected, the Windows volume is up, and nothing is muted. While idle the app deliberately plays quietly.</sys:String>
+    <sys:String x:Key="Guide_QuietT">Too quiet while idle</sys:String>
+    <sys:String x:Key="Guide_QuietX">Raise the minimum volume, remembering that it cannot exceed the maximum.</sys:String>
+    <sys:String x:Key="Guide_PausesT">Unexpected pauses</sys:String>
+    <sys:String x:Key="Guide_PausesX">That is the idle timeout: raise it or turn Pause on idle off.</sys:String>
+    <sys:String x:Key="Guide_HiddenT">The window disappeared</sys:String>
+    <sys:String x:Key="Guide_HiddenX">The close button hides the window to the tray. Double-click the tray icon, or launch BeatzOnKeys again.</sys:String>
+    <sys:String x:Key="Guide_EndT">The track stays at its end</sys:String>
+    <sys:String x:Key="Guide_EndX">Press Stop, then Start, or enable loop or auto-advance.</sys:String>
+    <sys:String x:Key="Guide_NotSavedT">Settings are not saved</sys:String>
+    <sys:String x:Key="Guide_NotSavedX">When the profile folder is not writable the app says so at startup. Settings live in the user profile.</sys:String>
+
+    <sys:String x:Key="Guide_SecFiles">Where the data lives</sys:String>
+    <sys:String x:Key="Guide_FilesT">Paths</sys:String>
+    <sys:String x:Key="Guide_FilesX">%LOCALAPPDATA%\BeatzOnKeys\settings.json holds the settings and playlist; logs\ keeps daily journals; updates\ stages verified updates. The program folder only needs BeatzOnKeys.exe.</sys:String>
 </ResourceDictionary>

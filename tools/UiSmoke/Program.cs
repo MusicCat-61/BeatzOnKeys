@@ -192,6 +192,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 "Rendered playlist has filename/path/duration/extension only.");
             await Section("lifecycle.audio", AudioLifecycleAsync);
             await Section("render.matrix", CaptureMatrixAsync);
+            await Section("guide", GuideAsync);
             await Section("autoAdvance", AutoAdvanceAsync);
             await Section("missingTrack", MissingTrackAsync);
             await Section("settings.roundtrip", SettingsRoundtripAsync);
@@ -475,6 +476,40 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         await SettleAsync();
     }
 
+    /// <summary>The guide is a real window: it must open, render every control, and follow the language switch.</summary>
+    private async Task GuideAsync()
+    {
+        app.ShowGuideWindow();
+        await SettleAsync();
+        var guide = GetField<GuideWindow>(app, "_guideWindow");
+        Check("guide.opens", guide is not null && guide.IsVisible,
+            $"visible={guide?.IsVisible}; actual={guide?.ActualWidth}x{guide?.ActualHeight}.");
+        if (guide is null) { return; }
+
+        await UntilAsync(() => Descendants<TextBlock>(guide).Any(text => text.Text == Loc.T("Guide_SecQuick")), 4000, "guide content");
+        var english = Descendants<TextBlock>(guide).Where(text => text.IsVisible).Select(text => text.Text ?? "").ToArray();
+        var described = new[] { "Guide_StartT", "Guide_StopT", "Guide_ResetT", "Guide_MaxT", "Guide_MinT", "Guide_IdleT",
+            "Guide_PauseT", "Guide_AutoT", "Guide_LoopT", "Guide_TrayMenuT", "Guide_StatusT", "Guide_NoSoundT" };
+        var missing = described.Where(key => !english.Contains(Loc.T(key))).ToArray();
+        Check("guide.coversEveryControl", missing.Length == 0 && english.Length > 40,
+            $"{english.Length} visible labels; missing: {string.Join(", ", missing)}.");
+        SaveScreenshot(guide, $"guide-{Theme.CurrentCode}-en.png");
+
+        _vm!.SetLanguageCommand.Execute("ru");
+        await SettleAsync();
+        var russian = Descendants<TextBlock>(guide).Where(text => text.IsVisible).Select(text => text.Text ?? "").ToArray();
+        Check("guide.followsLanguage", russian.Contains(Loc.T("Guide_SecQuick")) && russian.Contains(Loc.T("Guide_MaxT")) &&
+            !russian.Contains("Quick start"), "The open guide re-renders its sections after the language switch.");
+        SaveScreenshot(guide, $"guide-{Theme.CurrentCode}-ru.png");
+        _vm.SetLanguageCommand.Execute("en");
+        await SettleAsync();
+
+        guide.Close();
+        await SettleAsync();
+        Check("guide.closed", GetField<GuideWindow>(app, "_guideWindow") is null && !guide.IsVisible,
+            "The App clears its guide window slot when the user closes it.");
+    }
+
     private async Task CaptureAboutAsync(bool light)
     {
         app.ShowAboutWindow();
@@ -509,7 +544,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     private void CheckResourceReferences(Window window, string label)
     {
         var missing = new HashSet<string>();
-        foreach (var filename in new[] { "MainWindow.xaml", "AboutWindow.xaml", "Styles.xaml" })
+        foreach (var filename in new[] { "MainWindow.xaml", "AboutWindow.xaml", "GuideWindow.xaml", "Styles.xaml" })
         {
             var text = File.ReadAllText(Path.Combine(root, "BeatzOnKeys.UI", filename));
             foreach (Match match in Regex.Matches(text, @"\{(?:Static|Dynamic)Resource\s+([^}\s]+)\}"))
@@ -518,11 +553,11 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 if (window.TryFindResource(key) is null) missing.Add(key);
             }
         }
-        foreach (var filename in new[] { "App.xaml.cs", "MainWindow.xaml.cs", "AboutWindow.xaml.cs",
+        foreach (var filename in new[] { "App.xaml.cs", "MainWindow.xaml.cs", "AboutWindow.xaml.cs", "GuideWindow.xaml.cs",
             "ViewModels/MainViewModel.cs", "ViewModels/TrackViewModel.cs" })
         {
             var text = File.ReadAllText(Path.Combine(root, "BeatzOnKeys.UI", filename));
-            foreach (Match match in Regex.Matches(text, "\\\"((?:L_|About_|Upd_)[A-Za-z0-9_]+)\\\""))
+            foreach (Match match in Regex.Matches(text, "\\\"((?:L_|About_|Upd_|Guide_)[A-Za-z0-9_]+)\\\""))
             {
                 var key = match.Groups[1].Value;
                 if (window.TryFindResource(key) is null) missing.Add(key);
@@ -713,6 +748,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     {
         var about = GetField<AboutWindow>(app, "_aboutWindow");
         about?.Close();
+        GetField<GuideWindow>(app, "_guideWindow")?.Close();
         if (_window is not null) { _window.AllowClose = true; _window.Close(); }
         if (_vm is not null) _vm.StateChanged -= UpdateTray;
         foreach (var vm in _ownedModels.ToArray())

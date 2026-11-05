@@ -125,7 +125,8 @@ internal sealed class ProductionTraySmoke(string session)
             Check("production.crossHides", !_window.IsVisible && tray?.Visible == true && _vm.IsRunning,
                 $"hidden={!_window.IsVisible}; tray={tray?.Visible}; service={service.IsRunning}; watcher={_hook?.HasWatcher}");
             if (probe is not null) { await ProbeDeliveryAsync(probe, "hidden"); }
-            await UntilAsync(() => _player.IsIdlePaused, 4000, "idle pause while hidden");
+            // Real keystrokes on the machine legitimately reset the idle timer, so allow room for them.
+            await UntilAsync(() => _player.IsIdlePaused, 12000, "idle pause while hidden");
             // Injected input is filtered in production, so a synthetic probe cannot prove the
             // user-typing path; this asserts the watcher stayed alive and owned by us.
             Check("production.hiddenWatcherAlive", !_window.IsVisible && _vm.IsRunning &&

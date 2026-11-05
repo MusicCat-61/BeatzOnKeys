@@ -36,6 +36,8 @@ internal static class Program
         ("KeyboardHook.ShutdownTimeoutDoesNotLoseCleanupOwnership", KeyboardHookTests.ShutdownTimeoutDoesNotLoseCleanupOwnership),
         ("KeyboardHook.PrivacyFilterForwardsButNeverPublishesInjectedOrModifierKeys", KeyboardHookTests.PrivacyFilterForwardsButNeverPublishesInjectedOrModifierKeys),
         ("KeyboardHook.MessageLoopFailureUnhooksAndAllowsRestart", KeyboardHookTests.MessageLoopFailureUnhooksAndAllowsRestart),
+        ("WatcherHook.KeyPressBytesSurfaceAsKeyDown", WatcherHookTests.KeyPressBytesSurfaceAsKeyDown),
+        ("WatcherHook.InstallFailsWhenNoWatcherConnects", WatcherHookTests.InstallFailsWhenNoWatcherConnects),
         ("TypingPlaybackService.StartRequiresTrackAndLifecycleHasOneWorker", TypingPlaybackServiceTests.StartRequiresTrackAndLifecycleHasOneWorker),
         ("TypingPlaybackService.StopAwaitsInFlightAndCancelsQueuedKeys", TypingPlaybackServiceTests.StopAwaitsInFlightAndCancelsQueuedKeys),
         ("TypingPlaybackService.FailedInstallAndStartRecoverWithoutOldWorker", TypingPlaybackServiceTests.FailedInstallAndStartRecoverWithoutOldWorker),

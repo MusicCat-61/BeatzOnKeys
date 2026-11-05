@@ -8,27 +8,27 @@ namespace BeatzOnKeys.Tests;
 internal static class UpdateServiceTests
 {
     private static readonly string ValidArchiveUrl =
-        "https://github.com/MusicCat-61/BeatzOnKeys/releases/download/v1.0.3/BeatzOnKeys-win-x64.zip";
+        "https://github.com/MusicCat-61/BeatzOnKeys/releases/download/v1.0.4/BeatzOnKeys-win-x64.zip";
     private static readonly string ValidChecksumUrl =
-        "https://github.com/MusicCat-61/BeatzOnKeys/releases/download/v1.0.3/BeatzOnKeys-win-x64.zip.sha256";
+        "https://github.com/MusicCat-61/BeatzOnKeys/releases/download/v1.0.4/BeatzOnKeys-win-x64.zip.sha256";
 
     public static Task ReleaseMetadataAndCurrentRelease()
     {
         var assemblyVersion = AssertEx.NotNull(typeof(UpdateService).Assembly.GetName().Version);
         AssertEx.Equal(1, assemblyVersion.Major);
         AssertEx.Equal(0, assemblyVersion.Minor);
-        AssertEx.Equal(3, assemblyVersion.Build);
-        AssertEx.Equal("1.0.3", UpdateService.CurrentVersion.Display);
+        AssertEx.Equal(4, assemblyVersion.Build);
+        AssertEx.Equal("1.0.4", UpdateService.CurrentVersion.Display);
 
-        var current = Version("1.0.3");
-        var result = UpdateService.ParseRelease(ReleaseJson("v1.0.3"), current);
+        var current = Version("1.0.4");
+        var result = UpdateService.ParseRelease(ReleaseJson("v1.0.4"), current);
         AssertEx.Equal(UpdateStatus.UpToDate, result.Status);
         AssertEx.False(result.HasUpdate);
         AssertEx.Equal(current, result.Current);
         AssertEx.Equal(current, result.Latest);
-        AssertEx.Equal("v1.0.3", result.Tag);
+        AssertEx.Equal("v1.0.4", result.Tag);
         AssertEx.Equal(
-            "https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.3",
+            "https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.4",
             result.ReleaseUrl);
         return Task.CompletedTask;
     }
@@ -38,7 +38,7 @@ internal static class UpdateServiceTests
         var current = Version("1.0.1");
         var available = UpdateService.ParseRelease(
             ReleaseJson(
-                "v1.0.3",
+                "v1.0.4",
                 assets:
                 [
                     new FixtureAsset(UpdateService.AssetFileName, ValidArchiveUrl, 123_456),
@@ -47,13 +47,13 @@ internal static class UpdateServiceTests
             current);
         AssertEx.Equal(UpdateStatus.UpdateAvailable, available.Status);
         AssertEx.True(available.HasUpdate);
-        AssertEx.Equal("1.0.3", AssertEx.NotNull(available.Latest).Display);
+        AssertEx.Equal("1.0.4", AssertEx.NotNull(available.Latest).Display);
         AssertEx.Equal(ValidArchiveUrl, available.DownloadUrl);
         AssertEx.Equal(ValidChecksumUrl, available.ChecksumUrl);
         AssertEx.Equal(123_456L, available.AssetSize);
         AssertEx.Null(available.Error);
 
-        var noAssets = UpdateService.ParseRelease(ReleaseJson("v1.0.3"), current);
+        var noAssets = UpdateService.ParseRelease(ReleaseJson("v1.0.4"), current);
         AssertEx.Equal(UpdateStatus.NoDownload, noAssets.Status);
         AssertEx.False(noAssets.HasUpdate);
         AssertEx.Null(noAssets.DownloadUrl);
@@ -62,7 +62,7 @@ internal static class UpdateServiceTests
 
         var withoutChecksum = UpdateService.ParseRelease(
             ReleaseJson(
-                "v1.0.3",
+                "v1.0.4",
                 assets: [new FixtureAsset(UpdateService.AssetFileName, ValidArchiveUrl, 44)]),
             current);
         AssertEx.Equal(UpdateStatus.NoDownload, withoutChecksum.Status);
@@ -75,11 +75,11 @@ internal static class UpdateServiceTests
     public static Task DraftPrereleaseAndInvalidVersion()
     {
         var current = Version("1.0.1");
-        var draft = UpdateService.ParseRelease(ReleaseJson("v1.0.3", draft: true), current);
+        var draft = UpdateService.ParseRelease(ReleaseJson("v1.0.4", draft: true), current);
         AssertEx.Equal(UpdateStatus.NoReleases, draft.Status);
         AssertEx.Equal(current, draft.Current);
 
-        var prerelease = UpdateService.ParseRelease(ReleaseJson("v1.0.3", prerelease: true), current);
+        var prerelease = UpdateService.ParseRelease(ReleaseJson("v1.0.4", prerelease: true), current);
         AssertEx.Equal(UpdateStatus.NoReleases, prerelease.Status);
         AssertEx.Equal(current, prerelease.Current);
 
@@ -131,17 +131,17 @@ internal static class UpdateServiceTests
         var current = Version("1.0.1");
         var spoofedUrls = new[]
         {
-            "http://github.com/MusicCat-61/BeatzOnKeys/releases/download/v1.0.3/BeatzOnKeys-win-x64.zip",
-            "https://github.com.evil.example/MusicCat-61/BeatzOnKeys/releases/download/v1.0.3/BeatzOnKeys-win-x64.zip",
-            "https://github.com@evil.example/MusicCat-61/BeatzOnKeys/releases/download/v1.0.3/BeatzOnKeys-win-x64.zip",
-            "https://github.com/MusicCat-61/Other/releases/download/v1.0.3/BeatzOnKeys-win-x64.zip"
+            "http://github.com/MusicCat-61/BeatzOnKeys/releases/download/v1.0.4/BeatzOnKeys-win-x64.zip",
+            "https://github.com.evil.example/MusicCat-61/BeatzOnKeys/releases/download/v1.0.4/BeatzOnKeys-win-x64.zip",
+            "https://github.com@evil.example/MusicCat-61/BeatzOnKeys/releases/download/v1.0.4/BeatzOnKeys-win-x64.zip",
+            "https://github.com/MusicCat-61/Other/releases/download/v1.0.4/BeatzOnKeys-win-x64.zip"
         };
 
         foreach (var spoofedUrl in spoofedUrls)
         {
             var spoofed = UpdateService.ParseRelease(
                 ReleaseJson(
-                    "v1.0.3",
+                    "v1.0.4",
                     assets:
                     [
                         new FixtureAsset(UpdateService.AssetFileName, spoofedUrl, 10),
@@ -155,7 +155,7 @@ internal static class UpdateServiceTests
 
         var spoofedChecksum = UpdateService.ParseRelease(
             ReleaseJson(
-                "v1.0.3",
+                "v1.0.4",
                 assets:
                 [
                     new FixtureAsset(UpdateService.AssetFileName, ValidArchiveUrl, 10),
@@ -174,25 +174,25 @@ internal static class UpdateServiceTests
     public static Task TagLocationValidation()
     {
         AssertEx.Equal(
-            "v1.0.3",
+            "v1.0.4",
             UpdateService.TagFromLocation(
-                new Uri("https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.3")));
+                new Uri("https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.4")));
         AssertEx.Equal(
-            "v1.0.3",
+            "v1.0.4",
             UpdateService.TagFromLocation(
-                new Uri("https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.3/")));
+                new Uri("https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.4/")));
         AssertEx.Null(UpdateService.TagFromLocation(
             new Uri("https://github.com/MusicCat-61/BeatzOnKeys/releases")));
         AssertEx.Null(UpdateService.TagFromLocation(
-            new Uri("https://github.com/MusicCat-61/Other/releases/tag/v1.0.3")));
+            new Uri("https://github.com/MusicCat-61/Other/releases/tag/v1.0.4")));
         AssertEx.Null(UpdateService.TagFromLocation(
-            new Uri("https://example.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.3")));
+            new Uri("https://example.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.4")));
         AssertEx.Null(UpdateService.TagFromLocation(
-            new Uri("/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.3", UriKind.Relative)));
+            new Uri("/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.4", UriKind.Relative)));
         AssertEx.Null(UpdateService.TagFromLocation(
             new Uri("https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/latest")));
         AssertEx.Null(UpdateService.TagFromLocation(
-            new Uri("https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.3/extra")));
+            new Uri("https://github.com/MusicCat-61/BeatzOnKeys/releases/tag/v1.0.4/extra")));
         return Task.CompletedTask;
     }
 

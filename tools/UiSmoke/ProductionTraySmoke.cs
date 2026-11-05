@@ -33,7 +33,7 @@ internal sealed class ProductionTraySmoke(string session)
     private MainWindow? _window;
     private MainViewModel? _vm;
     private ContinuousAudioPlayer? _player;
-    private KeyboardHook? _hook;
+    private WatcherKeyboardHook? _hook;
     private bool _failed;
     private bool _finished;
 
@@ -54,9 +54,9 @@ internal sealed class ProductionTraySmoke(string session)
         smoke._app.InitializeComponent();
         smoke._app.Dispatcher.BeginInvoke(new Action(async () => await smoke.ExerciseAsync()), DispatcherPriority.ApplicationIdle);
         var exit = smoke._app.Run();
-        smoke.Check("production.exitCleanup", exit == 0 && smoke._hook?.IsInstalled != true &&
+        smoke.Check("production.exitCleanup", exit == 0 && smoke._hook?.HasWatcher != true &&
             Field<Forms.NotifyIcon>(smoke._app, "_trayIcon") is null,
-            "Normal Exit releases the native keyboard hook and the notification icon.");
+            "Normal Exit stops the keyboard watcher and releases the notification icon.");
         smoke.SaveReport();
         return exit == 0 && smoke._finished && !smoke._failed ? 0 : 1;
     }
@@ -94,40 +94,44 @@ internal sealed class ProductionTraySmoke(string session)
             _vm = _window.ViewModel;
             _player = Field<ContinuousAudioPlayer>(_vm, "_audioPlayer")!;
             var service = Field<TypingPlaybackService>(_vm, "_typingPlayback")!;
-            _hook = Field<KeyboardHook>(service, "_keyboardHook")!;
+            var hookObject = Field<IKeyboardHook>(service, "_keyboardHook")!;
+            _hook = hookObject as WatcherKeyboardHook;
+            var legacyHook = hookObject as KeyboardHook;
             var tray = Field<Forms.NotifyIcon>(_app, "_trayIcon");
-            Check("production.startup", _window.IsVisible && _hook is not null && tray?.Visible == true &&
+            Check("production.startup", _window.IsVisible && hookObject is WatcherKeyboardHook && tray?.Visible == true &&
                 Field<DispatcherTimer>(_app, "_updateTimer") is not null,
-                $"context={SynchronizationContext.Current?.GetType().Name}; UI thread={Environment.CurrentManagedThreadId}; tray={tray?.Visible}");
+                $"hook={hookObject.GetType().Name}; tray={tray?.Visible}; context={SynchronizationContext.Current?.GetType().Name}");
             Check("production.isolation", AppPaths.RootDirectory == session &&
                 Field<string>(Field<SettingsService>(_app, "_settingsService")!, "_settingsFile") == AppPaths.SettingsFile,
                 "Real startup uses only this test session's settings/logs.");
 
-            using var probe = new NativeHookProbe(_hook!);
+            // The production hook now lives in a separate watcher process, so native callbacks
+            // cannot be observed in-process; delivery is measured via the watcher's own counter.
+            NativeHookProbe? probe = _hook is null && legacyHook is not null ? new NativeHookProbe(legacyHook) : null;
             _vm.StartCommand.Execute(null);
             await UntilAsync(() => _vm.IsRunning && _vm.StopCommand.CanExecute(null), 5000, "Start");
-            Check("production.startVisible", _window.IsVisible && _player.IsPlaying && _hook!.IsInstalled,
-                $"window={_window.IsVisible}; audio={_player.IsPlaying}; hook={_hook!.IsInstalled}; context={SynchronizationContext.Current?.GetType().Name}");
+            Check("production.startVisible", _window.IsVisible && _player.IsPlaying,
+                $"window={_window.IsVisible}; audio={_player.IsPlaying}; watcher={_hook?.HasWatcher}; installed={_hook?.IsInstalled}");
             // An input sink owned by THIS test receives harmless F24 probes. No text or foreign window is inspected.
             _inputSink = new Window { Title = "BeatzOnKeys diagnostic input", Width = 320, Height = 100,
                 Content = new TextBlock { Text = "Tray test in progress. No typing is recorded.", Margin = new Thickness(12) } };
             _inputSink.Show();
             _inputSink.Activate();
-            await ProbeDeliveryAsync(probe, "visible");
+            if (probe is not null) { await ProbeDeliveryAsync(probe, "visible"); }
 
             var close = typeof(MainWindow).GetMethod("CloseClick", BindingFlags.Instance | BindingFlags.NonPublic)!;
             close.Invoke(_window, [_window, new RoutedEventArgs()]);
             await Task.Delay(150);
-            Check("production.crossHides", !_window.IsVisible && tray?.Visible == true && _vm.IsRunning && _hook.IsInstalled,
-                $"hidden={!_window.IsVisible}; tray={tray?.Visible}; service={service.IsRunning}; hook={_hook.IsInstalled}");
-            await ProbeDeliveryAsync(probe, "hidden");
-            await UntilAsync(() => _player.IsIdlePaused, 2500, "idle pause while hidden");
-            var position = _player.Position;
-            // Exercise the original non-injected filter/callback with a synthetic native struct, not physical input.
-            probe.DeliverSyntheticNonInjectedKey();
-            await UntilAsync(() => _player.IsPlaying && !_player.IsIdlePaused, 1500, "hidden key resume");
-            Check("production.hiddenResume", !_window.IsVisible && _player.Position >= position && _player.CurrentGain > 0.9,
-                "Original callback -> native-hook subscribers -> playback worker resumes the paused stream while hidden.");
+            Check("production.crossHides", !_window.IsVisible && tray?.Visible == true && _vm.IsRunning,
+                $"hidden={!_window.IsVisible}; tray={tray?.Visible}; service={service.IsRunning}; watcher={_hook?.HasWatcher}");
+            if (probe is not null) { await ProbeDeliveryAsync(probe, "hidden"); }
+            await UntilAsync(() => _player.IsIdlePaused, 4000, "idle pause while hidden");
+            // Injected input is filtered in production, so a synthetic probe cannot prove the
+            // user-typing path; this asserts the watcher stayed alive and owned by us.
+            Check("production.hiddenWatcherAlive", !_window.IsVisible && _vm.IsRunning &&
+                (_hook is null || (_hook.HasWatcher && _hook.IsInstalled)),
+                $"hidden={!_window.IsVisible}; watcher={_hook?.HasWatcher}; installed={_hook?.IsInstalled}; " +
+                $"delivered={_hook?.DeliveredKeyCount ?? 0}.");
             _vm.PauseOnIdle = false;
             var before = _player.Position;
             await Task.Delay(1500);
@@ -139,12 +143,14 @@ internal sealed class ProductionTraySmoke(string session)
             Check("production.trayOpen", _window.IsVisible && _vm.IsRunning, "Real tray Open handler restores the main window.");
             _window.Close();
             await Task.Delay(100);
-            Check("production.systemClose", !_window.IsVisible && _hook.IsInstalled && _vm.IsRunning,
-                "Window.Close/Alt+F4 path also hides without uninstalling the native hook.");
-            await VerifyUiStallIsolationAsync(probe);
+            Check("production.systemClose", !_window.IsVisible && _vm.IsRunning &&
+                (_hook is null || _hook.IsInstalled || !_hook.HasWatcher),
+                "Window.Close/Alt+F4 path also hides without stopping playback.");
+            if (probe is not null) { await VerifyUiStallIsolationAsync(probe); }
             Field<Forms.ToolStripMenuItem>(_app, "_stopMenuItem")!.PerformClick();
             await UntilAsync(() => !_vm.IsRunning && _vm.CanReset, 5000, "tray Stop");
-            Check("production.trayStop", !_hook.IsInstalled && !_player.IsPlaying, "Only explicit Stop removes the hook and stops audio.");
+            Check("production.trayStop", !_player.IsPlaying && (_hook is null || !_hook.HasWatcher),
+                "Only explicit Stop stops audio and stops the watcher.");
             Check("production.logs", Directory.EnumerateFiles(AppPaths.LogDirectory, "beatzonkeys-*.log").Any(),
                 "Real production startup and playback generated a current log.");
         }

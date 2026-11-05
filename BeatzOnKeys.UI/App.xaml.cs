@@ -86,6 +86,7 @@ public partial class App : System.Windows.Application
         _trayIcon.Visible = true;
         _mainWindow.Hide();
         AppLogger.Info("ui", $"Window hidden to tray; playback running={_viewModel?.IsRunning == true}; pid={Environment.ProcessId}.");
+        ShowTrayNotice(Loc.T("L_TrayHint"));
     }
 
     public void ShowMainWindow()

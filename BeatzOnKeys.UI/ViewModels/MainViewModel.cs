@@ -65,7 +65,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _audioPlayer.MaxVolume = _maxVolume;
         _audioPlayer.IdleTimeout = _idleTimeout;
         _audioPlayer.PauseOnIdle = _pauseOnIdle;
-        _typingPlayback = new TypingPlaybackService(keyboardHook ?? new KeyboardHook(), _playbackController, _audioPlayer);
+        _typingPlayback = new TypingPlaybackService(keyboardHook ?? new WatcherKeyboardHook(), _playbackController, _audioPlayer);
         _playbackController.CurrentTrackChanged += OnPlaybackTrackChanged;
         _typingPlayback.PlaybackFailed += OnPlaybackFailed;
 

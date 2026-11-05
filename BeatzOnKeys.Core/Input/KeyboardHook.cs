@@ -29,6 +29,7 @@ public sealed class KeyboardHook : IKeyboardHook
     private readonly int _lifecycleTimeoutMilliseconds;
     private HookSession? _session;
     private int _isInstalled;
+    private long _delivered;
     private bool _disposed;
 
     public KeyboardHook() : this(new Win32Api(), TimeSpan.FromSeconds(5)) { }
@@ -48,6 +49,16 @@ public sealed class KeyboardHook : IKeyboardHook
     }
 
     public event Action? KeyDown;
+
+    /// <summary>
+    /// Raised for every delivered key-down, including injected and modifier keys, before any
+    /// filtering. The watcher uses it to prove to the app that the native hook is live; no key
+    /// code, text, or window title leaves this class.
+    /// </summary>
+    public event Action? AnyKeyDown;
+
+    /// <summary>Deliveries observed by the current session; proves the hook is being called.</summary>
+    public long DeliveredCount => Interlocked.Read(ref _delivered);
 
     // This is our lifecycle state, not a Windows guarantee against silent hook removal.
     public bool IsInstalled => Volatile.Read(ref _isInstalled) != 0;
@@ -289,6 +300,9 @@ public sealed class KeyboardHook : IKeyboardHook
     {
         if (IsInstalled && code >= 0 && (wParam == WmKeyDown || wParam == WmSysKeyDown))
         {
+            try { AnyKeyDown?.Invoke(); }
+            catch { /* liveness observers must never break the hook */ }
+            Interlocked.Increment(ref _delivered);
             try
             {
                 var data = Marshal.PtrToStructure<KbdLlHookStruct>(lParam);

@@ -75,7 +75,7 @@ public sealed class TypingPlaybackService : IAsyncDisposable
         }
     }
 
-    // The real hook owns its message loop; the caller context still serializes UI lifecycle changes.
+    // The production hook lives in a separate watcher process; the caller context still serializes lifecycle changes.
     public async Task StartAsync()
     {
         await _lifecycleGate.WaitAsync().ConfigureAwait(true);

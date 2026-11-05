@@ -68,6 +68,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_TrayOpen">Open BeatzOnKeys</sys:String>
     <sys:String x:Key="L_TrayStop">Stop playback</sys:String>
     <sys:String x:Key="L_TrayExit">Exit</sys:String>
+    <sys:String x:Key="L_TrayHint">BeatzOnKeys is still running in the notification area. Double-click its icon to restore the window.</sys:String>
     <sys:String x:Key="L_TrayText">BeatzOnKeys — typing becomes music</sys:String>
     <sys:String x:Key="L_FileDialogTitle">Choose audio tracks</sys:String>
     <sys:String x:Key="L_FileDialogFilter">Audio files (*.mp3;*.wav)|*.mp3;*.wav|MP3 files (*.mp3)|*.mp3|WAV files (*.wav)|*.wav</sys:String>

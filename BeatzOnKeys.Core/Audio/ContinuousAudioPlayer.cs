@@ -225,6 +225,7 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
                 _output!.Play();
                 _isPlaying = true;
                 _isIdlePaused = false;
+                AppLogger.Info("audio", "Playback resumed by a key press after the idle pause.");
             }
             ArmIdleCore();
         }

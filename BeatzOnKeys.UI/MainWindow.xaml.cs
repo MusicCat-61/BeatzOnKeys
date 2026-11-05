@@ -26,7 +26,6 @@ public partial class MainWindow : Window
         ViewModel = viewModel;
         DataContext = viewModel;
         viewModel.FilePickerRequested += OpenFilePicker;
-        viewModel.HideToTrayRequested += HideToTray;
         viewModel.UserMessageRequested += ShowUserMessage;
         Theme.Changed += OnThemeChanged;
     }
@@ -56,7 +55,6 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs eventArgs)
     {
         ViewModel.FilePickerRequested -= OpenFilePicker;
-        ViewModel.HideToTrayRequested -= HideToTray;
         ViewModel.UserMessageRequested -= ShowUserMessage;
         Theme.Changed -= OnThemeChanged;
         base.OnClosed(eventArgs);

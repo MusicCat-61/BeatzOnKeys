@@ -75,7 +75,7 @@ public sealed class TypingPlaybackService : IAsyncDisposable
         }
     }
 
-    // Install/uninstall runs on the caller's UI thread, which pumps Windows hook messages.
+    // The real hook owns its message loop; the caller context still serializes UI lifecycle changes.
     public async Task StartAsync()
     {
         await _lifecycleGate.WaitAsync().ConfigureAwait(true);

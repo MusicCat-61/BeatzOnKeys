@@ -104,7 +104,6 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand ToggleThemeCommand { get; }
     public RelayCommand OpenLogsCommand { get; }
     public event Action? FilePickerRequested;
-    public event Action? HideToTrayRequested;
     public event Action<string>? UserMessageRequested;
     public event Action? StateChanged;
 
@@ -330,10 +329,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             RefreshPlaybackProgress();
             StatusText = PlaybackStatusText;
             if (!IsRunning) { return; }
-            // Start persists preferences before leaving the visible window, even if debounce has not fired.
+            // Start persists preferences immediately even if debounce has not fired.
             await SaveAsync().ConfigureAwait(true);
-            if (!IsRunning || !_typingPlayback.IsRunning) { return; }
-            HideToTrayRequested?.Invoke();
         }
         catch (Exception exception)
         {

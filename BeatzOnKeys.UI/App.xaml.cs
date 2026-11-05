@@ -34,10 +34,10 @@ public partial class App : System.Windows.Application
         base.OnStartup(eventArgs);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         DispatcherUnhandledException += OnDispatcherUnhandledException;
-        AppLogger.Initialize();
-
         try
         {
+            AppLogger.Initialize();
+            AppLogger.Info("ui", $"Starting BeatzOnKeys {typeof(App).Assembly.GetName().Version}; pid={Environment.ProcessId}.");
             _settingsService = new SettingsService();
             var settings = await _settingsService.LoadAsync().ConfigureAwait(true);
             Loc.Initialize(settings.Language);
@@ -72,16 +72,20 @@ public partial class App : System.Windows.Application
 
     public void HideMainWindow()
     {
-        if (_mainWindow is null)
+        Dispatcher.VerifyAccess();
+        if (_mainWindow is null || _isExiting)
         {
             return;
         }
-
-        _mainWindow.Hide();
-        if (_trayIcon is not null)
+        if (_trayIcon is null)
         {
-            _trayIcon.Visible = true;
+            AppLogger.Warning("ui", "Window kept visible because the tray icon is not ready.");
+            return;
         }
+
+        _trayIcon.Visible = true;
+        _mainWindow.Hide();
+        AppLogger.Info("ui", $"Window hidden to tray; playback running={_viewModel?.IsRunning == true}; pid={Environment.ProcessId}.");
     }
 
     public void ShowMainWindow()
@@ -101,6 +105,7 @@ public partial class App : System.Windows.Application
         _mainWindow.Topmost = true;
         _mainWindow.Topmost = false;
         _mainWindow.Focus();
+        AppLogger.Info("ui", $"Window restored from tray; pid={Environment.ProcessId}.");
     }
 
     public void ShowAboutWindow()
@@ -325,6 +330,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs eventArgs)
     {
+        AppLogger.Info("ui", $"Application exiting; code={eventArgs.ApplicationExitCode}; pid={Environment.ProcessId}.");
         _updateTimer?.Stop();
         _updateCancellation?.Cancel();
         _updateCancellation?.Dispose();

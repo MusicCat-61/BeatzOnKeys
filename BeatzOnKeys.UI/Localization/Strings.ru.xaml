@@ -27,7 +27,7 @@
     <sys:String x:Key="L_IdleTimeoutHint">По умолчанию включено: пауза после указанного числа секунд без набора (по умолчанию: 3 с). Следующее нажатие мгновенно продолжает с той же позиции на максимальной громкости.</sys:String>
     <sys:String x:Key="L_PlaybackHint">«Старт» непрерывно играет трек с начала. Каждое нажатие, кроме Shift, Ctrl и Alt, повышает громкость за 50 мс; после 150 мс без ввода она снижается к минимуму за 200 мс.</sys:String>
     <sys:String x:Key="L_PlaybackSummary">Музыка играет непрерывно, а набор управляет громкостью.</sys:String>
-    <sys:String x:Key="L_StartHint">Играть выбранный трек с начала и скрыть окно в трей.</sys:String>
+    <sys:String x:Key="L_StartHint">Играть выбранный трек с начала и оставить окно открытым.</sys:String>
     <sys:String x:Key="L_StopHint">Остановить музыку и перехват клавиатуры. Следующий «Старт» играет с начала.</sys:String>
     <sys:String x:Key="L_AutoAdvance">Автоперелистывание треков</sys:String>
     <sys:String x:Key="L_AutoAdvanceHint">После конца переходить к следующему доступному треку</sys:String>
@@ -43,7 +43,7 @@
     <sys:String x:Key="L_Reset">Сброс</sys:String>
     <sys:String x:Key="L_Logs">Логи</sys:String>
     <sys:String x:Key="L_ReadyToType">Готово — нажмите «Старт»: музыка играет непрерывно, набор управляет громкостью</sys:String>
-    <sys:String x:Key="L_StatusListening">Играет в трее — печатайте в любом приложении, повышая громкость</sys:String>
+    <sys:String x:Key="L_StatusListening">Играет — печатайте в любом приложении, повышая громкость</sys:String>
     <sys:String x:Key="L_StatusIdlePaused">Пауза при простое — печатайте, чтобы продолжить отсюда на максимальной громкости</sys:String>
     <sys:String x:Key="L_StatusRestoring">Восстановление треков…</sys:String>
     <sys:String x:Key="L_PlaybackStopped">Воспроизведение остановлено.</sys:String>

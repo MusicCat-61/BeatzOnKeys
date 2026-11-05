@@ -27,7 +27,7 @@
     <sys:String x:Key="L_IdleTimeoutHint">Enabled by default: pause after this many seconds without typing (default: 3 s). The next key press instantly resumes at the same position and maximum volume.</sys:String>
     <sys:String x:Key="L_PlaybackHint">Start plays continuously from the beginning. Every key except Shift, Ctrl and Alt raises volume in 50 ms; after 150 ms without input, it fades to the minimum over 200 ms.</sys:String>
     <sys:String x:Key="L_PlaybackSummary">Music plays continuously; typing controls its volume.</sys:String>
-    <sys:String x:Key="L_StartHint">Play the selected track from the beginning and hide to the tray.</sys:String>
+    <sys:String x:Key="L_StartHint">Play the selected track from the beginning and keep the window open.</sys:String>
     <sys:String x:Key="L_StopHint">Stop music and keyboard monitoring. The next Start plays from the beginning.</sys:String>
     <sys:String x:Key="L_AutoAdvance">Auto-advance tracks</sys:String>
     <sys:String x:Key="L_AutoAdvanceHint">Move to the next available track when the current one ends</sys:String>
@@ -43,7 +43,7 @@
     <sys:String x:Key="L_Reset">Reset</sys:String>
     <sys:String x:Key="L_Logs">Logs</sys:String>
     <sys:String x:Key="L_ReadyToType">Ready — press Start for continuous music controlled by typing</sys:String>
-    <sys:String x:Key="L_StatusListening">Playing in the tray — type anywhere to raise the volume</sys:String>
+    <sys:String x:Key="L_StatusListening">Playing — type anywhere to raise the volume</sys:String>
     <sys:String x:Key="L_StatusIdlePaused">Paused while idle — type to resume here at maximum volume</sys:String>
     <sys:String x:Key="L_StatusRestoring">Restoring tracks…</sys:String>
     <sys:String x:Key="L_PlaybackStopped">Playback stopped.</sys:String>

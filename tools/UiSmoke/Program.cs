@@ -36,7 +36,7 @@ namespace BeatzOnKeys.UiSmoke;
 internal static class Program
 {
     // Launch from any directory: --root locates the source checkout, --session chooses a safe artifact leaf.
-    // No Application.Run, production OnStartup, physical typing, or old published executable is used.
+    // Default mode isolates UI rendering; --production-tray runs the actual App.Run/OnStartup and native hook path.
     [STAThread]
     public static int Main(string[] args)
     {
@@ -44,6 +44,7 @@ internal static class Program
         var leaf = GetArgument(args, "--session") ?? DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
         if (!Regex.IsMatch(leaf, @"^[A-Za-z0-9_-]+$"))
             throw new ArgumentException("--session must be a simple artifact directory name.");
+        if (args.Contains("--production-tray")) return ProductionTraySmoke.Run(root, leaf);
         var session = Path.Combine(root, "artifacts", "ui-smoke", leaf);
         Directory.CreateDirectory(session);
         // LoadComponent requires the exact App assembly, so use a real App, not an App subclass.
@@ -330,8 +331,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         var idleCheckbox = Descendants<CheckBox>(_window!).Single(c => BindingOperations.GetBinding(c, ToggleButton.IsCheckedProperty)?.Path?.Path == nameof(vm.PauseOnIdle));
         Check("idleCheckbox.bound", idleCheckbox.IsChecked == true, "Rendered PauseOnIdle checkbox is bound and enabled by default.");
         vm.StartCommand.Execute(null);
-        await UntilAsync(() => vm.IsRunning && !_window!.IsVisible && vm.StopCommand.CanExecute(null), 5000, "StartCommand");
-        Check("start.hiddenTrayHook", !_window!.IsVisible && Tray?.Visible == true && hook.IsInstalled && vm.IsRunning,
+        await UntilAsync(() => vm.IsRunning && _window!.IsVisible && vm.StopCommand.CanExecute(null), 5000, "StartCommand");
+        Check("start.windowStaysVisible", _window!.IsVisible && Tray?.Visible == true && hook.IsInstalled && vm.IsRunning,
             $"Visible={_window!.IsVisible}; tray={Tray?.Visible}; hook={hook.IsInstalled}; running={vm.IsRunning}.");
         var startPosition = player.Position;
         var startProgress = vm.PlaybackProgress;

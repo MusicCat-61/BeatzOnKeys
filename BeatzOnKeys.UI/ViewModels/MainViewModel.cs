@@ -42,6 +42,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private bool _selectionFromPlayback;
     private bool _closing;
     private bool _disposed;
+    private string? _storageWarning;
     private string _statusText;
     private string _nowPlayingText = string.Empty;
 
@@ -210,6 +211,12 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public bool IsLightTheme => Theme.IsLight;
     public string StatusText { get => _statusText; private set => SetProperty(ref _statusText, value); }
     public string NowPlayingText { get => _nowPlayingText; private set => SetProperty(ref _nowPlayingText, value); }
+
+    /// <summary>
+    /// Set once when a settings save fails, so startup can tell the user that preferences will
+    /// not survive a restart instead of losing them silently.
+    /// </summary>
+    public string? StorageWarning => _storageWarning;
     public double PlaybackProgress => _durationSeconds > 0
         ? Math.Clamp(_positionSeconds / _durationSeconds * 100, 0, 100) : 0;
     public string PlaybackPositionText => $"{FormatPosition(_positionSeconds)} / {FormatPosition(_durationSeconds)}";
@@ -407,7 +414,12 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             Tracks = Tracks.Select(track => track.ToState()).ToList()
         };
         try { await _settingsService.SaveAsync(snapshot).ConfigureAwait(true); }
-        catch (Exception exception) { AppLogger.Error("settings", "Failed to save settings.", exception); }
+        catch (Exception exception)
+        {
+            AppLogger.Error("settings", "Failed to save settings.", exception);
+            // Remember the first failure so the window can explain it once instead of staying silent.
+            _storageWarning ??= Loc.F("L_SettingsNotSavedFormat", AppPaths.SettingsFile);
+        }
     }
 
     private void PlaybackTimerOnTick(object? sender, EventArgs args)

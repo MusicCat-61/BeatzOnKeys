@@ -2,6 +2,7 @@ using System.Drawing;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using BeatzOnKeys.Core.Audio;
 using BeatzOnKeys.Core.Services;
 using BeatzOnKeys.Core.Updates;
 using BeatzOnKeys.UI.Localization;
@@ -134,6 +135,7 @@ public partial class App : System.Windows.Application
             _mainWindow.Activate();
             // Hiding the window must not end the process; only an explicit exit does.
             ShutdownMode = ShutdownMode.OnLastWindowClose;
+            NotifyStartupHints();
             SetupAutomaticUpdates();
             var previousUpdate = UpdateService.ConsumeLastApplyReport();
             if (previousUpdate is { Succeeded: false })
@@ -319,6 +321,31 @@ public partial class App : System.Windows.Application
         if (_exitMenuItem is not null)
         {
             _exitMenuItem.Text = Loc.T("L_TrayExit");
+        }
+    }
+
+    /// <summary>
+    /// Two conditions make a working player look broken: preferences that cannot be written and a
+    /// Windows output volume so low that nothing is audible. Both are reported once, as a balloon,
+    /// so the app never blocks on a dialog during startup.
+    /// </summary>
+    private void NotifyStartupHints()
+    {
+        var hints = new List<string>();
+        if (_viewModel?.StorageWarning is { Length: > 0 } storageWarning)
+        {
+            AppLogger.Warning("settings", storageWarning);
+            hints.Add(storageWarning);
+        }
+
+        if (SystemVolumeProbe.TryRead() is { } output && output.IsEffectivelySilent)
+        {
+            hints.Add(Loc.F("L_SystemVolumeLowFormat", output.Percent));
+        }
+
+        if (hints.Count > 0)
+        {
+            ShowTrayNotice(string.Join(Environment.NewLine, hints));
         }
     }
 

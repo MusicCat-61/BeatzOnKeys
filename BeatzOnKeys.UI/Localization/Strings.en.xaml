@@ -60,6 +60,8 @@
 Details: {1}</sys:String>
     <sys:String x:Key="L_NoTracks">Add at least one available track before starting.</sys:String>
     <sys:String x:Key="L_StartFailedFormat">Playback could not start: {0}</sys:String>
+    <sys:String x:Key="L_SettingsNotSavedFormat">Settings are not being saved: “{0}” is not writable. Tracks and volume levels will be lost on the next launch.</sys:String>
+    <sys:String x:Key="L_SystemVolumeLowFormat">Windows output volume is {0}%, so the music is practically inaudible. Raise it or unmute the mixer.</sys:String>
     <sys:String x:Key="L_ResetTitle">Reset BeatzOnKeys?</sys:String>
     <sys:String x:Key="L_ResetMessage">This removes all tracks and saved settings. Your original audio files are not touched.</sys:String>
     <sys:String x:Key="L_Confirm">Reset</sys:String>

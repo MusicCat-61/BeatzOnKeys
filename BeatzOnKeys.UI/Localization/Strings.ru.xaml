@@ -60,6 +60,8 @@
 Подробности: {1}</sys:String>
     <sys:String x:Key="L_NoTracks">Перед запуском добавьте хотя бы один доступный трек.</sys:String>
     <sys:String x:Key="L_StartFailedFormat">Не удалось запустить воспроизведение: {0}</sys:String>
+    <sys:String x:Key="L_SettingsNotSavedFormat">Настройки не сохраняются: нет записи в «{0}». При следующем запуске треки и уровни громкости восстановить не удастся.</sys:String>
+    <sys:String x:Key="L_SystemVolumeLowFormat">Системная громкость Windows — {0}%, поэтому музыку почти не слышно. Поднимите громкость или снимите мьют в микшере.</sys:String>
     <sys:String x:Key="L_ResetTitle">Сбросить BeatzOnKeys?</sys:String>
     <sys:String x:Key="L_ResetMessage">Будут удалены все треки и настройки. Исходные аудиофайлы останутся нетронутыми.</sys:String>
     <sys:String x:Key="L_Confirm">Сбросить</sys:String>

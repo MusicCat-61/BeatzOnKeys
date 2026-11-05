@@ -108,7 +108,10 @@ public sealed class TypingPlaybackService : IAsyncDisposable
             _worker = Task.Run(() => ProcessEventsAsync(events.Reader, cancellation.Token, sessionId));
             try
             {
-                _keyboardHook.Install();
+                // Installing the hook starts the watcher process and waits up to five seconds for
+                // it to report readiness. On a cold start that handshake used to run on the UI
+                // thread, so Start froze the window; wait for it off the UI thread instead.
+                await Task.Run(_keyboardHook.Install).ConfigureAwait(true);
                 lock (_playbackGate) { _player.Start(); }
                 AppLogger.Info("playback", "Continuous typing-reactive playback started.");
             }

@@ -69,6 +69,7 @@
     <sys:String x:Key="L_TrayStop">Остановить воспроизведение</sys:String>
     <sys:String x:Key="L_TrayExit">Выход</sys:String>
     <sys:String x:Key="L_TrayHint">BeatzOnKeys продолжает работать в области уведомлений. Дважды щёлкните её значок, чтобы вернуть окно.</sys:String>
+    <sys:String x:Key="L_AlreadyRunning">BeatzOnKeys уже запущена. Найдите её значок в области уведомлений.</sys:String>
     <sys:String x:Key="L_TrayText">BeatzOnKeys — набор текста становится музыкой</sys:String>
     <sys:String x:Key="L_FileDialogTitle">Выберите аудиотреки</sys:String>
     <sys:String x:Key="L_FileDialogFilter">Аудиофайлы (*.mp3;*.wav)|*.mp3;*.wav|Файлы MP3 (*.mp3)|*.mp3|Файлы WAV (*.wav)|*.wav</sys:String>

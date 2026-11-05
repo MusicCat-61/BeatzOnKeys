@@ -17,7 +17,7 @@ jobs:
           dotnet-version: 10.0.x
       - name: Run non-interactive test harness
         run: dotnet run --project BeatzOnKeys.Tests -c Release
-      - name: Build portable folder
+      - name: Build single-file executable
         shell: cmd
         run: |
           set "BOK_VERSION=%GITHUB_REF_NAME:~1%"
@@ -27,10 +27,14 @@ jobs:
         run: |
           Compress-Archive -Path Build_Output\* -DestinationPath BeatzOnKeys-win-x64.zip -CompressionLevel Optimal
           (Get-FileHash BeatzOnKeys-win-x64.zip -Algorithm SHA256).Hash + '  BeatzOnKeys-win-x64.zip' | Set-Content BeatzOnKeys-win-x64.zip.sha256
+          Copy-Item Build_Output\BeatzOnKeys.exe .\BeatzOnKeys.exe
+          (Get-FileHash BeatzOnKeys.exe -Algorithm SHA256).Hash + '  BeatzOnKeys.exe' | Set-Content BeatzOnKeys.exe.sha256
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
           body_path: RELEASE_NOTES.md
           files: |
+            BeatzOnKeys.exe
+            BeatzOnKeys.exe.sha256
             BeatzOnKeys-win-x64.zip
             BeatzOnKeys-win-x64.zip.sha256

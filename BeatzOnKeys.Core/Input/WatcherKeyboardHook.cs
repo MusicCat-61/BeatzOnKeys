@@ -224,13 +224,21 @@ public sealed class WatcherKeyboardHook : IKeyboardHook
 
     /// <summary>
     /// The watcher must always be the application executable, never a host such as a test
-    /// runner that happens to load the same assemblies.
+    /// runner that happens to load the same assemblies, and never the single-file extraction
+    /// folder (which holds no executable).
     /// </summary>
     private static string ResolveExecutablePath()
     {
+        var process = Environment.ProcessPath;
+        if (!string.IsNullOrEmpty(process) && File.Exists(process) &&
+            string.Equals(Path.GetFileName(process), "BeatzOnKeys.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            return process;
+        }
+
         var beside = Path.Combine(AppContext.BaseDirectory, "BeatzOnKeys.exe");
         if (File.Exists(beside)) { return beside; }
-        return Environment.ProcessPath ?? "BeatzOnKeys.exe";
+        return process ?? "BeatzOnKeys.exe";
     }
 
     private static Process? StartWatcherProcess(string executable, string[] arguments)

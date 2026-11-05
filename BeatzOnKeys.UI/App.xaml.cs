@@ -28,6 +28,63 @@ public partial class App : System.Windows.Application
     private string? _notifiedUpdateVersion;
     private Icon? _trayIconImage;
     private bool _isExiting;
+    private Mutex? _singleInstance;
+    private EventWaitHandle? _activateEvent;
+    private Thread? _activateThread;
+
+    private const string SingleInstanceName = @"Local\BeatzOnKeys.SingleInstance.v1";
+    private const string ActivateEventName = @"Local\BeatzOnKeys.Activate.v1";
+
+    /// <summary>
+    /// A second launch does not open a dialog: it signals this instance, which restores its
+    /// window from the tray. The listener is a background thread so no UI work blocks here.
+    /// </summary>
+    private void StartActivationListener()
+    {
+        try
+        {
+            _activateEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ActivateEventName);
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error("ui", "Could not create the single-instance activation event.", exception);
+            return;
+        }
+
+        _activateThread = new Thread(() =>
+        {
+            var handle = _activateEvent;
+            while (handle is not null && !_isExiting)
+            {
+                try
+                {
+                    if (!handle.WaitOne(500)) { continue; }
+                }
+                catch (ObjectDisposedException) { return; }
+
+                try
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        AppLogger.Info("ui", "Another launch asked this instance to show its window.");
+                        ShowMainWindow();
+                    }));
+                }
+                catch (Exception exception) when (exception is TaskCanceledException or InvalidOperationException)
+                {
+                    // Shutting down; nothing left to show.
+                }
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "BeatzOnKeys activation listener"
+        };
+        _activateThread.Start();
+    }
+
+    /// <summary>True only while the user really wants the process to end (tray Exit, update, logoff).</summary>
+    public static bool IsExplicitExit { get; private set; }
 
     protected override async void OnStartup(StartupEventArgs eventArgs)
     {
@@ -36,7 +93,31 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += OnDispatcherUnhandledException;
         try
         {
+            // One instance only: a second copy would install a second hook and fight over audio.
+            _singleInstance = new Mutex(true, SingleInstanceName, out var createdNew);
+            if (!createdNew)
+            {
+                // Ask the running copy to show itself, then leave quietly: no dialog, no second hook.
+                try
+                {
+                    if (EventWaitHandle.TryOpenExisting(ActivateEventName, out var activate))
+                    {
+                        using (activate) { activate.Set(); }
+                    }
+                }
+                catch (Exception exception) when (exception is UnauthorizedAccessException or IOException or WaitHandleCannotBeOpenedException)
+                {
+                    // Nothing to signal; exiting is still the right outcome.
+                }
+
+                _singleInstance.Dispose();
+                _singleInstance = null;
+                Shutdown(0);
+                return;
+            }
+
             AppLogger.Initialize();
+            StartActivationListener();
             AppLogger.Info("ui", $"Starting BeatzOnKeys {typeof(App).Assembly.GetName().Version}; pid={Environment.ProcessId}.");
             _settingsService = new SettingsService();
             var settings = await _settingsService.LoadAsync().ConfigureAwait(true);
@@ -51,6 +132,8 @@ public partial class App : System.Windows.Application
             await _viewModel.InitializeAsync().ConfigureAwait(true);
             _mainWindow.Show();
             _mainWindow.Activate();
+            // Hiding the window must not end the process; only an explicit exit does.
+            ShutdownMode = ShutdownMode.OnLastWindowClose;
             SetupAutomaticUpdates();
             var previousUpdate = UpdateService.ConsumeLastApplyReport();
             if (previousUpdate is { Succeeded: false })
@@ -69,6 +152,9 @@ public partial class App : System.Windows.Application
             Shutdown(1);
         }
     }
+
+    /// <summary>Marks an intentional shutdown so the window close handler does not hide instead.</summary>
+    public static void RequestExit() => IsExplicitExit = true;
 
     public void HideMainWindow()
     {
@@ -131,7 +217,7 @@ public partial class App : System.Windows.Application
         var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "BeatzOnKeys.ico");
         _trayIconImage = File.Exists(iconPath)
             ? new Icon(iconPath, Forms.SystemInformation.SmallIconSize)
-            : (Icon)SystemIcons.Application.Clone();
+            : LoadEmbeddedIcon() ?? (Icon)SystemIcons.Application.Clone();
 
         _openMenuItem = new Forms.ToolStripMenuItem();
         _openMenuItem.Click += (_, _) => ShowMainWindow();
@@ -167,6 +253,29 @@ public partial class App : System.Windows.Application
         _trayIcon.DoubleClick += (_, _) => ShowMainWindow();
         _trayIcon.BalloonTipClicked += (_, _) => ShowAboutWindow();
         UpdateTrayState();
+    }
+
+    /// <summary>
+    /// A single-file build has no Assets folder on disk, so the icon must come from the
+    /// executable's own resources. Without this the tray would show a generic Windows icon.
+    /// </summary>
+    private static Icon? LoadEmbeddedIcon()
+    {
+        try
+        {
+            var process = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(process))
+            {
+                var extracted = Icon.ExtractAssociatedIcon(process);
+                if (extracted is not null) { return extracted; }
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error("ui", "Could not read the application icon from the executable.", exception);
+        }
+
+        return null;
     }
 
     private void UpdateTrayState()
@@ -273,6 +382,7 @@ public partial class App : System.Windows.Application
         }
 
         _isExiting = true;
+        IsExplicitExit = true;
         _updateTimer?.Stop();
         _updateCancellation?.Cancel();
         _aboutWindow?.Close();
@@ -293,6 +403,9 @@ public partial class App : System.Windows.Application
             _updateCancellation?.Dispose();
             _updateCancellation = null;
             DisposeTrayIcon();
+            StopActivationListener();
+            _singleInstance?.Dispose();
+            _singleInstance = null;
             if (_mainWindow is not null)
             {
                 _mainWindow.AllowClose = true;
@@ -301,6 +414,14 @@ public partial class App : System.Windows.Application
 
             Shutdown(0);
         }
+    }
+
+    private void StopActivationListener()
+    {
+        var handle = _activateEvent;
+        _activateEvent = null;
+        try { handle?.Set(); } catch (ObjectDisposedException) { }
+        try { handle?.Dispose(); } catch (ObjectDisposedException) { }
     }
 
     private void DisposeTrayIcon()

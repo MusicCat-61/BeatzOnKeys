@@ -32,6 +32,7 @@ public partial class MainWindow : Window
 
     public MainViewModel ViewModel { get; }
 
+    /// <summary>Kept for callers that force a real close; the App flag now drives the decision.</summary>
     public bool AllowClose { get; set; }
 
     protected override void OnSourceInitialized(EventArgs eventArgs)
@@ -42,8 +43,9 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(CancelEventArgs eventArgs)
     {
-        if (!AllowClose)
+        if (!App.IsExplicitExit && !AllowClose)
         {
+            // Closing hides to the tray, exactly like MusicCatRGB: playback and typing continue.
             eventArgs.Cancel = true;
             HideToTray();
             return;

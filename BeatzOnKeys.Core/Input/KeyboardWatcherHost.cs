@@ -34,9 +34,12 @@ public static class KeyboardWatcherHost
         }
 
         using var hook = new KeyboardHook();
-        var queue = new Queue<byte>();
+        // Bounded on purpose: if the app stops reading, dropping the oldest signal is always
+        // better than blocking the hook callback and losing the hook for the whole desktop.
+        const int MaxQueued = 256;
+        var queue = new Queue<byte>(MaxQueued);
         var queueGate = new object();
-        var signal = new SemaphoreSlim(0);
+        var signal = new SemaphoreSlim(0, MaxQueued + 64);
 
         hook.KeyDown += () => Enqueue(WatcherProtocol.KeyPress);
         // Proof of life: any delivered key, even a filtered or injected one, means Windows is
@@ -45,8 +48,17 @@ public static class KeyboardWatcherHost
 
         void Enqueue(byte value)
         {
-            lock (queueGate) { queue.Enqueue(value); }
-            signal.Release();
+            lock (queueGate)
+            {
+                if (queue.Count >= MaxQueued)
+                {
+                    // Never block here: this runs on the hook thread and must return immediately.
+                    queue.Dequeue();
+                }
+                queue.Enqueue(value);
+            }
+            try { signal.Release(); }
+            catch (SemaphoreFullException) { /* the pump is behind; the queue still holds the data */ }
         }
 
         try
@@ -66,26 +78,39 @@ public static class KeyboardWatcherHost
         var lifetime = WatchParentAsync(parentProcessId, stop, signal);
         var delivered = 0L;
         var reportedFirst = false;
+        var reportedFirstPress = false;
+        var batch = new List<byte>(64);
         try
         {
             while (!stop.IsCancellationRequested)
             {
                 if (!signal.Wait(250)) { continue; }
+
+                // Drain under the lock, write outside it: the hook callback must never wait for
+                // a pipe write, or Windows drops the hook after LowLevelHooksTimeout and typing
+                // silently stops working for the whole desktop.
+                batch.Clear();
                 lock (queueGate)
                 {
-                    while (queue.Count > 0)
+                    while (queue.Count > 0) { batch.Add(queue.Dequeue()); }
+                }
+
+                foreach (var value in batch)
+                {
+                    writer.Write(value);
+                    if (value == WatcherProtocol.Heartbeat)
                     {
-                        var value = queue.Dequeue();
-                        writer.Write(value);
-                        if (value == WatcherProtocol.Heartbeat)
+                        delivered++;
+                        if (!reportedFirst)
                         {
-                            delivered++;
-                            if (!reportedFirst)
-                            {
-                                reportedFirst = true;
-                                AppLogger.Info("input", "Keyboard watcher received its first native key event.");
-                            }
+                            reportedFirst = true;
+                            AppLogger.Info("input", "Keyboard watcher received its first native key event.");
                         }
+                    }
+                    else if (value == WatcherProtocol.KeyPress && !reportedFirstPress)
+                    {
+                        reportedFirstPress = true;
+                        AppLogger.Info("input", "Keyboard watcher forwarded its first typing key press.");
                     }
                 }
                 writer.Flush();

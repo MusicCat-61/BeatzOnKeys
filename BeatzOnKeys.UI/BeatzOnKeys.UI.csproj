@@ -16,9 +16,9 @@
     <Description>Turn typing into music.</Description>
     <Company>MusicCat-61</Company>
     <Authors>MusicCat-61</Authors>
-    <Version>1.0.4</Version>
-    <AssemblyVersion>1.0.4.0</AssemblyVersion>
-    <FileVersion>1.0.4.0</FileVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     <ApplicationIcon>Assets\BeatzOnKeys.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
@@ -30,9 +30,9 @@
 
   <ItemGroup>
     <Resource Include="Assets\BeatzOnKeys.png" />
-    <None Update="Assets\BeatzOnKeys.ico">
+    <Content Include="Assets\BeatzOnKeys.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    </Content>
   </ItemGroup>
 
 </Project>

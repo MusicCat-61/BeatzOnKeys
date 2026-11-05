@@ -604,19 +604,32 @@ public static class UpdateService
 
     internal static void ValidatePayload(string payloadDirectory)
     {
-        var required = new[]
+        // A single-file build ships just the executable; a folder build ships the runtime set.
+        var executable = Path.Combine(payloadDirectory, "BeatzOnKeys.exe");
+        if (!File.Exists(executable) || new FileInfo(executable).Length == 0)
         {
-            Path.Combine(payloadDirectory, "BeatzOnKeys.exe"),
+            throw new InvalidDataException($"The update package is incomplete: {executable}");
+        }
+
+        var folderLayout = new[]
+        {
             Path.Combine(payloadDirectory, "BeatzOnKeys.dll"),
-            Path.Combine(payloadDirectory, "BeatzOnKeys.Core.dll"),
-            Path.Combine(payloadDirectory, "BeatzOnKeys.deps.json"),
-            Path.Combine(payloadDirectory, "BeatzOnKeys.runtimeconfig.json"),
-            Path.Combine(payloadDirectory, "NAudio.dll"),
-            Path.Combine(payloadDirectory, "NAudio.Core.dll"),
-            Path.Combine(payloadDirectory, "NAudio.WinMM.dll"),
-            Path.Combine(payloadDirectory, "NAudio.Wasapi.dll")
+            Path.Combine(payloadDirectory, "BeatzOnKeys.Core.dll")
         };
-        var missing = required.FirstOrDefault(path => !File.Exists(path) || new FileInfo(path).Length == 0);
+        if (folderLayout.All(path => !File.Exists(path)))
+        {
+            // Single-file: the executable alone is the whole payload.
+            return;
+        }
+
+        var companionFiles = new[]
+        {
+            folderLayout[0],
+            folderLayout[1],
+            Path.Combine(payloadDirectory, "BeatzOnKeys.deps.json"),
+            Path.Combine(payloadDirectory, "BeatzOnKeys.runtimeconfig.json")
+        };
+        var missing = companionFiles.FirstOrDefault(path => !File.Exists(path) || new FileInfo(path).Length == 0);
         if (missing is not null)
         {
             throw new InvalidDataException($"The update package is incomplete: {missing}");

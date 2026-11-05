@@ -7,7 +7,7 @@ set "PROJECT=%ROOT%\BeatzOnKeys.UI\BeatzOnKeys.UI.csproj"
 for %%I in ("%ROOT%\Build_Output") do set "OUTPUT=%%~fI"
 for %%I in ("%OUTPUT%") do set "OUTPUT_NAME=%%~nxI"
 for %%I in ("%OUTPUT%\..") do set "OUTPUT_PARENT=%%~fI"
-if not defined BOK_VERSION set "BOK_VERSION=1.0.4"
+if not defined BOK_VERSION set "BOK_VERSION=1.1.0"
 
 if /I not "%OUTPUT_NAME%"=="Build_Output" goto :unsafe_output
 if /I not "%OUTPUT_PARENT%"=="%ROOT%" goto :unsafe_output
@@ -30,13 +30,13 @@ if exist "%OUTPUT%" (
 )
 
 echo.
-echo [2/3] Publishing self-contained WPF application...
-dotnet publish "%PROJECT%" -c Release -r win-x64 --self-contained true -p:Version=%BOK_VERSION% -p:PublishSingleFile=false -p:DebugType=None -p:DebugSymbols=false -o "%OUTPUT%"
+echo [2/3] Publishing single-file self-contained WPF application...
+dotnet publish "%PROJECT%" -c Release -r win-x64 --self-contained true -p:Version=%BOK_VERSION% -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o "%OUTPUT%"
 if errorlevel 1 goto :fail
 if not exist "%OUTPUT%\BeatzOnKeys.exe" goto :fail
 
 echo.
-echo [3/3] Copying documentation, assets, and licenses...
+echo [3/3] Copying documentation and licenses...
 call :copy_file "%ROOT%\README.md" "%OUTPUT%\README.md"
 if errorlevel 1 goto :fail
 call :copy_file "%ROOT%\README.ru.md" "%OUTPUT%\README.ru.md"
@@ -47,17 +47,14 @@ call :copy_file "%ROOT%\LICENSE" "%OUTPUT%\LICENSE"
 if errorlevel 1 goto :fail
 call :copy_file "%ROOT%\THIRD-PARTY-NOTICES.md" "%OUTPUT%\THIRD-PARTY-NOTICES.md"
 if errorlevel 1 goto :fail
-call :copy_tree "%ROOT%\third-party" "%OUTPUT%\third-party"
-if errorlevel 1 goto :fail
-call :copy_tree "%ROOT%\assets" "%OUTPUT%\assets"
-if errorlevel 1 goto :fail
 
 echo.
 echo ========================================================
 echo  DONE: %OUTPUT%
 echo.
-echo  Copy the complete Build_Output folder. No installer,
+echo  BeatzOnKeys.exe is the whole application: no installer,
 echo  administrator rights, or separate .NET runtime is needed.
+echo  The documentation files next to it are optional.
 echo ========================================================
 exit /b 0
 

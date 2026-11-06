@@ -33,6 +33,15 @@
     <sys:String x:Key="L_AutoAdvanceHint">После конца переходить к следующему доступному треку</sys:String>
     <sys:String x:Key="L_Loop">Зацикливать воспроизведение</sys:String>
     <sys:String x:Key="L_LoopHint">Без автоперелистывания повторяется текущий трек, с ним — весь список</sys:String>
+    <sys:String x:Key="L_MusicReaction">Реакция на музыку</sys:String>
+    <sys:String x:Key="L_PunchResponse">Ударный отклик</sys:String>
+    <sys:String x:Key="L_PunchResponseHint">Если в треке только что был удар, нажатие выходит на громкость за 15 мс вместо обычных 50 мс.</sys:String>
+    <sys:String x:Key="L_BassGain">Усиление на бас</sys:String>
+    <sys:String x:Key="L_BassGainHint">Добавляет громкость, пока звучит бас и бочка (40–120 Гц). Выше максимальной громкости не поднимает; 0% выключает эффект.</sys:String>
+    <sys:String x:Key="L_StereoPulse">Стерео-пульс (сдвиг баланса при печати)</sys:String>
+    <sys:String x:Key="L_StereoPulseHint">На 50 мс сдвигает баланс влево или вправо при каждом нажатии, чередуя стороны.</sys:String>
+    <sys:String x:Key="L_AdaptiveVolume">Адаптивный порог (подстраивать минимальную громкость под трек)</sys:String>
+    <sys:String x:Key="L_AdaptiveVolumeHint">Тихий трек (RMS ниже 0,1) получит уровень 10%, громкий (выше 0,5) — 30%, средний оставит ваше значение.</sys:String>
     <sys:String x:Key="L_SelectedTrack">Выбранный трек</sys:String>
     <sys:String x:Key="L_NoTrackSelected">Выберите доступный трек</sys:String>
     <sys:String x:Key="L_PlaybackProgress">Позиция воспроизведения</sys:String>
@@ -182,6 +191,16 @@
     <sys:String x:Key="Guide_LoopX">Повторяет текущий трек. Вместе с автоперелистыванием повторяется весь список.</sys:String>
     <sys:String x:Key="Guide_MatrixT">Поведение в конце трека</sys:String>
     <sys:String x:Key="Guide_MatrixX">Авто выкл + повтор выкл — остаётся в конце. Авто выкл + повтор вкл — повтор текущего. Авто вкл + повтор выкл — следующий трек, после последнего стоп. Авто вкл + повтор вкл — следующий, после последнего — с начала списка.</sys:String>
+
+    <sys:String x:Key="Guide_SecReaction">Реакция на музыку</sys:String>
+    <sys:String x:Key="Guide_PunchT">Ударный отклик</sys:String>
+    <sys:String x:Key="Guide_PunchX">Когда в музыке только что был удар (ударные, бочка), нажатие выходит на громкость за 15 мс вместо 50 мс, поэтому вспышки громкости совпадают с ритмом.</sys:String>
+    <sys:String x:Key="Guide_BassT">Усиление на бас</sys:String>
+    <sys:String x:Key="Guide_BassX">Пока звучит бас и бочка (40–120 Гц), к громкости добавляется до 30%. Выше максимальной громкости не поднимает, 0% выключает эффект.</sys:String>
+    <sys:String x:Key="Guide_StereoPulseT">Стерео-пульс</sys:String>
+    <sys:String x:Key="Guide_StereoPulseX">На 50 мс смещает баланс влево или вправо при каждом нажатии, чередуя стороны.</sys:String>
+    <sys:String x:Key="Guide_AdaptiveT">Адаптивный порог</sys:String>
+    <sys:String x:Key="Guide_AdaptiveX">Тихий трек (RMS ниже 0,1) получает тихий уровень 10%, громкий (выше 0,5) — 30%, средний оставляет вашу минимальную громкость.</sys:String>
 
     <sys:String x:Key="Guide_SecTray">Область уведомлений (трей)</sys:String>
     <sys:String x:Key="Guide_TrayIconT">Значок в области уведомлений</sys:String>

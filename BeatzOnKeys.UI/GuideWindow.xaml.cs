@@ -59,6 +59,12 @@ public partial class GuideWindow : Window
             ("Guide_LoopT", "Guide_LoopX"),
             ("Guide_MatrixT", "Guide_MatrixX")),
 
+        Section("Guide_SecReaction",
+            ("Guide_PunchT", "Guide_PunchX"),
+            ("Guide_BassT", "Guide_BassX"),
+            ("Guide_StereoPulseT", "Guide_StereoPulseX"),
+            ("Guide_AdaptiveT", "Guide_AdaptiveX")),
+
         Section("Guide_SecTray",
             ("Guide_TrayIconT", "Guide_TrayIconX"),
             ("Guide_TrayMenuT", "Guide_TrayMenuX"),

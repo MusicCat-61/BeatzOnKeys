@@ -12,6 +12,11 @@ internal static class Program
         ("PlaylistOrder.ReorderFollowsVisualOrderAndKeepsSelection", PlaylistOrderTests.ReorderFollowsVisualOrderAndKeepsSelection),
         ("PlaylistOrder.NaturalEndFollowsReorderedList", PlaylistOrderTests.NaturalEndFollowsReorderedList),
         ("PlaylistOrder.RemoveCurrentTrackLeavesNoSelection", PlaylistOrderTests.RemoveCurrentTrackLeavesNoSelection),
+        ("ReactiveAudio.PunchAttackIsFasterThanTheDefault", ReactiveAudioTests.PunchAttackIsFasterThanTheDefault),
+        ("ReactiveAudio.AnalyzerReportsOnlyRealTransients", ReactiveAudioTests.AnalyzerReportsOnlyRealTransients),
+        ("ReactiveAudio.BassBoostRaisesGainButNeverAboveMaximum", ReactiveAudioTests.BassBoostRaisesGainButNeverAboveMaximum),
+        ("ReactiveAudio.StereoPulseAlternatesForFiftyMilliseconds", ReactiveAudioTests.StereoPulseAlternatesForFiftyMilliseconds),
+        ("ReactiveAudio.AdaptiveThresholdFollowsTrackLoudness", ReactiveAudioTests.AdaptiveThresholdFollowsTrackLoudness),
         ("Volume.AttackHoldAndRelease", VolumeEnvelopeTests.AttackHoldAndRelease),
         ("Volume.RetriggerAndRapidKeysStaySmooth", VolumeEnvelopeTests.RetriggerAndRapidKeysStaySmooth),
         ("Volume.InstantResumeAndMasterVolumeCeiling", VolumeEnvelopeTests.InstantResumeAndMasterVolumeCeiling),
@@ -60,7 +65,8 @@ internal static class Program
         ("Settings.RoundTripAllFieldsAndDelete", SettingsTests.RoundTripAllFieldsAndDelete),
         ("Settings.LegacyVolumeMigratesAndNewFieldsTakePrecedence", SettingsTests.LegacyVolumeMigratesAndNewFieldsTakePrecedence),
         ("Settings.MissingAndCorruptJsonUseDefaults", SettingsTests.MissingAndCorruptJsonUseDefaults),
-        ("Settings.ConcurrentSavesRemainAtomic", SettingsTests.ConcurrentSavesRemainAtomic)
+        ("Settings.ConcurrentSavesRemainAtomic", SettingsTests.ConcurrentSavesRemainAtomic),
+        ("Settings.ReactiveFieldsMigrateFromSchemaThree", SettingsTests.ReactiveFieldsMigrateFromSchemaThree)
     ];
 
     private static async Task<int> Main()

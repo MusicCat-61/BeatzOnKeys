@@ -21,19 +21,19 @@
 
             <Border Grid.Row="0" Padding="18,14" Background="Transparent"
                     MouseLeftButtonDown="Header_MouseLeftButtonDown">
-                <TextBlock x:Name="TitleText" FontSize="16" FontWeight="SemiBold"
+                <TextBlock x:Name="TitleText" FontSize="19" FontWeight="SemiBold"
                            Foreground="{DynamicResource TextPrimaryBrush}"/>
             </Border>
 
             <TextBlock Grid.Row="1" x:Name="MessageText" Margin="18,0,18,18"
-                       TextWrapping="Wrap" LineHeight="20"
+                       FontSize="16.5" TextWrapping="Wrap" LineHeight="23"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
 
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
                         Margin="18,0,18,16">
-                <Button x:Name="BtnNo" Style="{StaticResource SubtleButtonStyle}"
+                <Button x:Name="BtnNo" Style="{StaticResource SubtleButtonStyle}" FontSize="16"
                         MinWidth="96" Margin="0,0,8,0" Click="BtnNo_Click"/>
-                <Button x:Name="BtnYes" Style="{StaticResource AccentButtonStyle}"
+                <Button x:Name="BtnYes" Style="{StaticResource AccentButtonStyle}" FontSize="16"
                         MinWidth="96" Click="BtnYes_Click"/>
             </StackPanel>
         </Grid>

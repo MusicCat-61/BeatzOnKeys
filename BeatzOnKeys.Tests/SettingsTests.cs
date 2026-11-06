@@ -25,7 +25,8 @@ internal static class SettingsTests
             ]
         };
         settings.Normalize();
-        AssertEx.Equal(3, settings.SchemaVersion);
+        AssertEx.Equal(AppSettings.CurrentSchemaVersion, settings.SchemaVersion);
+        AssertEx.Equal(4, settings.SchemaVersion);
         AssertEx.NearlyEqual(0.2, settings.MinVolume);
         AssertEx.NearlyEqual(1, settings.MaxVolume);
         AssertEx.NearlyEqual(3, settings.IdleTimeout);
@@ -100,7 +101,7 @@ internal static class SettingsTests
         await File.WriteAllTextAsync(path, json);
         var service = new SettingsService(path);
         var settings = await service.LoadAsync();
-        AssertEx.Equal(3, settings.SchemaVersion);
+        AssertEx.Equal(AppSettings.CurrentSchemaVersion, settings.SchemaVersion);
         AssertEx.NearlyEqual(0.61, settings.MaxVolume);
         AssertEx.NearlyEqual(0.2, settings.MinVolume);
         AssertEx.NearlyEqual(3, settings.IdleTimeout);
@@ -177,7 +178,7 @@ internal static class SettingsTests
 
     private static void AssertSettingsVariant(AppSettings expected, AppSettings actual)
     {
-        AssertEx.Equal(3, actual.SchemaVersion);
+        AssertEx.Equal(AppSettings.CurrentSchemaVersion, actual.SchemaVersion);
         AssertEx.NearlyEqual(expected.MinVolume, actual.MinVolume);
         AssertEx.NearlyEqual(expected.MaxVolume, actual.MaxVolume);
         AssertEx.NearlyEqual(expected.IdleTimeout, actual.IdleTimeout);
@@ -198,14 +199,63 @@ internal static class SettingsTests
 
     private static void AssertDefaults(AppSettings settings)
     {
-        AssertEx.Equal(3, settings.SchemaVersion);
+        AssertEx.Equal(AppSettings.CurrentSchemaVersion, settings.SchemaVersion);
         AssertEx.NearlyEqual(0.2, settings.MinVolume);
         AssertEx.NearlyEqual(1, settings.MaxVolume);
         AssertEx.NearlyEqual(3, settings.IdleTimeout);
         AssertEx.True(settings.PauseOnIdle);
         AssertEx.False(settings.AutoAdvance);
         AssertEx.True(settings.Loop);
+        AssertEx.True(settings.PunchResponseEnabled);
+        AssertEx.NearlyEqual(AppSettings.DefaultBassReactiveGain, settings.BassReactiveGain);
+        AssertEx.False(settings.StereoPulseEnabled);
+        AssertEx.True(settings.AdaptiveVolumeEnabled);
         AssertEx.Null(settings.SelectedTrackId);
         AssertEx.Equal(0, settings.Tracks.Count);
+    }
+
+    /// <summary>Schema 3 files carry no reactive fields: they must come back with the new defaults.</summary>
+    public static async Task ReactiveFieldsMigrateFromSchemaThree()
+    {
+        using var directory = new TemporaryDirectory();
+        var path = Path.Combine(directory.Path, "settings.json");
+        await File.WriteAllTextAsync(path, """
+            {
+              "SchemaVersion": 3,
+              "MinVolume": 0.25,
+              "MaxVolume": 0.8,
+              "IdleTimeout": 4,
+              "PauseOnIdle": false,
+              "AutoAdvance": true,
+              "Loop": false,
+              "Language": "ru",
+              "Theme": "light",
+              "Tracks": []
+            }
+            """);
+        var service = new SettingsService(path);
+        var loaded = await service.LoadAsync();
+        AssertEx.Equal(AppSettings.CurrentSchemaVersion, loaded.SchemaVersion);
+        AssertEx.NearlyEqual(0.25, loaded.MinVolume);
+        AssertEx.False(loaded.PauseOnIdle);
+        AssertEx.True(loaded.PunchResponseEnabled);
+        AssertEx.NearlyEqual(AppSettings.DefaultBassReactiveGain, loaded.BassReactiveGain);
+        AssertEx.False(loaded.StereoPulseEnabled);
+        AssertEx.True(loaded.AdaptiveVolumeEnabled);
+
+        loaded.BassReactiveGain = 0.28;
+        loaded.StereoPulseEnabled = true;
+        loaded.PunchResponseEnabled = false;
+        loaded.AdaptiveVolumeEnabled = false;
+        await service.SaveAsync(loaded);
+        var reloaded = await new SettingsService(path).LoadAsync();
+        AssertEx.NearlyEqual(0.28, reloaded.BassReactiveGain);
+        AssertEx.True(reloaded.StereoPulseEnabled);
+        AssertEx.False(reloaded.PunchResponseEnabled);
+        AssertEx.False(reloaded.AdaptiveVolumeEnabled);
+
+        reloaded.BassReactiveGain = 5;
+        reloaded.Normalize();
+        AssertEx.NearlyEqual(0.3, reloaded.BassReactiveGain, 1e-9, "Bass gain is clamped to 30%.");
     }
 }

@@ -35,6 +35,10 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private bool _trackEnded;
     private bool _autoAdvance;
     private bool _loop;
+    private bool _punchResponseEnabled;
+    private double _bassReactiveGain;
+    private bool _stereoPulseEnabled;
+    private bool _adaptiveVolumeEnabled;
     private bool _isRunning;
     private bool _changingPlayback;
     private bool _initializing = true;
@@ -59,6 +63,10 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _pauseOnIdle = settings.PauseOnIdle;
         _autoAdvance = settings.AutoAdvance;
         _loop = settings.Loop;
+        _punchResponseEnabled = settings.PunchResponseEnabled;
+        _bassReactiveGain = Math.Clamp(settings.BassReactiveGain, 0, 0.3);
+        _stereoPulseEnabled = settings.StereoPulseEnabled;
+        _adaptiveVolumeEnabled = settings.AdaptiveVolumeEnabled;
         _statusText = Loc.T("L_StatusRestoring");
         _playbackController = new PlaybackController { AutoAdvance = _autoAdvance, Loop = _loop };
         _audioPlayer = audioPlayer ?? new ContinuousAudioPlayer();
@@ -66,6 +74,10 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _audioPlayer.MaxVolume = _maxVolume;
         _audioPlayer.IdleTimeout = _idleTimeout;
         _audioPlayer.PauseOnIdle = _pauseOnIdle;
+        _audioPlayer.PunchResponseEnabled = _punchResponseEnabled;
+        _audioPlayer.BassReactiveGain = _bassReactiveGain;
+        _audioPlayer.StereoPulseEnabled = _stereoPulseEnabled;
+        _audioPlayer.AdaptiveVolumeEnabled = _adaptiveVolumeEnabled;
         _typingPlayback = new TypingPlaybackService(keyboardHook ?? new WatcherKeyboardHook(), _playbackController, _audioPlayer);
         _playbackController.CurrentTrackChanged += OnPlaybackTrackChanged;
         _typingPlayback.PlaybackFailed += OnPlaybackFailed;
@@ -203,6 +215,42 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     {
         get => _loop;
         set { if (SetProperty(ref _loop, value)) { _playbackController.Loop = value; QueueSave(); } }
+    }
+
+    public bool PunchResponseEnabled
+    {
+        get => _punchResponseEnabled;
+        set { if (SetProperty(ref _punchResponseEnabled, value)) { _audioPlayer.PunchResponseEnabled = value; QueueSave(); } }
+    }
+
+    /// <summary>Bass-reactive gain in 0..0.3; the slider works in percent.</summary>
+    public double BassReactiveGain
+    {
+        get => _bassReactiveGain;
+        set
+        {
+            var normalized = Math.Clamp(double.IsFinite(value) ? value : 0.15, 0, 0.3);
+            if (!SetProperty(ref _bassReactiveGain, normalized)) { return; }
+            _audioPlayer.BassReactiveGain = normalized;
+            OnPropertyChanged(nameof(BassReactivePercentValue));
+            OnPropertyChanged(nameof(BassReactivePercent));
+            QueueSave();
+        }
+    }
+
+    public double BassReactivePercentValue { get => BassReactiveGain * 100; set => BassReactiveGain = value / 100; }
+    public string BassReactivePercent => $"{Math.Round(BassReactiveGain * 100):0}%";
+
+    public bool StereoPulseEnabled
+    {
+        get => _stereoPulseEnabled;
+        set { if (SetProperty(ref _stereoPulseEnabled, value)) { _audioPlayer.StereoPulseEnabled = value; QueueSave(); } }
+    }
+
+    public bool AdaptiveVolumeEnabled
+    {
+        get => _adaptiveVolumeEnabled;
+        set { if (SetProperty(ref _adaptiveVolumeEnabled, value)) { _audioPlayer.AdaptiveVolumeEnabled = value; QueueSave(); } }
     }
     public bool IsRunning
     {
@@ -474,6 +522,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         {
             MinVolume = MinVolume, MaxVolume = MaxVolume, IdleTimeout = IdleTimeout, PauseOnIdle = PauseOnIdle,
             AutoAdvance = AutoAdvance, Loop = Loop,
+            PunchResponseEnabled = PunchResponseEnabled, BassReactiveGain = BassReactiveGain,
+            StereoPulseEnabled = StereoPulseEnabled, AdaptiveVolumeEnabled = AdaptiveVolumeEnabled,
             SelectedTrackId = SelectedTrack?.Id, Language = Loc.CurrentCode, Theme = Theme.CurrentCode,
             Tracks = Tracks.Select(track => track.ToState()).ToList()
         };

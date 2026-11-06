@@ -33,6 +33,15 @@
     <sys:String x:Key="L_AutoAdvanceHint">Move to the next available track when the current one ends</sys:String>
     <sys:String x:Key="L_Loop">Loop playback</sys:String>
     <sys:String x:Key="L_LoopHint">Repeat the current track without auto-advance, or the whole list when auto-advance is on</sys:String>
+    <sys:String x:Key="L_MusicReaction">Music reaction</sys:String>
+    <sys:String x:Key="L_PunchResponse">Punch response</sys:String>
+    <sys:String x:Key="L_PunchResponseHint">When the track just hit a transient, a key press reaches full volume in 15 ms instead of the usual 50 ms.</sys:String>
+    <sys:String x:Key="L_BassGain">Bass boost</sys:String>
+    <sys:String x:Key="L_BassGainHint">Adds gain while bass and kick (40–120 Hz) play. It never goes above the maximum volume; 0% turns the effect off.</sys:String>
+    <sys:String x:Key="L_StereoPulse">Stereo pulse (balance shift while typing)</sys:String>
+    <sys:String x:Key="L_StereoPulseHint">Shifts the balance left or right for 50 ms on each key press, alternating sides.</sys:String>
+    <sys:String x:Key="L_AdaptiveVolume">Adaptive threshold (fit the quiet level to the track)</sys:String>
+    <sys:String x:Key="L_AdaptiveVolumeHint">A quiet track (RMS below 0.1) gets a quiet level of 10%, a loud one (above 0.5) 30%, and an average track keeps your value.</sys:String>
     <sys:String x:Key="L_SelectedTrack">Selected track</sys:String>
     <sys:String x:Key="L_NoTrackSelected">Select an available track</sys:String>
     <sys:String x:Key="L_PlaybackProgress">Playback position</sys:String>
@@ -182,6 +191,16 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_LoopX">Repeats the current track. Together with auto-advance the whole list repeats.</sys:String>
     <sys:String x:Key="Guide_MatrixT">Behaviour at the end of a track</sys:String>
     <sys:String x:Key="Guide_MatrixX">Advance off + loop off: stays at the end. Advance off + loop on: repeats the current track. Advance on + loop off: next track, stop after the last. Advance on + loop on: next track, and the list wraps to its start.</sys:String>
+
+    <sys:String x:Key="Guide_SecReaction">Music reaction</sys:String>
+    <sys:String x:Key="Guide_PunchT">Punch response</sys:String>
+    <sys:String x:Key="Guide_PunchX">When the track just hit a transient (drums, kick), a key press reaches full volume in 15 ms instead of 50 ms, so the volume flashes follow the rhythm.</sys:String>
+    <sys:String x:Key="Guide_BassT">Bass boost</sys:String>
+    <sys:String x:Key="Guide_BassX">While bass and kick (40–120 Hz) play, up to 30% is added to the gain. It never rises above the maximum volume, and 0% turns the effect off.</sys:String>
+    <sys:String x:Key="Guide_StereoPulseT">Stereo pulse</sys:String>
+    <sys:String x:Key="Guide_StereoPulseX">Shifts the balance left or right for 50 ms on each key press, alternating sides.</sys:String>
+    <sys:String x:Key="Guide_AdaptiveT">Adaptive threshold</sys:String>
+    <sys:String x:Key="Guide_AdaptiveX">A quiet track (RMS below 0.1) gets a 10% quiet level, a loud one (above 0.5) 30%, and an average track keeps your minimum volume.</sys:String>
 
     <sys:String x:Key="Guide_SecTray">Notification area (tray)</sys:String>
     <sys:String x:Key="Guide_TrayIconT">The tray icon</sys:String>

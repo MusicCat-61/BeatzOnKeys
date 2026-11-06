@@ -14,7 +14,8 @@ internal static class AudioTestData
         string fileName = "fixture.wav",
         int sampleRate = 8_000,
         int channels = 2,
-        double durationSeconds = 1)
+        double durationSeconds = 1,
+        short sample = 12_000)
     {
         var path = System.IO.Path.Combine(directory, fileName);
         var frames = checked((int)Math.Round(sampleRate * durationSeconds));
@@ -36,7 +37,6 @@ internal static class AudioTestData
         writer.Write((short)16);
         writer.Write(Encoding.ASCII.GetBytes("data"));
         writer.Write(dataLength);
-        const short sample = 12_000;
         for (var frame = 0; frame < frames; frame++)
         {
             for (var channel = 0; channel < channels; channel++)
@@ -256,6 +256,11 @@ internal sealed class FakeContinuousAudioPlayer : IContinuousAudioPlayer
     public double MaxVolume { get; set; } = 1;
     public double IdleTimeout { get; set; } = 3;
     public bool PauseOnIdle { get; set; } = true;
+    public bool PunchResponseEnabled { get; set; }
+    public double BassReactiveGain { get; set; }
+    public bool StereoPulseEnabled { get; set; }
+    public bool AdaptiveVolumeEnabled { get; set; }
+    public double EffectiveMinVolume => MinVolume;
     public bool IsIdlePaused => false;
     public TimeSpan Position { get; set; }
     public TimeSpan Duration => LoadDurationOverride ?? _track?.Duration ?? TimeSpan.Zero;

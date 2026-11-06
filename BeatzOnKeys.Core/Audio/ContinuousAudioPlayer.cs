@@ -22,6 +22,11 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
     private double _maxVolume = AppSettings.DefaultMaxVolume;
     private double _idleTimeout = AppSettings.DefaultIdleTimeout;
     private bool _pauseOnIdle = true;
+    private bool _punchResponseEnabled;
+    private double _bassReactiveGain;
+    private bool _stereoPulseEnabled;
+    private bool _adaptiveVolumeEnabled;
+    private double? _adaptiveMinVolume;
     private long _lastActivity;
     private bool _started;
     private bool _isPlaying;
@@ -50,7 +55,7 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
             lock (_gate)
             {
                 _minVolume = Math.Clamp(double.IsFinite(value) ? value : AppSettings.DefaultMinVolume, 0, 0.5);
-                _envelope.Configure(_minVolume, _maxVolume);
+                _envelope.Configure(EffectiveMinVolumeCore, _maxVolume);
             }
         }
     }
@@ -63,7 +68,65 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
             lock (_gate)
             {
                 _maxVolume = Math.Clamp(double.IsFinite(value) ? value : AppSettings.DefaultMaxVolume, 0, 1);
-                _envelope.Configure(_minVolume, _maxVolume);
+                _envelope.Configure(EffectiveMinVolumeCore, _maxVolume);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The quiet level actually in force: the adaptive value for this track when enabled, capped
+    /// by the maximum. The user's slider keeps its own value in <see cref="MinVolume"/>.
+    /// </summary>
+    public double EffectiveMinVolume { get { lock (_gate) { return EffectiveMinVolumeCore; } } }
+
+    private double EffectiveMinVolumeCore => Math.Min(_adaptiveMinVolume ?? _minVolume, _maxVolume);
+
+    /// <summary>Shortens the attack to 15 ms when the track itself just hit a transient.</summary>
+    public bool PunchResponseEnabled
+    {
+        get { lock (_gate) { return _punchResponseEnabled; } }
+        set { lock (_gate) { _punchResponseEnabled = value; } }
+    }
+
+    /// <summary>Extra gain added while the 40–120 Hz band is loud, capped by the maximum.</summary>
+    public double BassReactiveGain
+    {
+        get { lock (_gate) { return _bassReactiveGain; } }
+        set
+        {
+            lock (_gate)
+            {
+                _bassReactiveGain = Math.Clamp(double.IsFinite(value) ? value : 0, 0, 0.3);
+                if (_provider is not null) { _provider.BassReactiveGain = _bassReactiveGain; }
+            }
+        }
+    }
+
+    /// <summary>Shifts the left/right balance for 50 ms after each key press.</summary>
+    public bool StereoPulseEnabled
+    {
+        get { lock (_gate) { return _stereoPulseEnabled; } }
+        set
+        {
+            lock (_gate)
+            {
+                _stereoPulseEnabled = value;
+                _envelope.StereoPulseEnabled = value;
+            }
+        }
+    }
+
+    /// <summary>Lets the quiet level follow the measured loudness of the selected track.</summary>
+    public bool AdaptiveVolumeEnabled
+    {
+        get { lock (_gate) { return _adaptiveVolumeEnabled; } }
+        set
+        {
+            lock (_gate)
+            {
+                _adaptiveVolumeEnabled = value;
+                RecomputeAdaptiveMinCore();
+                _envelope.Configure(EffectiveMinVolumeCore, _maxVolume);
             }
         }
     }
@@ -145,7 +208,9 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
             _reader?.Dispose();
             _reader = reader;
             _envelope.Reset();
-            _provider = new ContinuousSampleProvider(reader, _envelope);
+            _provider = new ContinuousSampleProvider(reader, _envelope, _clock) { BassReactiveGain = _bassReactiveGain };
+            RecomputeAdaptiveMinCore();
+            _envelope.Configure(EffectiveMinVolumeCore, _maxVolume);
             _loadedTrack = track with { Duration = reader.TotalTime };
             AppLogger.Info("audio", $"Loaded '{track.SourcePath}' ({reader.TotalTime.TotalSeconds:F2} s).");
             return reader.TotalTime;
@@ -218,7 +283,9 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (!_started) { return; }
             _lastActivity = _clock.GetTimestamp();
-            _envelope.Trigger(instant: _isIdlePaused);
+            var punch = _punchResponseEnabled && _provider?.Analyzer.HitWithin(PunchDetectionWindow) == true;
+            _envelope.Trigger(instant: _isIdlePaused,
+                attackSeconds: punch ? VolumeEnvelope.PunchAttackSeconds : VolumeEnvelope.AttackSeconds);
             if (_isIdlePaused)
             {
                 // Do not flush or replace the paused stream: resume precisely the same audio.
@@ -229,6 +296,67 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
             }
             ArmIdleCore();
         }
+    }
+
+    /// <summary>An onset this recent still counts as a hit for the next key press.</summary>
+    private static readonly TimeSpan PunchDetectionWindow = TimeSpan.FromMilliseconds(200);
+
+    /// <summary>Tracks below this RMS get a lower quiet level, loud tracks a higher one.</summary>
+    private const double QuietTrackRms = 0.1;
+    private const double LoudTrackRms = 0.5;
+
+    private void RecomputeAdaptiveMinCore()
+    {
+        _adaptiveMinVolume = null;
+        if (!_adaptiveVolumeEnabled || _reader is null) { return; }
+        var rms = MeasureTrackRms(_reader);
+        _adaptiveMinVolume = rms < QuietTrackRms ? 0.1 : rms > LoudTrackRms ? 0.3 : null;
+        AppLogger.Info("audio", $"Track loudness RMS={rms:F3}; adaptive minimum={(_adaptiveMinVolume?.ToString("F2") ?? "unchanged")}.");
+    }
+
+    /// <summary>
+    /// Samples sixteen short windows across the file instead of decoding it twice, and restores the
+    /// decoder to the start so Start still begins at zero.
+    /// </summary>
+    private static double MeasureTrackRms(AudioFileReader reader)
+    {
+        var total = reader.TotalTime.TotalSeconds;
+        if (!double.IsFinite(total) || total <= 0) { return 0; }
+        var format = reader.WaveFormat;
+        var windowSeconds = Math.Min(0.25, total);
+        var frames = Math.Max(1, (int)Math.Round(format.SampleRate * windowSeconds));
+        var buffer = new float[frames * format.Channels];
+        const int windows = 16;
+        double power = 0;
+        long samples = 0;
+        try
+        {
+            for (var index = 0; index < windows; index++)
+            {
+                var start = Math.Clamp(total * (index + 0.5) / windows, 0, Math.Max(0, total - windowSeconds));
+                reader.CurrentTime = TimeSpan.FromSeconds(start);
+                var read = 0;
+                while (read < buffer.Length)
+                {
+                    var count = ((ISampleProvider)reader).Read(buffer.AsSpan(read, buffer.Length - read));
+                    if (count == 0) { break; }
+                    read += count;
+                }
+
+                for (var sample = 0; sample < read; sample++) { power += buffer[sample] * buffer[sample]; }
+                samples += read;
+            }
+        }
+        finally
+        {
+            try { reader.CurrentTime = TimeSpan.Zero; }
+            catch (Exception exception) when (exception is InvalidOperationException or NotSupportedException)
+            {
+                // A non-seekable source keeps whatever position it reached; Start still reopens.
+            }
+        }
+
+        return samples == 0 ? 0 : Math.Sqrt(power / samples);
     }
 
     private void ArmIdleCore()

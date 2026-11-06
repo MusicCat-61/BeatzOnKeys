@@ -161,6 +161,12 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             Check("defaults.loop", _vm.Loop, "A fresh VM keeps Loop=true.");
             Check("defaults.typingVolumeAndIdle", Near(_vm.MinVolume, 0.2) && Near(_vm.MaxVolume, 1) && Near(_vm.IdleTimeout, 3) && _vm.PauseOnIdle,
                 $"Fresh settings: Min={_vm.MinVolumePercent}, Max={_vm.MaxVolumePercent}, Idle={_vm.IdleTimeout}s, Pause={_vm.PauseOnIdle}.");
+            Check("defaults.reactive", _vm.PunchResponseEnabled && Near(_vm.BassReactiveGain, 0.15) && !_vm.StereoPulseEnabled &&
+                _vm.AdaptiveVolumeEnabled,
+                $"Fresh settings: punch={_vm.PunchResponseEnabled}, bass={_vm.BassReactivePercent}, stereo={_vm.StereoPulseEnabled}, adaptive={_vm.AdaptiveVolumeEnabled}.");
+            // The fixtures are quiet, so the adaptive threshold would lower the quiet level below the
+            // fixed gains these lifecycle checks assert. Core tests cover the adaptive behaviour.
+            _vm.AdaptiveVolumeEnabled = false;
             Check("initialize.empty", _vm.Tracks.Count == 0 && !_vm.IsRunning && _vm.CanReset, _vm.StatusText);
             await _vm.AddFilesAsync(_fixtures.Take(3));
             Check("import.mp3", _vm.Tracks.Count == 3 && _vm.Tracks.All(track => track.IsAvailable && track.Duration > TimeSpan.Zero),
@@ -332,6 +338,13 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("sliders.minSmallDecrement", Near(vm.MinVolumePercentValue, 20), "DecreaseSmall restores the bound quiet-volume value.");
         var idleCheckbox = Descendants<CheckBox>(_window!).Single(c => BindingOperations.GetBinding(c, ToggleButton.IsCheckedProperty)?.Path?.Path == nameof(vm.PauseOnIdle));
         Check("idleCheckbox.bound", idleCheckbox.IsChecked == true, "Rendered PauseOnIdle checkbox is bound and enabled by default.");
+        var punchCheckbox = Descendants<CheckBox>(_window!).Single(c =>
+            BindingOperations.GetBinding(c, ToggleButton.IsCheckedProperty)?.Path?.Path == nameof(vm.PunchResponseEnabled));
+        var adaptiveCheckbox = Descendants<CheckBox>(_window!).Single(c =>
+            BindingOperations.GetBinding(c, ToggleButton.IsCheckedProperty)?.Path?.Path == nameof(vm.AdaptiveVolumeEnabled));
+        Check("reactiveCheckboxes.bound", punchCheckbox.IsChecked == true && adaptiveCheckbox.IsChecked == vm.AdaptiveVolumeEnabled &&
+            Descendants<CheckBox>(_window!).Any(c => BindingOperations.GetBinding(c, ToggleButton.IsCheckedProperty)?.Path?.Path == nameof(vm.StereoPulseEnabled)),
+            $"Punch={punchCheckbox.IsChecked}, adaptive={adaptiveCheckbox.IsChecked} (VM {vm.AdaptiveVolumeEnabled}), stereo checkbox present.");
         vm.StartCommand.Execute(null);
         await UntilAsync(() => vm.IsRunning && _window!.IsVisible && vm.StopCommand.CanExecute(null), 5000, "StartCommand");
         Check("start.windowStaysVisible", _window!.IsVisible && Tray?.Visible == true && hook.IsInstalled && vm.IsRunning,
@@ -617,8 +630,9 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             $"{accentCount} accent buttons; fg={foreground}, bg={background}, ratio={contrast:F2}; " + string.Join("; ", accentFailures));
         var sliders = Descendants<Slider>(window).ToArray();
         if (window is MainWindow)
-            Check(label + ".sliderLimits", sliders.Length == 3 && sliders.Any(s => Near(s.Minimum, 0) && Near(s.Maximum, 100)) &&
+            Check(label + ".sliderLimits", sliders.Length == 4 && sliders.Any(s => Near(s.Minimum, 0) && Near(s.Maximum, 100)) &&
                 sliders.Any(s => Near(s.Minimum, 0) && Near(s.Maximum, 50)) && sliders.Any(s => Near(s.Minimum, 1) && Near(s.Maximum, 10)) &&
+                sliders.Any(s => Near(s.Minimum, 0) && Near(s.Maximum, 30)) &&
                 sliders.All(s => s.Value >= s.Minimum && s.Value <= s.Maximum),
                 string.Join("; ", sliders.Select(s => $"[{s.Minimum},{s.Maximum}]={s.Value}")));
     }
@@ -778,6 +792,10 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         vm.PauseOnIdle = false;
         vm.AutoAdvance = true;
         vm.Loop = false;
+        vm.PunchResponseEnabled = false;
+        vm.BassReactivePercentValue = 12;
+        vm.StereoPulseEnabled = true;
+        vm.AdaptiveVolumeEnabled = false;
         vm.SetLanguageCommand.Execute("ru");
         if (!Theme.IsLight) vm.ToggleThemeCommand.Execute(null);
         vm.SelectedTrack = vm.Tracks[1];
@@ -791,9 +809,11 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("dispose.unhooksAndSaves", _hook!.IsDisposed && !_hook.IsInstalled && !_player!.IsPlaying, "DisposeAsync waits for the worker, unhooks, and disposes audio.");
         var service = MakeSettingsService(SettingsPath);
         var loaded = await service.LoadAsync();
-        Check("settings.allFieldsPersisted", loaded.SchemaVersion == 3 && loaded.SchemaVersion == AppSettings.CurrentSchemaVersion &&
+        Check("settings.allFieldsPersisted", loaded.SchemaVersion == AppSettings.CurrentSchemaVersion &&
             Near(loaded.MinVolume, 0.25) && Near(loaded.MaxVolume, 0.8) && Near(loaded.IdleTimeout, 4) && !loaded.PauseOnIdle &&
             loaded.AutoAdvance && !loaded.Loop && loaded.Language == "ru" && loaded.Theme == "light" && loaded.SelectedTrackId == selected &&
+            !loaded.PunchResponseEnabled && Near(loaded.BassReactiveGain, 0.12) && loaded.StereoPulseEnabled &&
+            !loaded.AdaptiveVolumeEnabled &&
             loaded.Tracks.Count == expectedTracks.Length && loaded.Tracks.Zip(expectedTracks).All(pair => pair.First.Id == pair.Second.Id &&
                 pair.First.SourcePath == pair.Second.SourcePath && pair.First.AddedAt == pair.Second.AddedAt),
             $"schema={loaded.SchemaVersion}, min={loaded.MinVolume}, max={loaded.MaxVolume}, idle={loaded.IdleTimeout}s, pause={loaded.PauseOnIdle}, auto={loaded.AutoAdvance}, loop={loaded.Loop}, language={loaded.Language}, theme={loaded.Theme}, selected={loaded.SelectedTrackId}; path={Friendly(SettingsPath)}.");
@@ -803,7 +823,12 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         JsonElement Value(string name) => fields.Single(field => field.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).Value;
         Check("settings.jsonUnits", Near(Value(nameof(AppSettings.MinVolume)).GetDouble(), 0.25) &&
             Near(Value(nameof(AppSettings.MaxVolume)).GetDouble(), 0.8) && Near(Value(nameof(AppSettings.IdleTimeout)).GetDouble(), 4) &&
-            !Value(nameof(AppSettings.PauseOnIdle)).GetBoolean(), "JSON volumes are normalized fractions; idle timeout is seconds; PauseOnIdle is boolean.");
+            !Value(nameof(AppSettings.PauseOnIdle)).GetBoolean() &&
+            Near(Value(nameof(AppSettings.BassReactiveGain)).GetDouble(), 0.12) &&
+            Value(nameof(AppSettings.StereoPulseEnabled)).GetBoolean() &&
+            !Value(nameof(AppSettings.PunchResponseEnabled)).GetBoolean() &&
+            !Value(nameof(AppSettings.AdaptiveVolumeEnabled)).GetBoolean(),
+            "JSON volumes are normalized fractions; the bass gain is a fraction; the three new switches are booleans.");
         Check("settings.schema3Only", !Regex.IsMatch(raw, @"""(?:Volume|StepSeconds|Status|MidiPath|NoteEvents|Transcription|Sensitivity|Instrument)""", RegexOptions.IgnoreCase),
             "Persisted schema excludes obsolete volume/timing/transcription/status/instrument fields.");
         Loc.Initialize(loaded.Language);

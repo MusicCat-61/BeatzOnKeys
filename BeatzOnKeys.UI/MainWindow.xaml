@@ -393,6 +393,44 @@
                             </CheckBox>
                             <TextBlock Text="{DynamicResource L_LoopHint}" FontSize="12.5" TextWrapping="Wrap"
                                        Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+
+                            <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,13,0,12"/>
+
+                            <TextBlock Text="{DynamicResource L_MusicReaction}" Style="{StaticResource SectionLabelStyle}"
+                                       FontSize="13.5" Margin="0,0,0,8"/>
+
+                            <CheckBox IsChecked="{Binding PunchResponseEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      ToolTip="{DynamicResource L_PunchResponseHint}">
+                                <TextBlock Text="{DynamicResource L_PunchResponse}" TextWrapping="Wrap"/>
+                            </CheckBox>
+                            <TextBlock Text="{DynamicResource L_PunchResponseHint}" FontSize="12.5" TextWrapping="Wrap"
+                                       Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+
+                            <DockPanel Margin="0,14,0,0">
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding BassReactivePercent}"
+                                           Style="{StaticResource ValueLabelStyle}"/>
+                                <TextBlock Text="{DynamicResource L_BassGain}" Style="{StaticResource ValueLabelStyle}"/>
+                            </DockPanel>
+                            <Slider Minimum="0" Maximum="30"
+                                    Value="{Binding BassReactivePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ToolTip="{DynamicResource L_BassGainHint}"
+                                    TickFrequency="1" Margin="0,4,0,0"/>
+                            <TextBlock Text="{DynamicResource L_BassGainHint}" FontSize="12.5" TextWrapping="Wrap"
+                                       Margin="0,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+
+                            <CheckBox IsChecked="{Binding StereoPulseEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      ToolTip="{DynamicResource L_StereoPulseHint}" Margin="0,12,0,0">
+                                <TextBlock Text="{DynamicResource L_StereoPulse}" TextWrapping="Wrap"/>
+                            </CheckBox>
+                            <TextBlock Text="{DynamicResource L_StereoPulseHint}" FontSize="12.5" TextWrapping="Wrap"
+                                       Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+
+                            <CheckBox IsChecked="{Binding AdaptiveVolumeEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      ToolTip="{DynamicResource L_AdaptiveVolumeHint}" Margin="0,12,0,0">
+                                <TextBlock Text="{DynamicResource L_AdaptiveVolume}" TextWrapping="Wrap"/>
+                            </CheckBox>
+                            <TextBlock Text="{DynamicResource L_AdaptiveVolumeHint}" FontSize="12.5" TextWrapping="Wrap"
+                                       Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
                         </StackPanel>
                     </Border>
 

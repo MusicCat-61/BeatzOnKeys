@@ -11,6 +11,11 @@ public interface IContinuousAudioPlayer : IDisposable
     double MaxVolume { get; set; }
     double IdleTimeout { get; set; }
     bool PauseOnIdle { get; set; }
+    bool PunchResponseEnabled { get; set; }
+    double BassReactiveGain { get; set; }
+    bool StereoPulseEnabled { get; set; }
+    bool AdaptiveVolumeEnabled { get; set; }
+    double EffectiveMinVolume { get; }
     bool IsPlaying { get; }
     bool IsIdlePaused { get; }
     TimeSpan Position { get; }

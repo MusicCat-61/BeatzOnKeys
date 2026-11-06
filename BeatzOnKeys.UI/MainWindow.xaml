@@ -179,11 +179,22 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="2,0,4,9">
-                            <TextBlock Text="{DynamicResource L_Tracks}" Style="{StaticResource SectionLabelStyle}" Margin="0"/>
+                        <DockPanel Margin="2,0,4,9" VerticalAlignment="Center" LastChildFill="False">
+                            <Button DockPanel.Dock="Right" Click="ClearPlaylistClick" Style="{StaticResource SubtleButtonStyle}"
+                                    Padding="8,3" Margin="8,0,0,0" ToolTip="{DynamicResource L_ClearPlaylistHint}"
+                                    IsEnabled="{Binding CanClearPlaylist}"
+                                    AutomationProperties.Name="{DynamicResource L_ClearPlaylist}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                                               Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,6,0"/>
+                                    <TextBlock Text="{DynamicResource L_ClearPlaylist}" VerticalAlignment="Center" FontSize="12.5"/>
+                                </StackPanel>
+                            </Button>
+                            <TextBlock Text="{DynamicResource L_Tracks}" Style="{StaticResource SectionLabelStyle}"
+                                       Margin="0" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding TrackCountText}" FontSize="13" Margin="10,1,0,0"
-                                       Foreground="{DynamicResource TextTertiaryBrush}"/>
-                        </StackPanel>
+                                       VerticalAlignment="Center" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        </DockPanel>
 
                         <Grid Grid.Row="1">
                             <ListBox ItemsSource="{Binding Tracks}" SelectedItem="{Binding SelectedTrack, Mode=TwoWay}"
@@ -217,6 +228,8 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="42"/>
                                                 <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
@@ -255,7 +268,41 @@
                                                 <TextBlock Text="{Binding Extension}" FontSize="10.5" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
                                             </Border>
-                                            <Button Grid.Column="4" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
+                                            <Button Grid.Column="4" Margin="0,0,2,0"
+                                                    Command="{Binding DataContext.MoveTrackUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" ToolTip="{DynamicResource L_MoveUp}"
+                                                    AutomationProperties.Name="{DynamicResource L_MoveUp}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                                        <Setter Property="Width" Value="26"/>
+                                                        <Setter Property="Height" Value="26"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsFirst}" Value="True">
+                                                                <Setter Property="IsEnabled" Value="False"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70E;"/>
+                                            </Button>
+                                            <Button Grid.Column="5" Margin="0,0,6,0"
+                                                    Command="{Binding DataContext.MoveTrackDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}" ToolTip="{DynamicResource L_MoveDown}"
+                                                    AutomationProperties.Name="{DynamicResource L_MoveDown}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                                        <Setter Property="Width" Value="26"/>
+                                                        <Setter Property="Height" Value="26"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsLast}" Value="True">
+                                                                <Setter Property="IsEnabled" Value="False"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70D;"/>
+                                            </Button>
+                                            <Button Grid.Column="6" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
                                                     Command="{Binding DataContext.RemoveTrackCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}" ToolTip="{DynamicResource L_Remove}">
                                                 <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="13"/>

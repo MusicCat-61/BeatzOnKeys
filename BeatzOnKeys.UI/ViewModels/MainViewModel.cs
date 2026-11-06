@@ -86,7 +86,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         RemoveTrackCommand = new RelayCommand<TrackViewModel>(track =>
         {
             if (track is not null) { _ = RemoveTrackAsync(track); }
-        }, track => track is not null && CanReset);
+        }, track => track is not null && CanEditPlaylist);
+        MoveTrackUpCommand = new RelayCommand<TrackViewModel>(track => MoveTrack(track, -1),
+            track => CanEditPlaylist && CanMove(track, -1));
+        MoveTrackDownCommand = new RelayCommand<TrackViewModel>(track => MoveTrack(track, 1),
+            track => CanEditPlaylist && CanMove(track, 1));
         SetLanguageCommand = new RelayCommand<string>(code => Loc.SetLanguage(Loc.Parse(code)));
         ToggleThemeCommand = new RelayCommand(Theme.Toggle);
         OpenLogsCommand = new RelayCommand(OpenLogs);
@@ -101,6 +105,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public AsyncRelayCommand StartCommand { get; }
     public AsyncRelayCommand StopCommand { get; }
     public RelayCommand<TrackViewModel> RemoveTrackCommand { get; }
+    public RelayCommand<TrackViewModel> MoveTrackUpCommand { get; }
+    public RelayCommand<TrackViewModel> MoveTrackDownCommand { get; }
     public RelayCommand<string> SetLanguageCommand { get; }
     public RelayCommand ToggleThemeCommand { get; }
     public RelayCommand OpenLogsCommand { get; }
@@ -203,7 +209,13 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         get => _isRunning;
         private set { if (SetProperty(ref _isRunning, value)) { RefreshCommands(); StateChanged?.Invoke(); } }
     }
-    public bool CanReset => !_closing && !_initializing && !_changingPlayback && _pendingImports == 0;
+    /// <summary>
+    /// Any playlist edit — adding, removing, moving, clearing, starting — needs a settled window:
+    /// not shutting down, not restoring tracks, not changing playback, and no import in flight.
+    /// </summary>
+    public bool CanEditPlaylist => !_closing && !_initializing && !_changingPlayback && _pendingImports == 0;
+    public bool CanReset => CanEditPlaylist;
+    public bool CanClearPlaylist => CanEditPlaylist && Tracks.Count > 0;
     public bool HasTracks => Tracks.Count > 0;
     public string TrackCountText => Loc.F("L_TrackCountFormat", Tracks.Count);
     public bool IsEnglish => Loc.Current == AppLanguage.En;
@@ -229,6 +241,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         var saved = _savedSelectedTrackId is Guid id ? Tracks.FirstOrDefault(track => track.Id == id) : null;
         SelectedTrack = saved ?? Tracks.FirstOrDefault(track => track.IsAvailable) ?? Tracks.FirstOrDefault();
         _initializing = false;
+        RefreshTrackPositions();
+        SyncPlaybackOrder();
         RefreshPlaybackProgress();
         StatusText = Loc.T("L_ReadyToType");
         RefreshCommands();
@@ -318,7 +332,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    private bool CanStartPlayback() => CanReset && !IsRunning && Tracks.Any(track => track.IsAvailable);
+    private bool CanStartPlayback() => CanEditPlaylist && !IsRunning && Tracks.Any(track => track.IsAvailable);
 
     private async Task StartPlaybackAsync()
     {
@@ -366,7 +380,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
     private async Task RemoveTrackAsync(TrackViewModel track)
     {
-        if (!CanReset || !Tracks.Contains(track)) { return; }
+        if (!CanEditPlaylist || !Tracks.Contains(track)) { return; }
         if (SelectedTrack == track)
         {
             if (IsRunning) { await StopPlaybackAsync().ConfigureAwait(true); }
@@ -382,24 +396,74 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         await SaveAsync().ConfigureAwait(true);
     }
 
-    public async Task ResetAsync()
+    private bool CanMove(TrackViewModel? track, int offset)
     {
-        if (!CanReset) { return; }
+        if (track is null) { return false; }
+        var index = Tracks.IndexOf(track);
+        var target = index + offset;
+        return index >= 0 && target >= 0 && target < Tracks.Count;
+    }
+
+    /// <summary>
+    /// Moves a row by one position. The collection raises Move, so the same view-model instance
+    /// stays selected: reordering never restarts the track that is playing.
+    /// </summary>
+    private void MoveTrack(TrackViewModel? track, int offset)
+    {
+        if (track is null || !CanEditPlaylist) { return; }
+        var index = Tracks.IndexOf(track);
+        var target = index + offset;
+        if (index < 0 || target < 0 || target >= Tracks.Count) { return; }
+        Tracks.Move(index, target);
+    }
+
+    /// <summary>Playback order follows the visible order, so "next at the end" is the row below.</summary>
+    private void SyncPlaybackOrder() =>
+        _playbackController.Reorder(Tracks.Select(track => track.Id).ToArray());
+
+    private void RefreshTrackPositions()
+    {
+        for (var index = 0; index < Tracks.Count; index++)
+        {
+            Tracks[index].SetPosition(index, Tracks.Count);
+        }
+    }
+
+    /// <summary>
+    /// Stops playback, releases the audio file and empties both the visible list and the controller.
+    /// "Clear playlist" and "reset" share it so the two can never drift apart.
+    /// </summary>
+    private async Task ClearPlaylistCoreAsync()
+    {
         await StopPlaybackAsync().ConfigureAwait(true);
         _typingPlayback.Unload();
         _playbackController.Clear();
         Tracks.Clear();
         SelectedTrack = null;
+    }
+
+    /// <summary>Empties the playlist only: playback settings, language, and theme stay untouched.</summary>
+    public async Task ClearPlaylistAsync()
+    {
+        if (!CanEditPlaylist || Tracks.Count == 0) { return; }
+        await ClearPlaylistCoreAsync().ConfigureAwait(true);
+        StatusText = Loc.T("L_PlaylistCleared");
+        await SaveAsync().ConfigureAwait(true);
+    }
+
+    public async Task ResetAsync()
+    {
+        if (!CanEditPlaylist) { return; }
+        // Soft reset: playlist and playback settings return to their defaults; the chosen language
+        // and theme stay exactly as the user left them, and audio files are never touched.
+        await ClearPlaylistCoreAsync().ConfigureAwait(true);
         MaxVolume = 1;
         MinVolume = 0.2;
         IdleTimeout = 3;
         PauseOnIdle = true;
         AutoAdvance = false;
         Loop = true;
-        Loc.SetLanguage(Loc.DetectSystemLanguage());
-        Theme.Apply(AppTheme.Dark);
         StatusText = Loc.T("L_ResetComplete");
-        await _settingsService.DeleteAsync().ConfigureAwait(true);
         await SaveAsync().ConfigureAwait(true);
         UserMessageRequested?.Invoke(Loc.T("L_ResetComplete"));
     }
@@ -495,6 +559,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     }
     private void OnTracksChanged(object? sender, NotifyCollectionChangedEventArgs args)
     {
+        RefreshTrackPositions();
+        SyncPlaybackOrder();
         OnPropertyChanged(nameof(HasTracks));
         OnPropertyChanged(nameof(TrackCountText));
         RefreshCommands();
@@ -532,11 +598,15 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     }
     private void RefreshCommands()
     {
+        OnPropertyChanged(nameof(CanEditPlaylist));
         OnPropertyChanged(nameof(CanReset));
+        OnPropertyChanged(nameof(CanClearPlaylist));
         AddFilesCommand.NotifyCanExecuteChanged();
         StartCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
         RemoveTrackCommand.NotifyCanExecuteChanged();
+        MoveTrackUpCommand.NotifyCanExecuteChanged();
+        MoveTrackDownCommand.NotifyCanExecuteChanged();
     }
 
     public async ValueTask DisposeAsync()

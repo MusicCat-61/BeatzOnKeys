@@ -4,7 +4,7 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.1.2-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Version](https://img.shields.io/badge/version-1.2.0-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#requirements)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
@@ -33,6 +33,7 @@ BeatzOnKeys is written in C# with .NET 10 and WPF, with NAudio for decoding and 
 | 🌐 **Two languages** | English and Russian switch instantly; first launch follows the system language |
 | 🔕 **Tray mode** | The window stays open after Start and hides only when you explicitly close it to the tray |
 | 💾 **Saved preferences** | Playlist, selection, volume levels, idle options, language, theme, auto-advance, and loop |
+| 🎛 **Playlist controls** | Move a track up or down, remove one, or clear the whole list without touching the files |
 | 🗒 **Logs and updates** | Daily UTF-8 diagnostics, quiet update checks, and SHA-256-verified downloads |
 | 📖 **Built-in guide** | One window explains every button, slider, switch, tray action, status, and path — open it with F1 |
 
@@ -91,7 +92,7 @@ Choosing another track starts that track from its beginning.
 
 Only one copy can run at a time: launching it again restores the window of the running copy.
 
-No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.1.2 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
+No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.2.0 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
 
 ### Requirements
 
@@ -101,7 +102,7 @@ No installer, administrator rights, or separate .NET runtime are required. **Upg
 
 ## Usage
 
-1. Drag MP3 or PCM WAV files onto the drop area, or use **Add files**; select a track.
+1. Drag MP3 or PCM WAV files onto the drop area, or use **Add files**; select a track. The arrows in a row reorder the playlist and **Clear all** empties it.
 2. Set the quiet and maximum volume levels, idle timeout, and **Pause on idle**. Choose **Auto-advance** and **Loop** as needed.
 3. Click **Start**. The track starts immediately from the beginning and the window stays open.
 4. Type in any application to raise the volume; stop typing to lower it. If idle pausing is enabled, the first key after a pause resumes the track at the same position.
@@ -160,14 +161,14 @@ dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Create the **1.1.2** portable self-contained folder in Windows **cmd**:
+Create the **1.2.0** portable self-contained folder in Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.1.2
+set BOK_VERSION=1.2.0
 publish.bat
 ```
 
-The publisher now defaults to `BOK_VERSION=1.1.2`; setting it explicitly makes the intended release version clear.
+The publisher now defaults to `BOK_VERSION=1.2.0`; setting it explicitly makes the intended release version clear.
 
 The publisher validates its `Build_Output` cleanup target, publishes `BeatzOnKeys.UI` self-contained for `win-x64`, and copies both READMEs, release notes, screenshots, the license, and third-party notices. It stops on any required publish/copy failure. The resulting `Build_Output` directory is the portable product.
 

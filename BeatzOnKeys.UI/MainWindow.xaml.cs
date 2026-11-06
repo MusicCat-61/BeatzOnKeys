@@ -150,6 +150,20 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void ClearPlaylistClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (!ViewModel.CanClearPlaylist)
+        {
+            return;
+        }
+
+        var answer = MessageDialog.Ask(this, Loc.T("L_ClearPlaylistMessage"), Loc.T("L_ClearPlaylistTitle"));
+        if (answer)
+        {
+            await ViewModel.ClearPlaylistAsync().ConfigureAwait(true);
+        }
+    }
+
     private void DropBorder_DragEnter(object sender, DragEventArgs eventArgs) => UpdateDropState(eventArgs, active: true);
 
     private void DropBorder_DragOver(object sender, DragEventArgs eventArgs) => UpdateDropState(eventArgs, active: true);

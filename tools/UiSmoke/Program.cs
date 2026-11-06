@@ -194,6 +194,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             await Section("render.matrix", CaptureMatrixAsync);
             await Section("guide", GuideAsync);
             await Section("autoAdvance", AutoAdvanceAsync);
+            await Section("playlist", PlaylistManagementAsync);
             await Section("missingTrack", MissingTrackAsync);
             await Section("settings.roundtrip", SettingsRoundtripAsync);
         }
@@ -666,6 +667,84 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         await vm.DisposeAsync();
         _ownedModels.Remove(vm);
         Check("autoAdvance.disposed", hook.IsDisposed && !player.IsPlaying, "Independent custom-settings VM disposed.");
+    }
+
+    /// <summary>Move, remove-current, clear, and persistence checks on an isolated view model.</summary>
+    private async Task PlaylistManagementAsync()
+    {
+        var hook = new FakeKeyboardHook();
+        var player = new ContinuousAudioPlayer();
+        var settingsPath = Path.Combine(session, "playlist-settings.json");
+        var vm = Own(new MainViewModel(new AppSettings { Language = "en", PauseOnIdle = false, AutoAdvance = true, Loop = false },
+            MakeSettingsService(settingsPath), hook, player));
+        vm.UserMessageRequested += message => _messages.Add("Playlist: " + message);
+        await vm.InitializeAsync();
+        await vm.AddFilesAsync(_fixtures.Take(3));
+        var first = vm.Tracks[0];
+        var second = vm.Tracks[1];
+        var third = vm.Tracks[2];
+        Check("playlist.importedEdges", vm.Tracks.Count == 3 && first.IsFirst && !first.IsLast && second.Index == 1 && third.IsLast,
+            $"{string.Join(" | ", vm.Tracks.Select(track => $"{track.FileName}[{track.Index} first={track.IsFirst} last={track.IsLast}]"))}");
+
+        vm.MoveTrackUpCommand.Execute(second);
+        await SettleAsync();
+        Check("playlist.moveUpReorders", vm.Tracks[0] == second && vm.Tracks[1] == first && second.IsFirst && !second.IsLast &&
+            first.Index == 1 && third.IsLast,
+            $"Order: {string.Join(" | ", vm.Tracks.Select(track => track.FileName))}");
+        Check("playlist.edgesDisabled", !vm.MoveTrackUpCommand.CanExecute(vm.Tracks[0]) && !vm.MoveTrackDownCommand.CanExecute(vm.Tracks[2]),
+            "The first row cannot move up and the last cannot move down.");
+
+        // A reorder of the playing track must not restart it.
+        vm.StartCommand.Execute(null);
+        await UntilAsync(() => vm.IsRunning && player.IsPlaying, 5000, "playlist playback start");
+        await Task.Delay(700);
+        var beforeMove = player.Position;
+        vm.MoveTrackDownCommand.Execute(vm.SelectedTrack!);
+        await SettleAsync();
+        await Task.Delay(400);
+        Check("playlist.moveKeepsPlayback", vm.IsRunning && player.IsPlaying && player.Position > beforeMove &&
+            ReferenceEquals(vm.SelectedTrack, first),
+            $"{beforeMove.TotalSeconds:F2}s -> {player.Position.TotalSeconds:F2}s while the selected track moved down.");
+
+        // Removing the current track stops playback and selects the neighbour that takes its place.
+        await UntilAsync(() => vm.RemoveTrackCommand.CanExecute(vm.SelectedTrack), 5000, "remove current track");
+        vm.RemoveTrackCommand.Execute(vm.SelectedTrack);
+        await UntilAsync(() => !vm.IsRunning && vm.Tracks.Count == 2, 5000, "remove current track stops playback");
+        await SettleAsync();
+        Check("playlist.removeCurrentStopsAndSelectsNext", !vm.IsRunning && !player.IsPlaying && vm.SelectedTrack is not null &&
+            vm.Tracks.Contains(vm.SelectedTrack) && ReferenceEquals(vm.SelectedTrack, third),
+            $"Running={vm.IsRunning}; selected={vm.SelectedTrackText}; order: {string.Join(" | ", vm.Tracks.Select(track => track.FileName))}");
+
+        await vm.ClearPlaylistAsync();
+        await SettleAsync();
+        var raw = await File.ReadAllTextAsync(settingsPath);
+        using var document = JsonDocument.Parse(raw);
+        var savedTracks = document.RootElement.GetProperty("Tracks").GetArrayLength();
+        var savedSelection = document.RootElement.GetProperty("SelectedTrackId");
+        Check("playlist.clearStopsAndPersistsEmpty", vm.Tracks.Count == 0 && vm.SelectedTrack is null && !vm.IsRunning &&
+            !vm.CanClearPlaylist && savedTracks == 0 && savedSelection.ValueKind == JsonValueKind.Null,
+            $"Visible tracks={vm.Tracks.Count}; saved tracks={savedTracks}; selectedTrackId={savedSelection.ValueKind}; running={vm.IsRunning}.");
+
+        // The moved order must survive a restart.
+        await vm.AddFilesAsync(_fixtures.Take(3));
+        vm.MoveTrackDownCommand.Execute(vm.Tracks[0]);
+        await SettleAsync();
+        var expectedOrder = vm.Tracks.Select(track => track.SourcePath).ToArray();
+        await vm.SaveAsync();
+        await vm.DisposeAsync();
+        _ownedModels.Remove(vm);
+
+        var reloadService = MakeSettingsService(settingsPath);
+        var reloadedSettings = await reloadService.LoadAsync();
+        var reloaded = Own(new MainViewModel(reloadedSettings, reloadService,
+            new FakeKeyboardHook(), new ContinuousAudioPlayer()));
+        await reloaded.InitializeAsync();
+        var reloadedOrder = reloaded.Tracks.Select(track => track.SourcePath).ToArray();
+        Check("playlist.orderSurvivesRestart", reloadedOrder.SequenceEqual(expectedOrder) && reloaded.Tracks[0].IsFirst &&
+            reloaded.Tracks[^1].IsLast,
+            $"Saved: {string.Join(" | ", expectedOrder.Select(Path.GetFileName))}; loaded: {string.Join(" | ", reloadedOrder.Select(Path.GetFileName))}.");
+        await reloaded.DisposeAsync();
+        _ownedModels.Remove(reloaded);
     }
 
     private async Task MissingTrackAsync()

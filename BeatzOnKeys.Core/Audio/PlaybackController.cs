@@ -72,6 +72,69 @@ public sealed class PlaybackController
             if (_selectedTrackId == id) { _selectedTrackId = null; }
         }
     }
+
+    /// <summary>Position of a known track in playback order, or -1 when it is not part of the list.</summary>
+    public int IndexOf(Guid id) { lock (_gate) { return _tracks.FindIndex(track => track.Id == id); } }
+
+    /// <summary>True when moving this track by the given offset is possible.</summary>
+    public bool CanMove(Guid id, int offset)
+    {
+        lock (_gate)
+        {
+            var index = _tracks.FindIndex(track => track.Id == id);
+            var target = index + offset;
+            return index >= 0 && target >= 0 && target < _tracks.Count;
+        }
+    }
+
+    /// <summary>
+    /// Moves one track by the given offset in playback order and returns its new index, or -1 when
+    /// the move is impossible. The selection and the track-changed event stay untouched, so a
+    /// reorder never restarts the track that is currently playing.
+    /// </summary>
+    public int MoveTrack(Guid id, int offset)
+    {
+        lock (_gate)
+        {
+            var index = _tracks.FindIndex(track => track.Id == id);
+            if (index < 0) { return -1; }
+            var target = index + offset;
+            if (target < 0 || target >= _tracks.Count) { return -1; }
+            var track = _tracks[index];
+            _tracks.RemoveAt(index);
+            _tracks.Insert(target, track);
+            return target;
+        }
+    }
+
+    /// <summary>
+    /// Applies an external (visual) order to the tracks this controller knows. Ids it does not hold
+    /// are ignored, and tracks the caller omits keep their relative order at the end. The selection
+    /// is untouched and no event is raised, because reordering must not interrupt playback.
+    /// </summary>
+    public void Reorder(IReadOnlyList<Guid> orderedIds)
+    {
+        ArgumentNullException.ThrowIfNull(orderedIds);
+        lock (_gate)
+        {
+            if (_tracks.Count == 0) { return; }
+            var remaining = new Dictionary<Guid, PlaybackTrack>(_tracks.Count);
+            foreach (var track in _tracks) { remaining[track.Id] = track; }
+            var reordered = new List<PlaybackTrack>(_tracks.Count);
+            foreach (var id in orderedIds)
+            {
+                if (remaining.Remove(id, out var track)) { reordered.Add(track); }
+            }
+
+            foreach (var track in _tracks)
+            {
+                if (remaining.Remove(track.Id, out var kept)) { reordered.Add(kept); }
+            }
+
+            _tracks.Clear();
+            _tracks.AddRange(reordered);
+        }
+    }
     public void Deselect() { lock (_gate) { _selectedTrackId = null; } }
     public void Clear() { lock (_gate) { _tracks.Clear(); _selectedTrackId = null; } }
 }

@@ -12,6 +12,9 @@ public sealed class TrackViewModel : ObservableObject
     private bool _isAvailable;
     private bool _sourceMissing;
     private string? _errorDetails;
+    private int _index = -1;
+    private bool _isFirst = true;
+    private bool _isLast = true;
 
     public TrackViewModel(TrackState state)
     {
@@ -29,6 +32,15 @@ public sealed class TrackViewModel : ObservableObject
     public string Extension => Path.GetExtension(SourcePath).TrimStart('.').ToUpperInvariant();
     public TimeSpan Duration => _duration;
     public bool IsAvailable => _isAvailable;
+
+    /// <summary>Zero-based position in the visible playlist; refreshed by the owning view model.</summary>
+    public int Index => _index;
+
+    /// <summary>True for the first row, where "move up" cannot do anything.</summary>
+    public bool IsFirst => _isFirst;
+
+    /// <summary>True for the last row, where "move down" cannot do anything.</summary>
+    public bool IsLast => _isLast;
     public string DurationText => _duration <= TimeSpan.Zero ? "—" :
         _duration.TotalHours >= 1 ? $"{(int)_duration.TotalHours}:{_duration:mm\\:ss}" : _duration.ToString(@"mm\:ss");
 
@@ -64,6 +76,20 @@ public sealed class TrackViewModel : ObservableObject
     public PlaybackTrack ToPlaybackTrack() => new(Id, FileName, SourcePath, Duration);
     public TrackState ToState() => new() { Id = Id, SourcePath = SourcePath, AddedAt = AddedAt };
     public void RefreshLocalization() => OnPropertyChanged(nameof(TooltipText));
+
+    /// <summary>Called by the playlist owner after any add, remove, move or clear.</summary>
+    internal void SetPosition(int index, int count)
+    {
+        var isFirst = index == 0;
+        var isLast = index == count - 1;
+        if (_index == index && _isFirst == isFirst && _isLast == isLast) { return; }
+        _index = index;
+        _isFirst = isFirst;
+        _isLast = isLast;
+        OnPropertyChanged(nameof(Index));
+        OnPropertyChanged(nameof(IsFirst));
+        OnPropertyChanged(nameof(IsLast));
+    }
 
     private void RefreshProperties()
     {

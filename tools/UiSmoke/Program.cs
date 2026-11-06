@@ -192,8 +192,10 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             Check("startup.productionBypassed", GetField<SettingsService>(app, "_settingsService") == settingsService &&
                 GetField<DispatcherTimer>(app, "_updateTimer") is null && GetField<CancellationTokenSource>(app, "_updateCancellation") is null,
                 "Exact App instance: production OnStartup operation aborted before pumping; explicit artifact settings only, no automatic update timer. Aborted startup operations=" + abortedStartupCount);
-            Check("window.defaultSize", Near(_window.Width, 1120) && Near(_window.Height, 780),
-                $"Actual XAML default {_window.Width}x{_window.Height}; expected 1120x780.");
+            Check("window.defaultSize", Near(_window.Width, 1120) && _window.Height >= 780,
+                $"Actual default {_window.Width}x{_window.Height}; expected width 1120 and a height that fits the settings column.");
+            Check("window.fitsContent", FitsSettingsContent(),
+                $"Settings column scrollable height={SettingsScrollableHeight():F0} px at {_window.Height:F0} px tall; a larger font must not hide controls behind a scrollbar.");
             Check("window.minimumSize", Near(_window.MinWidth, 920) && Near(_window.MinHeight, 650),
                 $"Actual XAML minimum {_window.MinWidth}x{_window.MinHeight}; expected 920x650.");
             Check("render.playlistNoStatuses", !Descendants<TextBlock>(_window).Any(t =>
@@ -398,6 +400,24 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("idle.resumeSamePositionInstantMaximum", player.CurrentGain >= 0.99 && player.Position >= frozenPosition &&
             player.Position - frozenPosition < TimeSpan.FromMilliseconds(750) && Output?.PlaybackState == PlaybackState.Playing,
             $"First key: gain={player.CurrentGain:F3}; {frozenPosition.TotalSeconds:F3}s -> {player.Position.TotalSeconds:F3}s (normal output buffering allowed).");
+        // An explicit pause must keep the decoder where it is, and typing must not lift it.
+        var beforePause = player.Position;
+        vm.TogglePauseCommand.Execute(null);
+        await SettleAsync();
+        Check("pause.keepsPosition", vm.IsPaused && player.IsPaused && !player.IsPlaying &&
+            Output?.PlaybackState == PlaybackState.Paused && player.Position == beforePause && vm.IsRunning,
+            $"Paused={vm.IsPaused}, device={Output?.PlaybackState}, position={beforePause.TotalSeconds:F3}s -> {player.Position.TotalSeconds:F3}s.");
+        Check("pause.buttonText", vm.PauseResumeText == Loc.T("L_Resume"),
+            $"The button offers '{vm.PauseResumeText}' while paused.");
+        hook.Signal();
+        await Task.Delay(300);
+        Check("pause.survivesTyping", vm.IsPaused && player.IsPaused && player.Position == beforePause,
+            $"Typing during a pause must not resume it: paused={player.IsPaused}, position={player.Position.TotalSeconds:F3}s.");
+        vm.TogglePauseCommand.Execute(null);
+        await SettleAsync();
+        Check("pause.resumeContinuesFromPosition", !vm.IsPaused && player.IsPlaying && vm.PauseResumeText == Loc.T("L_Pause") &&
+            player.Position >= beforePause && player.Position - beforePause < TimeSpan.FromMilliseconds(750),
+            $"Resume: {beforePause.TotalSeconds:F3}s -> {player.Position.TotalSeconds:F3}s, button '{vm.PauseResumeText}'.");
         vm.PauseOnIdle = false;
         var continuousPosition = player.Position;
         var idleClock = Stopwatch.StartNew();
@@ -552,6 +572,35 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Descendants<Slider>(window).Count(control => control.IsVisible) +
         Descendants<CheckBox>(window).Count(control => control.IsVisible);
 
+    /// <summary>
+    /// The window is sized to the settings column at start, so at the default font nothing in that
+    /// column should need scrolling. This is what breaks first when the font grows.
+    /// </summary>
+    private double SettingsScrollableHeight()
+    {
+        var scroller = _window is null ? null : FindByName<ScrollViewer>(_window, "SettingsScroller");
+        return scroller?.ScrollableHeight ?? double.NaN;
+    }
+
+    private bool FitsSettingsContent()
+    {
+        var height = SettingsScrollableHeight();
+        return !double.IsNaN(height) && height <= 1;
+    }
+
+    private static T? FindByName<T>(DependencyObject root, string name) where T : FrameworkElement
+    {
+        if (root is T match && match.Name == name) { return match; }
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var index = 0; index < count; index++)
+        {
+            var found = FindByName<T>(VisualTreeHelper.GetChild(root, index), name);
+            if (found is not null) { return found; }
+        }
+
+        return null;
+    }
+
     /// <summary>The guide is a real window: it must open, render every control, and follow the language switch.</summary>
     private async Task GuideAsync()
     {
@@ -569,7 +618,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         var english = Descendants<TextBlock>(guide).Where(text => text.IsVisible).Select(text => text.Text ?? "").ToArray();
         var described = new[] { "Guide_StartT", "Guide_StopT", "Guide_ResetT", "Guide_MaxT", "Guide_MinT", "Guide_IdleT",
             "Guide_PauseT", "Guide_AutoT", "Guide_LoopT", "Guide_TrayMenuT", "Guide_StatusT", "Guide_NoSoundT",
-            "Guide_ChipsT", "Guide_CollapseT", "Guide_CountT", "Guide_SummaryT", "Guide_UpdStorageT" };
+            "Guide_ChipsT", "Guide_CollapseT", "Guide_CountT", "Guide_SummaryT", "Guide_UpdStorageT",
+            "Guide_PauseResumeT", "Guide_DragT" };
         var missing = described.Where(key => !english.Contains(Loc.T(key))).ToArray();
         Check("guide.coversEveryControl", missing.Length == 0 && english.Length > 40,
             $"{english.Length} visible labels; missing: {string.Join(", ", missing)}.");
@@ -775,6 +825,36 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             $"Order: {string.Join(" | ", vm.Tracks.Select(track => track.FileName))}");
         Check("playlist.edgesDisabled", !vm.MoveTrackUpCommand.CanExecute(vm.Tracks[0]) && !vm.MoveTrackDownCommand.CanExecute(vm.Tracks[2]),
             "The first row cannot move up and the last cannot move down.");
+
+        // Drag-and-drop goes through MoveTrackTo, which may travel any distance and shows a
+        // drop indicator while the pointer hovers a row.
+        var orderBeforeDrag = vm.Tracks.ToArray();
+        var dragged = vm.Tracks[2];
+        vm.SetDropTarget(vm.Tracks[0], above: true);
+        await SettleAsync();
+        Check("playlist.dropIndicator", vm.Tracks[0].IsDropTarget && vm.Tracks[0].IsDropTargetAbove &&
+            vm.Tracks.Count(track => track.IsDropTarget) == 1,
+            $"Drop indicator on '{vm.Tracks[0].FileName}' above={vm.Tracks[0].IsDropTargetAbove}.");
+        vm.SetDropTarget(null, above: true);
+        await SettleAsync();
+        Check("playlist.dropIndicatorCleared", vm.Tracks.All(track => !track.IsDropTarget),
+            "Clearing the target removes every indicator.");
+
+        var draggedMoved = vm.MoveTrackTo(dragged, 0);
+        await SettleAsync();
+        Check("playlist.dragReordersToTop", draggedMoved && vm.Tracks[0] == dragged && dragged.IsFirst &&
+            vm.Tracks[1].Index == 1 && vm.Tracks[2].IsLast,
+            $"Order after drag: {string.Join(" | ", vm.Tracks.Select(track => track.FileName))}.");
+        Check("playlist.dragNoOp", !vm.MoveTrackTo(dragged, 0) && vm.Tracks[0] == dragged,
+            "Dropping a row onto its own position changes nothing.");
+
+        // Leave the playlist as the rest of the suite expects it.
+        for (var index = 0; index < orderBeforeDrag.Length; index++)
+        {
+            vm.MoveTrackTo(orderBeforeDrag[index], index);
+        }
+
+        await SettleAsync();
 
         // A reorder of the playing track must not restart it.
         vm.StartCommand.Execute(null);

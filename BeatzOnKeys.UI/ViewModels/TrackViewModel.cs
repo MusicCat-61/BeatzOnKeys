@@ -15,6 +15,8 @@ public sealed class TrackViewModel : ObservableObject
     private int _index = -1;
     private bool _isFirst = true;
     private bool _isLast = true;
+    private bool _isDropTarget;
+    private bool _isDropTargetAbove = true;
 
     public TrackViewModel(TrackState state)
     {
@@ -41,6 +43,23 @@ public sealed class TrackViewModel : ObservableObject
 
     /// <summary>True for the last row, where "move down" cannot do anything.</summary>
     public bool IsLast => _isLast;
+
+    /// <summary>
+    /// Set while a dragged row hovers here, so the row can show where the drop will land.
+    /// The playlist owner owns this flag; it is never persisted.
+    /// </summary>
+    public bool IsDropTarget
+    {
+        get => _isDropTarget;
+        internal set { if (_isDropTarget != value) { _isDropTarget = value; OnPropertyChanged(nameof(IsDropTarget)); } }
+    }
+
+    /// <summary>True when the drop indicator belongs above this row rather than below it.</summary>
+    public bool IsDropTargetAbove
+    {
+        get => _isDropTargetAbove;
+        internal set { if (_isDropTargetAbove != value) { _isDropTargetAbove = value; OnPropertyChanged(nameof(IsDropTargetAbove)); } }
+    }
     public string DurationText => _duration <= TimeSpan.Zero ? "—" :
         _duration.TotalHours >= 1 ? $"{(int)_duration.TotalHours}:{_duration:mm\\:ss}" : _duration.ToString(@"mm\:ss");
 

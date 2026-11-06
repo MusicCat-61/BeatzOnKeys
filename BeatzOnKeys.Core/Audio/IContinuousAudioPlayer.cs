@@ -18,10 +18,21 @@ public interface IContinuousAudioPlayer : IDisposable
     double EffectiveMinVolume { get; }
     bool IsPlaying { get; }
     bool IsIdlePaused { get; }
+
+    /// <summary>True while the user paused playback explicitly; the position is kept.</summary>
+    bool IsPaused { get; }
+
     TimeSpan Position { get; }
     TimeSpan Duration { get; }
     TimeSpan LoadTrack(PlaybackTrack track);
     void Start();
+
+    /// <summary>Stops the audio without moving the decoder, so resuming continues the same run.</summary>
+    void Pause();
+
+    /// <summary>Continues exactly where <see cref="Pause"/> stopped.</summary>
+    void Resume();
+
     void NotifyKeyPress();
     void Stop();
     void Unload();

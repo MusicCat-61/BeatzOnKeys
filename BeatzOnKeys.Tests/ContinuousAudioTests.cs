@@ -248,6 +248,78 @@ internal static class ContinuousAudioTests
         return Task.CompletedTask;
     }
 
+    public static Task PauseKeepsPositionAndResumeContinuesFromIt()
+    {
+        using var directory = new TemporaryDirectory();
+        var clock = new ManualTimeProvider();
+        var output = new FakeWavePlayer();
+        using var player = new ContinuousAudioPlayer(() => output, clock);
+        player.LoadTrack(LoadWave(directory.Path));
+        player.Start();
+        ReadAudio(output, 0.5);
+        clock.Advance(0.5);
+        var position = player.Position;
+        AssertEx.True(position > TimeSpan.Zero, "The decoder must have advanced before the pause.");
+
+        player.Pause();
+        AssertEx.True(player.IsPaused);
+        AssertEx.False(player.IsPlaying, "A paused player is not playing.");
+        AssertEx.Equal(1, output.PauseCalls, "Pause must silence the device, not tear it down.");
+        AssertEx.Equal(1, output.InitCalls, "Pause must not recreate the stream.");
+        AssertEx.Equal(0, output.StopCalls, "Pause is not a stop.");
+
+        clock.Advance(3);
+        AssertEx.Equal(position, player.Position, "A pause must not move the decoder.");
+
+        // Typing is the whole point of the app, so an explicit pause has to survive it.
+        player.NotifyKeyPress();
+        AssertEx.True(player.IsPaused, "A key press must not quietly undo an explicit pause.");
+        AssertEx.Equal(position, player.Position, "A key press during a pause must not move the decoder.");
+
+        player.Resume();
+        AssertEx.True(player.IsPlaying);
+        AssertEx.False(player.IsPaused);
+        AssertEx.Equal(1, output.InitCalls, "Resume must reuse the paused stream.");
+        AssertEx.Equal(2, output.PlayCalls);
+        AssertEx.Equal(position, player.Position, "Resume must continue from the paused sample, not from zero.");
+
+        ReadAudio(output, 0.5);
+        clock.Advance(0.5);
+        AssertEx.True(player.Position > position, "Audio must keep moving after a resume.");
+        return Task.CompletedTask;
+    }
+
+    public static Task PausedPlayerIgnoresTheIdleTimerAndStopResetsIt()
+    {
+        using var directory = new TemporaryDirectory();
+        var clock = new ManualTimeProvider();
+        var outputs = new List<FakeWavePlayer>();
+        using var player = new ContinuousAudioPlayer(
+            () => { var created = new FakeWavePlayer(); outputs.Add(created); return created; }, clock);
+        player.LoadTrack(LoadWave(directory.Path));
+        player.Start();
+        var output = outputs[0];
+        ReadAudio(output, 0.2);
+        clock.Advance(0.2);
+        var position = player.Position;
+
+        player.Pause();
+        clock.Advance(10);
+        AssertEx.True(player.IsPaused, "The idle timer must not take over an explicit pause.");
+        AssertEx.False(player.IsIdlePaused);
+        AssertEx.Equal(1, output.PauseCalls, "Only the user pause may touch the device here.");
+        AssertEx.Equal(position, player.Position);
+
+        player.Stop();
+        AssertEx.False(player.IsPaused, "Stop clears the pause.");
+
+        // Start still means "from the beginning"; only Resume continues in place.
+        player.Start();
+        AssertEx.Equal(TimeSpan.Zero, player.Position);
+        AssertEx.False(player.IsPaused);
+        return Task.CompletedTask;
+    }
+
     private static PlaybackTrack LoadWave(string directory, string fileName = "fixture.wav") =>
         AudioTrackLoader.Load(Guid.NewGuid(), AudioTestData.CreateConstantPcm16Wave(directory, fileName, durationSeconds: 2));
 

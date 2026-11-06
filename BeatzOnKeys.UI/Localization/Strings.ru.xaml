@@ -29,6 +29,11 @@
     <sys:String x:Key="L_PlaybackSummary">Музыка играет непрерывно, а набор управляет громкостью.</sys:String>
     <sys:String x:Key="L_StartHint">Играть выбранный трек с начала и оставить окно открытым.</sys:String>
     <sys:String x:Key="L_StopHint">Остановить музыку и перехват клавиатуры. Следующий «Старт» играет с начала.</sys:String>
+    <sys:String x:Key="L_Pause">Пауза</sys:String>
+    <sys:String x:Key="L_Resume">Продолжить</sys:String>
+    <sys:String x:Key="L_PauseHint">Заглушить музыку, запомнив место. «Продолжить» вернётся ровно в ту же точку трека.</sys:String>
+    <sys:String x:Key="L_ResumeHint">Продолжить трек с того места, где остановились, а не с начала.</sys:String>
+    <sys:String x:Key="L_StatusPaused">Пауза — трек стоит на месте, «Продолжить» вернёт его с той же секунды</sys:String>
     <sys:String x:Key="L_AutoAdvance">Автоперелистывание треков</sys:String>
     <sys:String x:Key="L_AutoAdvanceHint">После конца трека переходить к следующему</sys:String>
     <sys:String x:Key="L_Loop">Зацикливать воспроизведение</sys:String>
@@ -158,10 +163,14 @@
     <sys:String x:Key="Guide_SecControls">Кнопки и элементы управления</sys:String>
     <sys:String x:Key="Guide_StartT">Старт</sys:String>
     <sys:String x:Key="Guide_StartX">Играет выбранный трек с начала на тихом уровне и включает перехват клавиатуры. Окно не закрывается. После «Стоп» следующий «Старт» снова начинает с 0:00.</sys:String>
+    <sys:String x:Key="Guide_PauseResumeT">Пауза / Продолжить</sys:String>
+    <sys:String x:Key="Guide_PauseResumeX">Кнопка появляется, пока играет музыка. «Пауза» глушит звук, но запоминает место: «Продолжить» вернётся ровно в ту же секунду трека, а не начнёт заново. Набор клавиш на паузе не снимает её — это ваше явное решение, в отличие от паузы при простое, которую первое же нажатие снимает.</sys:String>
     <sys:String x:Key="Guide_StopT">Стоп</sys:String>
     <sys:String x:Key="Guide_StopX">Останавливает музыку и снимает перехват клавиатуры. Пауза при простое — не остановка: она сохраняет позицию внутри текущего запуска.</sys:String>
     <sys:String x:Key="Guide_ResetT">Сброс</sys:String>
     <sys:String x:Key="Guide_ResetX">Возвращает треки и настройки воспроизведения к значениям по умолчанию: громкости, таймаут простоя, паузу при простое, автоперелистывание и повтор. Язык, тема и файлы на диске остаются как есть.</sys:String>
+    <sys:String x:Key="Guide_DragT">Перетаскивание трека</sys:String>
+    <sys:String x:Key="Guide_DragX">Возьмите строку левой кнопкой и потяните: линия показывает, куда встанет трек. Верхняя половина строки — перед ней, нижняя — после, пустое место под списком — в конец. Играющий трек при этом не перезапускается.</sys:String>
     <sys:String x:Key="Guide_MoveT">Выше и ниже</sys:String>
     <sys:String x:Key="Guide_MoveX">Стрелки в строке трека меняют порядок. Первая строка не двигается вверх, последняя — вниз; автоперелистывание идёт по новому порядку, а играющий трек при перестановке не прерывается.</sys:String>
     <sys:String x:Key="Guide_ClearT">Очистить всё</sys:String>

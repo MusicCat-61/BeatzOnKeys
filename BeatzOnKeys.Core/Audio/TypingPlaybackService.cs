@@ -127,6 +127,20 @@ public sealed class TypingPlaybackService : IAsyncDisposable
         finally { _lifecycleGate.Release(); }
     }
 
+    /// <summary>
+    /// Pauses without tearing the run down: the worker, the hook and the decoder all stay, so the
+    /// position is exactly where it was and a resume continues from there.
+    /// </summary>
+    public void Pause()
+    {
+        lock (_playbackGate) { _player.Pause(); }
+    }
+
+    public void Resume()
+    {
+        lock (_playbackGate) { _player.Resume(); }
+    }
+
     private async Task StopCoreAsync()
     {
         var hadWorker = _worker is not null || IsRunning;
@@ -203,7 +217,7 @@ public sealed class TypingPlaybackService : IAsyncDisposable
                         var ended = Interlocked.Exchange(ref _pendingTrackEnd, null);
                         var trackEnded = ended is not null && ended.PlaybackId == _player.PlaybackId;
                         var keyPressed = Interlocked.Exchange(ref _pendingKey, 0) != 0;
-                        if (trackEnded && !_player.IsPlaying && !_player.IsIdlePaused &&
+                        if (trackEnded && !_player.IsPlaying && !_player.IsIdlePaused && !_player.IsPaused &&
                             _playbackController.TryAdvanceAtEnd(out var next) && next is not null)
                         {
                             var duration = _player.LoadTrack(next);

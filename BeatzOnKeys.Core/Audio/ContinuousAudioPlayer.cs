@@ -31,6 +31,7 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
     private bool _started;
     private bool _isPlaying;
     private bool _isIdlePaused;
+    private bool _isPaused;
     private bool _disposed;
 
     public ContinuousAudioPlayer(Func<IWavePlayer>? outputFactory = null, TimeProvider? clock = null)
@@ -167,6 +168,7 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
 
     public bool IsPlaying { get { lock (_gate) { return _isPlaying; } } }
     public bool IsIdlePaused { get { lock (_gate) { return _isIdlePaused; } } }
+    public bool IsPaused { get { lock (_gate) { return _isPaused; } } }
     public TimeSpan Position { get { lock (_gate) { return _provider?.Position ?? TimeSpan.Zero; } } }
     public TimeSpan Duration { get { lock (_gate) { return _reader?.TotalTime ?? TimeSpan.Zero; } } }
     public double CurrentGain => _envelope.GetGain();
@@ -207,6 +209,7 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
             DisposeOutputCore();
             _reader?.Dispose();
             _reader = reader;
+            _isPaused = false;
             _envelope.Reset();
             _provider = new ContinuousSampleProvider(reader, _envelope, _clock) { BassReactiveGain = _bassReactiveGain };
             RecomputeAdaptiveMinCore();
@@ -236,9 +239,64 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
             _lastActivity = _clock.GetTimestamp();
             _started = true;
             _isIdlePaused = false;
+            _isPaused = false;
             _output!.Play();
             _isPlaying = true;
             ArmIdleCore();
+        }
+    }
+
+    /// <summary>
+    /// Silences the output without touching the decoder: the position survives, so
+    /// <see cref="Resume"/> continues the same run instead of starting the track over.
+    /// </summary>
+    public void Pause()
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_started || _isPaused) { return; }
+            try
+            {
+                // An idle pause already stopped the stream; converting it keeps the decoder put.
+                if (!_isIdlePaused) { _output!.Pause(); }
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Error("audio", "Could not pause the output device.", exception);
+                return;
+            }
+
+            _isPlaying = false;
+            _isPaused = true;
+            _isIdlePaused = false;
+            _idleTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            AppLogger.Info("audio", $"Playback paused by the user at {_provider?.Position.TotalSeconds ?? 0:F2} s.");
+        }
+    }
+
+    /// <summary>Continues from the exact sample <see cref="Pause"/> stopped at.</summary>
+    public void Resume()
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_started || !_isPaused) { return; }
+            try
+            {
+                _output!.Play();
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Error("audio", "Could not resume the output device.", exception);
+                return;
+            }
+
+            _isPlaying = true;
+            _isPaused = false;
+            _lastActivity = _clock.GetTimestamp();
+            ArmIdleCore();
+            AppLogger.Info("audio", $"Playback resumed by the user at {_provider?.Position.TotalSeconds ?? 0:F2} s.");
         }
     }
 
@@ -282,6 +340,8 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (!_started) { return; }
+            // An explicit pause is the user's decision; typing must not quietly undo it.
+            if (_isPaused) { return; }
             _lastActivity = _clock.GetTimestamp();
             var punch = _punchResponseEnabled && _provider?.Analyzer.HitWithin(PunchDetectionWindow) == true;
             _envelope.Trigger(instant: _isIdlePaused,
@@ -361,7 +421,7 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
 
     private void ArmIdleCore()
     {
-        if (!_started || !_pauseOnIdle || _isIdlePaused)
+        if (!_started || !_pauseOnIdle || _isIdlePaused || _isPaused)
         {
             _idleTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
             return;
@@ -375,7 +435,7 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
         PlaybackFailureEventArgs? failure = null;
         lock (_gate)
         {
-            if (_disposed || !_started || !_pauseOnIdle || _isIdlePaused) { return; }
+            if (_disposed || !_started || !_pauseOnIdle || _isIdlePaused || _isPaused) { return; }
             // A callback queued before a new key or settings change cannot pause a newer run.
             var elapsed = _clock.GetElapsedTime(_lastActivity, _clock.GetTimestamp()).TotalSeconds;
             if (elapsed < _idleTimeout) { ArmIdleCore(); return; }
@@ -402,6 +462,7 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
         {
             if (_disposed) { return; }
             CancelIdleCore();
+            _isPaused = false;
             _playbackId = Guid.Empty;
             StopOutputCore(_output);
         }

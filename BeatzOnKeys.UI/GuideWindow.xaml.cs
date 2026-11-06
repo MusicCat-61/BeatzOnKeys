@@ -33,11 +33,13 @@ public partial class GuideWindow : Window
 
         Section("Guide_SecControls",
             ("Guide_StartT", "Guide_StartX"),
+            ("Guide_PauseResumeT", "Guide_PauseResumeX"),
             ("Guide_StopT", "Guide_StopX"),
             ("Guide_ResetT", "Guide_ResetX"),
             ("Guide_AddT", "Guide_AddX"),
             ("Guide_RemoveT", "Guide_RemoveX"),
             ("Guide_MoveT", "Guide_MoveX"),
+            ("Guide_DragT", "Guide_DragX"),
             ("Guide_ClearT", "Guide_ClearX"),
             ("Guide_GuideT", "Guide_GuideX"),
             ("Guide_LogsT", "Guide_LogsX"),

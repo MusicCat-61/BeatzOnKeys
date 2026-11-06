@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using BeatzOnKeys.Core.Services;
 using BeatzOnKeys.UI.Interop;
 using BeatzOnKeys.UI.Localization;
 using BeatzOnKeys.UI.Theming;
@@ -11,6 +12,12 @@ using Microsoft.Win32;
 using DragEventArgs = System.Windows.DragEventArgs;
 using DataFormats = System.Windows.DataFormats;
 using DragDropEffects = System.Windows.DragDropEffects;
+using DataObject = System.Windows.DataObject;
+using ListBox = System.Windows.Controls.ListBox;
+using ListBoxItem = System.Windows.Controls.ListBoxItem;
+using MouseEventArgs = System.Windows.Input.MouseEventArgs;
+using Point = System.Windows.Point;
+using Size = System.Windows.Size;
 using MessageBox = System.Windows.MessageBox;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
@@ -28,6 +35,33 @@ public partial class MainWindow : Window
         viewModel.FilePickerRequested += OpenFilePicker;
         viewModel.UserMessageRequested += ShowUserMessage;
         Theme.Changed += OnThemeChanged;
+        Loaded += (_, _) => FitToContent();
+    }
+
+    /// <summary>
+    /// Grows the window to whatever the settings column needs at the current font metrics, so a
+    /// larger system font never arrives half-cut behind a scrollbar. The size is clamped to the
+    /// work area and never shrinks below the XAML minimum; the user can still resize afterwards.
+    /// </summary>
+    private void FitToContent()
+    {
+        if (WindowState != WindowState.Normal) { return; }
+        var content = SettingsScroller.Content as FrameworkElement;
+        if (content is null) { return; }
+
+        // Measure the settings card at the width it actually gets, without the scroll viewer.
+        var available = new Size(SettingsScroller.ActualWidth, double.PositiveInfinity);
+        if (available.Width <= 0) { available.Width = SettingsScroller.Width; }
+        content.Measure(available);
+        var neededContent = content.DesiredSize.Height;
+
+        // Header + body margins + footer, matching the three row definitions in XAML.
+        const double chrome = 56 + 58 + 12;
+        var workArea = SystemParameters.WorkArea;
+        var wanted = Math.Clamp(neededContent + chrome, MinHeight, Math.Max(MinHeight, workArea.Height * 0.92));
+        if (Math.Abs(wanted - Height) < 1) { return; }
+        Height = Math.Round(wanted);
+        AppLogger.Info("ui", $"Window fitted to content: settings need {neededContent:F0} px, height set to {Height:F0} px.");
     }
 
     public MainViewModel ViewModel { get; }
@@ -188,7 +222,6 @@ public partial class MainWindow : Window
     }
 
     private void DropBorder_DragEnter(object sender, DragEventArgs eventArgs) => UpdateDropState(eventArgs, active: true);
-
     private void DropBorder_DragOver(object sender, DragEventArgs eventArgs) => UpdateDropState(eventArgs, active: true);
 
     private void DropBorder_DragLeave(object sender, DragEventArgs eventArgs)
@@ -238,6 +271,145 @@ public partial class MainWindow : Window
     private void ShowUserMessage(string message)
     {
         MessageDialog.Notify(this, message, Loc.T("L_AppName"));
+    }
+
+    // ---- Playlist drag-and-drop -------------------------------------------------------------
+    // A row is dragged with the left button held; the target row shows a line where the drop will
+    // land. The move goes through the view model, so playback order follows the new layout and the
+    // playing track is never restarted.
+
+    private const string PlaylistDragFormat = "BeatzOnKeys.PlaylistTrack";
+
+    private Point _dragOrigin;
+    private TrackViewModel? _dragCandidate;
+    private bool _dragging;
+
+    private void Playlist_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs eventArgs)
+    {
+        _dragging = false;
+        _dragOrigin = eventArgs.GetPosition(this);
+        _dragCandidate = RowAt(eventArgs.OriginalSource as DependencyObject);
+    }
+
+    private void Playlist_PreviewMouseMove(object sender, MouseEventArgs eventArgs)
+    {
+        if (eventArgs.LeftButton != MouseButtonState.Pressed || _dragCandidate is null || _dragging) { return; }
+        var moved = eventArgs.GetPosition(this) - _dragOrigin;
+        if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        var track = _dragCandidate;
+        _dragCandidate = null;
+        if (!ViewModel.CanEditPlaylist) { return; }
+        _dragging = true;
+        try
+        {
+            DragDrop.DoDragDrop((DependencyObject)sender, new DataObject(PlaylistDragFormat, track), DragDropEffects.Move);
+        }
+        finally
+        {
+            ViewModel.SetDropTarget(null, above: true);
+            _dragging = false;
+        }
+    }
+
+    private void Playlist_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
+    {
+        _dragCandidate = null;
+        _dragging = false;
+    }
+
+    private void Playlist_DragOver(object sender, DragEventArgs eventArgs)
+    {
+        if (!eventArgs.Data.GetDataPresent(PlaylistDragFormat) || !ViewModel.CanEditPlaylist)
+        {
+            eventArgs.Effects = DragDropEffects.None;
+            eventArgs.Handled = true;
+            return;
+        }
+
+        var row = RowAt(eventArgs.OriginalSource as DependencyObject);
+        if (row is null)
+        {
+            ViewModel.SetDropTarget(null, above: true);
+        }
+        else
+        {
+            ViewModel.SetDropTarget(row, IsAbove(row, eventArgs));
+        }
+
+        eventArgs.Effects = DragDropEffects.Move;
+        eventArgs.Handled = true;
+    }
+
+    private void Playlist_DragLeave(object sender, DragEventArgs eventArgs) =>
+        ViewModel.SetDropTarget(null, above: true);
+
+    private void Playlist_Drop(object sender, DragEventArgs eventArgs)
+    {
+        ViewModel.SetDropTarget(null, above: true);
+        if (!eventArgs.Data.GetDataPresent(PlaylistDragFormat) ||
+            eventArgs.Data.GetData(PlaylistDragFormat) is not TrackViewModel dragged)
+        {
+            eventArgs.Effects = DragDropEffects.None;
+            eventArgs.Handled = true;
+            return;
+        }
+
+        var row = RowAt(eventArgs.OriginalSource as DependencyObject);
+        var last = ViewModel.Tracks.LastOrDefault();
+        var target = row ?? last;
+        if (target is not null)
+        {
+            var from = ViewModel.Tracks.IndexOf(dragged);
+            var targetIndex = ViewModel.Tracks.IndexOf(target);
+            // Dropping on empty space means "to the end"; the upper half inserts before the row.
+            var above = row is not null && IsAbove(row, eventArgs);
+            if (row is not null && !above) { targetIndex++; }
+            if (from >= 0 && from < targetIndex) { targetIndex--; }
+            ViewModel.MoveTrackTo(dragged, Math.Clamp(targetIndex, 0, ViewModel.Tracks.Count - 1));
+        }
+
+        eventArgs.Effects = DragDropEffects.Move;
+        eventArgs.Handled = true;
+    }
+
+    /// <summary>True when the pointer sits in the upper half of the row, meaning "insert before".</summary>
+    private bool IsAbove(TrackViewModel row, DragEventArgs eventArgs)
+    {
+        var container = ContainerOf(row);
+        return container is null || eventArgs.GetPosition(container).Y < container.ActualHeight / 2;
+    }
+
+    private static TrackViewModel? RowAt(DependencyObject? source)
+    {
+        var element = source;
+        while (element is not null and not ListBoxItem)
+        {
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return (element as ListBoxItem)?.DataContext as TrackViewModel;
+    }
+
+    private ListBoxItem? ContainerOf(TrackViewModel track) =>
+        FindDescendant<ListBox>(this)?.ItemContainerGenerator.ContainerFromItem(track) as ListBoxItem;
+
+    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var index = 0; index < count; index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is T match) { return match; }
+            var nested = FindDescendant<T>(child);
+            if (nested is not null) { return nested; }
+        }
+
+        return null;
     }
 
     private void OnThemeChanged()

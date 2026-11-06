@@ -48,6 +48,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public const string SectionReaction = "reaction";
     public const string SectionBehavior = "behavior";
     private bool _isRunning;
+    private bool _isPaused;
     private bool _changingPlayback;
     private bool _initializing = true;
     private int _pendingImports;
@@ -103,6 +104,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         AddFilesCommand = new RelayCommand(() => FilePickerRequested?.Invoke(), () => !_closing && !_initializing);
         StartCommand = new AsyncRelayCommand(StartPlaybackAsync, CanStartPlayback);
         StopCommand = new AsyncRelayCommand(StopPlaybackAsync, () => IsRunning && !_changingPlayback);
+        TogglePauseCommand = new RelayCommand(TogglePause, () => IsRunning && !_changingPlayback);
         RemoveTrackCommand = new RelayCommand<TrackViewModel>(track =>
         {
             if (track is not null) { _ = RemoveTrackAsync(track); }
@@ -124,6 +126,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand AddFilesCommand { get; }
     public AsyncRelayCommand StartCommand { get; }
     public AsyncRelayCommand StopCommand { get; }
+    public RelayCommand TogglePauseCommand { get; }
     public RelayCommand<TrackViewModel> RemoveTrackCommand { get; }
     public RelayCommand<TrackViewModel> MoveTrackUpCommand { get; }
     public RelayCommand<TrackViewModel> MoveTrackDownCommand { get; }
@@ -346,6 +349,25 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         get => _isRunning;
         private set { if (SetProperty(ref _isRunning, value)) { RefreshCommands(); StateChanged?.Invoke(); } }
     }
+
+    /// <summary>
+    /// Mirrors the player: a user pause keeps the decoder where it is, so the same run continues
+    /// instead of the track jumping back to the start.
+    /// </summary>
+    public bool IsPaused
+    {
+        get => _isPaused;
+        private set
+        {
+            if (!SetProperty(ref _isPaused, value)) { return; }
+            OnPropertyChanged(nameof(PauseResumeText));
+            OnPropertyChanged(nameof(PauseResumeGlyph));
+            RefreshCommands();
+        }
+    }
+
+    public string PauseResumeText => Loc.T(IsPaused ? "L_Resume" : "L_Pause");
+    public string PauseResumeGlyph => IsPaused ? "\uE768" : "\uE769";
     /// <summary>
     /// Any playlist edit — adding, removing, moving, clearing, starting — needs a settled window:
     /// not shutting down, not restoring tracks, not changing playback, and no import in flight.
@@ -355,6 +377,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public bool CanClearPlaylist => CanEditPlaylist && Tracks.Count > 0;
     public bool HasTracks => Tracks.Count > 0;
     public string TrackCountText => Loc.F("L_TrackCountFormat", Tracks.Count);
+
+    /// <summary>The bare number for the playlist badge, so the count reads at a glance.</summary>
+    public string TrackCountNumber => Tracks.Count.ToString(CultureInfo.CurrentUICulture);
     public bool IsEnglish => Loc.Current == AppLanguage.En;
     public bool IsRussian => Loc.Current == AppLanguage.Ru;
     public bool IsLightTheme => Theme.IsLight;
@@ -370,7 +395,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         ? Math.Clamp(_positionSeconds / _durationSeconds * 100, 0, 100) : 0;
     public string PlaybackPositionText => $"{FormatPosition(_positionSeconds)} / {FormatPosition(_durationSeconds)}";
     private string PlaybackStatusText => _trackEnded ? Loc.T("L_TrackEnded") :
-        IsRunning ? Loc.T(_audioPlayer.IsIdlePaused ? "L_StatusIdlePaused" : "L_StatusListening") : Loc.T("L_ReadyToType");
+        IsRunning ? Loc.T(IsPaused ? "L_StatusPaused" : _audioPlayer.IsIdlePaused ? "L_StatusIdlePaused" : "L_StatusListening")
+            : Loc.T("L_ReadyToType");
 
     public async Task InitializeAsync()
     {
@@ -483,6 +509,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             if (!_typingPlayback.SelectTrack(track.Id, restart: true)) { return; }
             await _typingPlayback.StartAsync().ConfigureAwait(true);
             IsRunning = _typingPlayback.IsRunning;
+            IsPaused = false;
             _trackEnded = false;
             RefreshPlaybackProgress();
             StatusText = PlaybackStatusText;
@@ -498,6 +525,29 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         finally { _changingPlayback = false; RefreshCommands(); }
     }
 
+    /// <summary>
+    /// Pause is a player state, not a stop: the worker, the hook and the decoder stay alive, so
+    /// resuming continues the same run from the exact sample instead of restarting at 0:00.
+    /// </summary>
+    private void TogglePause()
+    {
+        try
+        {
+            if (_audioPlayer.IsPaused) { _typingPlayback.Resume(); }
+            else { _typingPlayback.Pause(); }
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error("playback", "Could not change the pause state.", exception);
+            return;
+        }
+
+        IsPaused = _audioPlayer.IsPaused;
+        RefreshPlaybackProgress();
+        StatusText = PlaybackStatusText;
+        StateChanged?.Invoke();
+    }
+
     private async Task StopPlaybackAsync()
     {
         _changingPlayback = true;
@@ -507,6 +557,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         finally
         {
             IsRunning = false;
+            IsPaused = false;
             _trackEnded = false;
             _changingPlayback = false;
             RefreshPlaybackProgress();
@@ -557,6 +608,34 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     /// <summary>Playback order follows the visible order, so "next at the end" is the row below.</summary>
     private void SyncPlaybackOrder() =>
         _playbackController.Reorder(Tracks.Select(track => track.Id).ToArray());
+
+    /// <summary>
+    /// Drops a dragged row at a target position. Unlike <see cref="MoveTrack"/> it may travel any
+    /// distance, which is what a drag implies; the selected instance survives because the
+    /// collection raises Move rather than Remove/Insert.
+    /// </summary>
+    public bool MoveTrackTo(TrackViewModel? track, int targetIndex)
+    {
+        if (track is null || !CanEditPlaylist) { return false; }
+        var index = Tracks.IndexOf(track);
+        if (index < 0 || targetIndex < 0 || targetIndex >= Tracks.Count || index == targetIndex) { return false; }
+        Tracks.Move(index, targetIndex);
+        return true;
+    }
+
+    /// <summary>
+    /// Shows where a drop would land. Passing null clears every indicator, so a cancelled drag
+    /// never leaves a stray line behind.
+    /// </summary>
+    public void SetDropTarget(TrackViewModel? target, bool above)
+    {
+        foreach (var track in Tracks)
+        {
+            var isTarget = target is not null && ReferenceEquals(track, target);
+            track.IsDropTarget = isTarget;
+            track.IsDropTargetAbove = isTarget && above;
+        }
+    }
 
     private void RefreshTrackPositions()
     {
@@ -647,7 +726,10 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             Loc.F("L_NowPlayingFormat", SelectedTrack.FileName, FormatPosition(position), FormatPosition(duration));
         if (IsRunning)
         {
-            _trackEnded = !_audioPlayer.IsPlaying && !_audioPlayer.IsIdlePaused && duration > 0 && position >= duration;
+            // A paused run is not an ended one: the position stays short of the duration.
+            IsPaused = _audioPlayer.IsPaused;
+            _trackEnded = !_audioPlayer.IsPlaying && !_audioPlayer.IsIdlePaused && !_audioPlayer.IsPaused &&
+                duration > 0 && position >= duration;
             StatusText = PlaybackStatusText;
         }
     }
@@ -702,6 +784,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         SyncPlaybackOrder();
         OnPropertyChanged(nameof(HasTracks));
         OnPropertyChanged(nameof(TrackCountText));
+        OnPropertyChanged(nameof(TrackCountNumber));
         RefreshCommands();
         QueueSave();
     }
@@ -716,6 +799,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(VolumeSummary));
         OnPropertyChanged(nameof(ReactionSummary));
         OnPropertyChanged(nameof(BehaviorSummary));
+        OnPropertyChanged(nameof(PauseResumeText));
         RefreshPlaybackProgress();
         StatusText = PlaybackStatusText;
         StateChanged?.Invoke();

@@ -262,6 +262,10 @@ internal sealed class FakeContinuousAudioPlayer : IContinuousAudioPlayer
     public bool AdaptiveVolumeEnabled { get; set; }
     public double EffectiveMinVolume => MinVolume;
     public bool IsIdlePaused => false;
+    public bool IsPaused { get { lock (_gate) { return _isPaused; } } }
+    public int PauseCalls { get; private set; }
+    public int ResumeCalls { get; private set; }
+    private bool _isPaused;
     public TimeSpan Position { get; set; }
     public TimeSpan Duration => LoadDurationOverride ?? _track?.Duration ?? TimeSpan.Zero;
     public TimeSpan? LoadDurationOverride { get; set; }
@@ -298,6 +302,31 @@ internal sealed class FakeContinuousAudioPlayer : IContinuousAudioPlayer
             _playbackId = Guid.NewGuid();
             Position = TimeSpan.Zero;
             _started = _isPlaying = true;
+            _isPaused = false;
+        }
+    }
+
+    public void Pause()
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_started || _isPaused) { return; }
+            PauseCalls++;
+            _isPaused = true;
+            _isPlaying = false;
+        }
+    }
+
+    public void Resume()
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!_started || !_isPaused) { return; }
+            ResumeCalls++;
+            _isPaused = false;
+            _isPlaying = true;
         }
     }
 
@@ -325,6 +354,7 @@ internal sealed class FakeContinuousAudioPlayer : IContinuousAudioPlayer
             StopCalls++;
             _playbackId = Guid.Empty;
             _started = _isPlaying = false;
+            _isPaused = false;
         }
     }
 
@@ -336,6 +366,7 @@ internal sealed class FakeContinuousAudioPlayer : IContinuousAudioPlayer
             UnloadCalls++;
             _playbackId = Guid.Empty;
             _started = _isPlaying = false;
+            _isPaused = false;
             _track = null;
         }
     }

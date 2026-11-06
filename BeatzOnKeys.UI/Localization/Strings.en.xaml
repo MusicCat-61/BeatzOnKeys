@@ -29,6 +29,11 @@
     <sys:String x:Key="L_PlaybackSummary">Music plays continuously; typing controls its volume.</sys:String>
     <sys:String x:Key="L_StartHint">Play the selected track from the beginning and keep the window open.</sys:String>
     <sys:String x:Key="L_StopHint">Stop music and keyboard monitoring. The next Start plays from the beginning.</sys:String>
+    <sys:String x:Key="L_Pause">Pause</sys:String>
+    <sys:String x:Key="L_Resume">Resume</sys:String>
+    <sys:String x:Key="L_PauseHint">Silence the music and remember the spot. Resume returns to the exact same point of the track.</sys:String>
+    <sys:String x:Key="L_ResumeHint">Continue the track where it stopped instead of starting over.</sys:String>
+    <sys:String x:Key="L_StatusPaused">Paused — the track stays put, and Resume returns to the same second</sys:String>
     <sys:String x:Key="L_AutoAdvance">Auto-advance tracks</sys:String>
     <sys:String x:Key="L_AutoAdvanceHint">Move to the next track when this one ends</sys:String>
     <sys:String x:Key="L_Loop">Loop playback</sys:String>
@@ -158,10 +163,14 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_SecControls">Buttons and controls</sys:String>
     <sys:String x:Key="Guide_StartT">Start</sys:String>
     <sys:String x:Key="Guide_StartX">Plays the selected track from the beginning at the quiet level and installs the keyboard hook. The window stays open. After Stop, the next Start begins at 0:00 again.</sys:String>
+    <sys:String x:Key="Guide_PauseResumeT">Pause / Resume</sys:String>
+    <sys:String x:Key="Guide_PauseResumeX">The button appears while music is playing. Pause silences the output but remembers the spot: Resume returns to the exact same second of the track instead of starting over. Typing does not lift a pause — that is your explicit decision, unlike the idle pause, which the first key press clears.</sys:String>
     <sys:String x:Key="Guide_StopT">Stop</sys:String>
     <sys:String x:Key="Guide_StopX">Stops the music and removes the keyboard hook. An idle pause is not a stop: it keeps the position of the current run.</sys:String>
     <sys:String x:Key="Guide_ResetT">Reset</sys:String>
     <sys:String x:Key="Guide_ResetX">Returns the playlist and the playback settings to their defaults: volumes, idle timeout, pause on idle, auto-advance, and loop. Language, theme, and the audio files stay as they are.</sys:String>
+    <sys:String x:Key="Guide_DragT">Dragging a track</sys:String>
+    <sys:String x:Key="Guide_DragX">Hold the left button on a row and pull: a line shows where the track will land. The upper half of a row inserts before it, the lower half after it, and the empty space below the list means the end. The playing track is not restarted.</sys:String>
     <sys:String x:Key="Guide_MoveT">Move up and down</sys:String>
     <sys:String x:Key="Guide_MoveX">The arrows in a track row change the order. The first row cannot move up and the last cannot move down; auto-advance follows the new order, and a reorder never interrupts the playing track.</sys:String>
     <sys:String x:Key="Guide_ClearT">Clear all</sys:String>

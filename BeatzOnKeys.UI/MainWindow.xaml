@@ -192,8 +192,16 @@
                             </Button>
                             <TextBlock Text="{DynamicResource L_Tracks}" Style="{StaticResource SectionLabelStyle}"
                                        Margin="0" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding TrackCountText}" FontSize="13" Margin="10,1,0,0"
-                                       VerticalAlignment="Center" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                            <Border Margin="10,0,0,0" Height="26" MinWidth="26" CornerRadius="13"
+                                    Background="{DynamicResource DropAreaBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                    VerticalAlignment="Center"
+                                    ToolTip="{Binding TrackCountText}"
+                                    AutomationProperties.Name="{Binding TrackCountText}">
+                                <TextBlock Text="{Binding TrackCountNumber}" FontSize="15" FontWeight="SemiBold"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource AccentBrush}"/>
+                            </Border>
                         </DockPanel>
 
                         <Grid Grid.Row="1">
@@ -201,7 +209,14 @@
                                      Background="Transparent" BorderThickness="0" Padding="0"
                                      ItemContainerStyle="{StaticResource TrackListItemStyle}"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     AllowDrop="True"
+                                     PreviewMouseLeftButtonDown="Playlist_PreviewMouseLeftButtonDown"
+                                     PreviewMouseMove="Playlist_PreviewMouseMove"
+                                     PreviewMouseLeftButtonUp="Playlist_PreviewMouseLeftButtonUp"
+                                     DragOver="Playlist_DragOver"
+                                     DragLeave="Playlist_DragLeave"
+                                     Drop="Playlist_Drop">
                                 <ListBox.Style>
                                     <Style TargetType="ListBox">
                                         <Setter Property="Visibility" Value="Visible"/>
@@ -234,6 +249,44 @@
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
+
+                                            <!-- Insertion line shown while a row is dragged over this one. -->
+                                            <Border Grid.ColumnSpan="7" Height="2" CornerRadius="1"
+                                                    VerticalAlignment="Top" Margin="-8,-6,-8,0"
+                                                    Background="{DynamicResource AccentBrush}" IsHitTestVisible="False">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding IsDropTarget}" Value="True"/>
+                                                                    <Condition Binding="{Binding IsDropTargetAbove}" Value="True"/>
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
+                                            <Border Grid.ColumnSpan="7" Height="2" CornerRadius="1"
+                                                    VerticalAlignment="Bottom" Margin="-8,0,-8,-6"
+                                                    Background="{DynamicResource AccentBrush}" IsHitTestVisible="False">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding IsDropTarget}" Value="True"/>
+                                                                    <Condition Binding="{Binding IsDropTargetAbove}" Value="False"/>
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
 
                                             <Border Width="34" Height="34" CornerRadius="8" VerticalAlignment="Center"
                                                     Background="{DynamicResource OverlayBrush}">
@@ -337,7 +390,7 @@
                 </Border>
             </Grid>
 
-            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
+            <ScrollViewer Grid.Column="2" x:Name="SettingsScroller" VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,0,4,0">
                     <Border Style="{StaticResource CardStyle}">
@@ -512,7 +565,7 @@
                                                   ToolTip="{DynamicResource L_PunchResponseHint}" Margin="0,2,0,0">
                                             <TextBlock Text="{DynamicResource L_PunchResponse}" TextWrapping="Wrap"/>
                                         </CheckBox>
-                                        <TextBlock Text="{DynamicResource L_PunchResponseHint}" FontSize="12" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_PunchResponseHint}" FontSize="13" TextWrapping="Wrap"
                                                    Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
                                         <DockPanel Margin="0,12,0,0">
@@ -524,21 +577,21 @@
                                                 Value="{Binding BassReactivePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 ToolTip="{DynamicResource L_BassGainHint}"
                                                 TickFrequency="1" Margin="0,4,0,0"/>
-                                        <TextBlock Text="{DynamicResource L_BassGainHint}" FontSize="12" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_BassGainHint}" FontSize="13" TextWrapping="Wrap"
                                                    Margin="0,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
                                         <CheckBox IsChecked="{Binding StereoPulseEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                   ToolTip="{DynamicResource L_StereoPulseHint}" Margin="0,10,0,0">
                                             <TextBlock Text="{DynamicResource L_StereoPulse}" TextWrapping="Wrap"/>
                                         </CheckBox>
-                                        <TextBlock Text="{DynamicResource L_StereoPulseHint}" FontSize="12" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_StereoPulseHint}" FontSize="13" TextWrapping="Wrap"
                                                    Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
                                         <CheckBox IsChecked="{Binding AdaptiveVolumeEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                   ToolTip="{DynamicResource L_AdaptiveVolumeHint}" Margin="0,10,0,0">
                                             <TextBlock Text="{DynamicResource L_AdaptiveVolume}" TextWrapping="Wrap"/>
                                         </CheckBox>
-                                        <TextBlock Text="{DynamicResource L_AdaptiveVolumeHint}" FontSize="12" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_AdaptiveVolumeHint}" FontSize="13" TextWrapping="Wrap"
                                                    Margin="30,4,0,4" Foreground="{DynamicResource TextTertiaryBrush}"/>
                                     </StackPanel>
                                 </StackPanel>
@@ -603,13 +656,13 @@
                                         <CheckBox IsChecked="{Binding AutoAdvance}" Margin="0,2,0,0">
                                             <TextBlock Text="{DynamicResource L_AutoAdvance}" TextWrapping="Wrap"/>
                                         </CheckBox>
-                                        <TextBlock Text="{DynamicResource L_AutoAdvanceHint}" FontSize="12" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_AutoAdvanceHint}" FontSize="13" TextWrapping="Wrap"
                                                    Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
                                         <CheckBox IsChecked="{Binding Loop}" Margin="0,10,0,0">
                                             <TextBlock Text="{DynamicResource L_Loop}" TextWrapping="Wrap"/>
                                         </CheckBox>
-                                        <TextBlock Text="{DynamicResource L_LoopHint}" FontSize="12" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_LoopHint}" FontSize="13" TextWrapping="Wrap"
                                                    Margin="30,4,0,4" Foreground="{DynamicResource TextTertiaryBrush}"/>
                                     </StackPanel>
                                 </StackPanel>
@@ -629,9 +682,9 @@
                                                Foreground="{DynamicResource AccentBrush}"/>
                                 </Border>
                                 <StackPanel Grid.Column="1" Margin="3,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource L_SelectedTrack}" FontSize="12.5"
+                                    <TextBlock Text="{DynamicResource L_SelectedTrack}" FontSize="13.5"
                                                Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                    <TextBlock Text="{Binding SelectedTrackText}" FontSize="14" FontWeight="SemiBold"
+                                    <TextBlock Text="{Binding SelectedTrackText}" FontSize="15.5" FontWeight="SemiBold"
                                                Foreground="{DynamicResource TextPrimaryBrush}"
                                                TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
                                 </StackPanel>
@@ -640,8 +693,8 @@
                             <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,13,0,11"/>
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding PlaybackPositionText}"
-                                           FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <TextBlock Text="{DynamicResource L_PlaybackProgress}" FontSize="12.5"
+                                           FontSize="13.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{DynamicResource L_PlaybackProgress}" FontSize="13.5"
                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
                             </DockPanel>
                             <ProgressBar Minimum="0" Maximum="100" Value="{Binding PlaybackProgress, Mode=OneWay}"
@@ -654,11 +707,11 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE72E;" Style="{StaticResource SymbolIconStyle}" FontSize="16"
                                            Foreground="{DynamicResource SuccessBrush}"/>
-                                <TextBlock Text="{DynamicResource L_PrivacyTitle}" FontSize="14.5" FontWeight="SemiBold"
+                                <TextBlock Text="{DynamicResource L_PrivacyTitle}" FontSize="15.5" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                            VerticalAlignment="Center" Margin="9,0,0,0"/>
                             </StackPanel>
-                            <TextBlock Text="{DynamicResource L_PrivacyText}" FontSize="12.5" TextWrapping="Wrap"
+                            <TextBlock Text="{DynamicResource L_PrivacyText}" FontSize="13.5" TextWrapping="Wrap"
                                        Margin="0,8,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
                         </StackPanel>
                     </Border>
@@ -707,6 +760,27 @@
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Command="{Binding TogglePauseCommand}" MinWidth="118" Margin="0,0,8,0">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource SubtleButtonStyle}">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Setter Property="ToolTip" Value="{DynamicResource L_PauseHint}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsPaused}" Value="True">
+                                    <Setter Property="ToolTip" Value="{DynamicResource L_ResumeHint}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding PauseResumeGlyph}" Style="{StaticResource SymbolIconStyle}"
+                                   FontSize="13" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,7,0"/>
+                        <TextBlock Text="{Binding PauseResumeText}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
                 <Button Content="{DynamicResource L_Stop}" Command="{Binding StopCommand}"
                         ToolTip="{DynamicResource L_StopHint}"
                         Style="{StaticResource SubtleButtonStyle}" MinWidth="104" Margin="0,0,8,0"/>

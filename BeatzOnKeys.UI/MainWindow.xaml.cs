@@ -268,6 +268,145 @@ public partial class MainWindow : Window
         DropBorder.SetResourceReference(Border.BorderBrushProperty, "AccentBrush");
     }
 
+    // ---- YouTube list drag-and-drop ---------------------------------------------------------
+    // The same model as the playlist: one drag format, an insertion line, and moves that go through
+    // the view model so the persisted order follows.
+
+    private const string YouTubeDragFormat = "BeatzOnKeys.YouTubeTrack";
+
+    private Point _youTubeDragOrigin;
+    private YouTubeTrackViewModel? _youTubeDragCandidate;
+    private bool _youTubeDragging;
+
+    private void YouTubeList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs eventArgs)
+    {
+        _youTubeDragging = false;
+        _youTubeDragOrigin = eventArgs.GetPosition(this);
+        _youTubeDragCandidate = YouTubeRowAt(eventArgs.OriginalSource as DependencyObject);
+    }
+
+    private void YouTubeList_PreviewMouseMove(object sender, MouseEventArgs eventArgs)
+    {
+        if (eventArgs.LeftButton != MouseButtonState.Pressed || _youTubeDragCandidate is null || _youTubeDragging) { return; }
+        var moved = eventArgs.GetPosition(this) - _youTubeDragOrigin;
+        if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        var track = _youTubeDragCandidate;
+        _youTubeDragCandidate = null;
+        _youTubeDragging = true;
+        try
+        {
+            DragDrop.DoDragDrop((DependencyObject)sender, new DataObject(YouTubeDragFormat, track), DragDropEffects.Move);
+        }
+        finally
+        {
+            ViewModel.YouTube.SetDropTarget(null, above: true);
+            _youTubeDragging = false;
+        }
+    }
+
+    private void YouTubeList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
+    {
+        _youTubeDragCandidate = null;
+        _youTubeDragging = false;
+    }
+
+    private void YouTubeList_DragOver(object sender, DragEventArgs eventArgs)
+    {
+        if (!eventArgs.Data.GetDataPresent(YouTubeDragFormat))
+        {
+            eventArgs.Effects = DragDropEffects.None;
+            eventArgs.Handled = true;
+            return;
+        }
+
+        var row = YouTubeRowAt(eventArgs.OriginalSource as DependencyObject);
+        if (row is null)
+        {
+            ViewModel.YouTube.SetDropTarget(null, above: true);
+        }
+        else
+        {
+            var container = YouTubeContainerOf(row);
+            var above = container is null || eventArgs.GetPosition(container).Y < container.ActualHeight / 2;
+            ViewModel.YouTube.SetDropTarget(row, above);
+        }
+
+        eventArgs.Effects = DragDropEffects.Move;
+        eventArgs.Handled = true;
+    }
+
+    private void YouTubeList_DragLeave(object sender, DragEventArgs eventArgs) =>
+        ViewModel.YouTube.SetDropTarget(null, above: true);
+
+    private void YouTubeList_Drop(object sender, DragEventArgs eventArgs)
+    {
+        ViewModel.YouTube.SetDropTarget(null, above: true);
+        if (!eventArgs.Data.GetDataPresent(YouTubeDragFormat) ||
+            eventArgs.Data.GetData(YouTubeDragFormat) is not YouTubeTrackViewModel dragged)
+        {
+            eventArgs.Effects = DragDropEffects.None;
+            eventArgs.Handled = true;
+            return;
+        }
+
+        var list = ViewModel.YouTube.Downloaded;
+        var row = YouTubeRowAt(eventArgs.OriginalSource as DependencyObject);
+        var target = row ?? list.LastOrDefault();
+        if (target is not null)
+        {
+            var from = list.IndexOf(dragged);
+            var targetIndex = list.IndexOf(target);
+            var above = row is not null &&
+                        YouTubeContainerOf(row) is { } container &&
+                        eventArgs.GetPosition(container).Y < container.ActualHeight / 2;
+            if (row is not null && !above) { targetIndex++; }
+            if (from >= 0 && from < targetIndex) { targetIndex--; }
+            ViewModel.YouTube.MoveTrackTo(dragged, Math.Clamp(targetIndex, 0, list.Count - 1));
+        }
+
+        eventArgs.Effects = DragDropEffects.Move;
+        eventArgs.Handled = true;
+    }
+
+    private static YouTubeTrackViewModel? YouTubeRowAt(DependencyObject? source)
+    {
+        var element = source;
+        while (element is not null and not ListBoxItem)
+        {
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return (element as ListBoxItem)?.DataContext as YouTubeTrackViewModel;
+    }
+
+    private ListBoxItem? YouTubeContainerOf(YouTubeTrackViewModel track)
+    {
+        foreach (var list in DescendantsOfType<ListBox>(this))
+        {
+            if (ReferenceEquals(list.ItemsSource, ViewModel.YouTube.Downloaded))
+            {
+                return list.ItemContainerGenerator.ContainerFromItem(track) as ListBoxItem;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<T> DescendantsOfType<T>(DependencyObject root) where T : DependencyObject
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var index = 0; index < count; index++)
+        {
+            var child = VisualTreeHelper.GetChild(root, index);
+            if (child is T match) { yield return match; }
+            foreach (var nested in DescendantsOfType<T>(child)) { yield return nested; }
+        }
+    }
     private void ShowUserMessage(string message)
     {
         MessageDialog.Notify(this, message, Loc.T("L_AppName"));

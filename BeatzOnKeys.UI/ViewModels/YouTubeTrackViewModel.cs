@@ -33,7 +33,46 @@ public sealed class YouTubeTrackViewModel : ObservableObject
         _progress = state.Status == YouTubeTrackStatus.Ready ? 1 : 0;
     }
 
+    private int _index = -1;
+    private bool _isFirst = true;
+    private bool _isLast = true;
+    private bool _isDropTarget;
+    private bool _isDropTargetAbove = true;
+
     public YouTubeTrackState State => _state;
+
+    /// <summary>Zero-based position in the visible list, refreshed by the owning view model.</summary>
+    public int Index => _index;
+
+    public bool IsFirst => _isFirst;
+    public bool IsLast => _isLast;
+
+    /// <summary>Set while a dragged row hovers here, so the list can show where the drop lands.</summary>
+    public bool IsDropTarget
+    {
+        get => _isDropTarget;
+        internal set { if (_isDropTarget != value) { _isDropTarget = value; OnPropertyChanged(); } }
+    }
+
+    public bool IsDropTargetAbove
+    {
+        get => _isDropTargetAbove;
+        internal set { if (_isDropTargetAbove != value) { _isDropTargetAbove = value; OnPropertyChanged(); } }
+    }
+
+    /// <summary>Called after any add, remove or move so the arrow buttons know their edges.</summary>
+    internal void SetPosition(int index, int count)
+    {
+        var isFirst = index == 0;
+        var isLast = index == count - 1;
+        if (_index == index && _isFirst == isFirst && _isLast == isLast) { return; }
+        _index = index;
+        _isFirst = isFirst;
+        _isLast = isLast;
+        OnPropertyChanged(nameof(Index));
+        OnPropertyChanged(nameof(IsFirst));
+        OnPropertyChanged(nameof(IsLast));
+    }
     public Guid Id => _state.Id;
     public string VideoId => _state.VideoId;
     public string CachedPath => _state.CachedPath;

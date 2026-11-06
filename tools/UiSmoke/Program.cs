@@ -208,6 +208,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 $"Actual default {_window.Width}x{_window.Height}; expected width 1120 and a height that fits the settings column.");
             Check("window.fitsContent", FitsSettingsContent(),
                 $"Settings column scrollable height={SettingsScrollableHeight():F0} px at {_window.Height:F0} px tall; a larger font must not hide controls behind a scrollbar.");
+            Check("window.startsOnPlaylistPage", _vm.IsPlaylistPage && !_vm.IsYouTubePage,
+                $"IsPlaylistPage={_vm.IsPlaylistPage}, IsYouTubePage={_vm.IsYouTubePage}, searchTab={_vm.YouTube.IsSearchTab}.");
             Check("window.minimumSize", Near(_window.MinWidth, 920) && Near(_window.MinHeight, 650),
                 $"Actual XAML minimum {_window.MinWidth}x{_window.MinHeight}; expected 920x650.");
             Check("render.playlistNoStatuses", !Descendants<TextBlock>(_window).Any(t =>
@@ -581,7 +583,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             Check($"sections.{section.Key}.expands", expanded && others && vm.ActiveSection == section.Key,
                 $"Active={vm.ActiveSection}; volume={vm.IsVolumeExpanded}, reaction={vm.IsReactionExpanded}, behavior={vm.IsBehaviorExpanded}.");
             Check($"sections.{section.Key}.controlsVisible", controls >= 2,
-                $"{section.Key}: {controls} visible sliders and checkboxes, others collapsed={others}.");
+                $"{section.Key}: {controls} visible sliders and checkboxes, others collapsed={others}; youtubePage={vm.IsYouTubePage}, playlistPage={vm.IsPlaylistPage}.");
             SaveScreenshot(window, $"section-{section.Key}.png");
         }
 
@@ -986,6 +988,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Directory.CreateDirectory(music);
         var cached = Path.Combine(music, "dQw4w9WgXcQ.mp3");
         File.Copy(_fixtures[0], cached, overwrite: true);
+        var cachedSecond = Path.Combine(music, "kJQP7kiw5Fk.mp3");
+        File.Copy(_fixtures[1], cachedSecond, overwrite: true);
         MainViewModel.YouTubeServiceFactory = () => new YouTubeTrackService(
             new SmokeYouTubeBinaries(), new SmokeYouTubeRunner(),
             new YouTubeOptions
@@ -1000,11 +1004,19 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             new AppSettings
             {
                 Language = "en",
-                YouTubeTracks = [new YouTubeTrackState
-                {
-                    VideoId = "dQw4w9WgXcQ", Title = "Cached fixture", CachedPath = cached,
-                    Status = YouTubeTrackStatus.Ready
-                }],
+                YouTubeTracks =
+                [
+                    new YouTubeTrackState
+                    {
+                        VideoId = "dQw4w9WgXcQ", Title = "Cached fixture", CachedPath = cached,
+                        Status = YouTubeTrackStatus.Ready
+                    },
+                    new YouTubeTrackState
+                    {
+                        VideoId = "kJQP7kiw5Fk", Title = "Second fixture", CachedPath = cachedSecond,
+                        Status = YouTubeTrackStatus.Ready
+                    }
+                ],
                 YouTubeCacheEnabled = true
             },
             MakeSettingsService(Path.Combine(session, "youtube-page-settings.json")), hook, player));
@@ -1013,9 +1025,44 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         vm.SetLanguageCommand.Execute("ru");
         await SettleAsync();
 
-        Check("youtube.tracksStayOutOfPlaylist", vm.Tracks.Count == 0 && vm.YouTube.Downloaded.Count == 1 &&
-            vm.YouTube.Downloaded[0].IsReady,
-            $"Playlist={vm.Tracks.Count}, YouTube={vm.YouTube.Downloaded.Count}, ready={vm.YouTube.Downloaded[0].IsReady}.");
+        Check("youtube.tracksStayOutOfPlaylist", vm.Tracks.Count == 0 && vm.YouTube.Downloaded.Count == 2 &&
+            vm.YouTube.Downloaded.All(track => track.IsReady),
+            $"Playlist={vm.Tracks.Count}, YouTube={vm.YouTube.Downloaded.Count}.");
+
+        // The section renames the local tab and mirrors the playlist's management model.
+        Check("youtube.localTabName", Loc.T("L_TabPlaylist") == (Loc.CurrentCode == "ru" ? "Локально" : "Local"),
+            $"The first tab reads '{Loc.T("L_TabPlaylist")}'.");
+
+        Check("youtube.innerTabs", vm.YouTube.IsSearchTab && !vm.YouTube.IsDownloadedTab,
+            "Search is the default inner tab.");
+        vm.YouTube.ShowDownloadedTabCommand.Execute(null);
+        await SettleAsync();
+        Check("youtube.innerTabsDownloaded", vm.YouTube.IsDownloadedTab && !vm.YouTube.IsSearchTab,
+            "The downloaded tab can be selected.");
+        vm.YouTube.ShowSearchTabCommand.Execute(null);
+        await SettleAsync();
+
+        var firstRow = vm.YouTube.Downloaded[0];
+        var secondRow = vm.YouTube.Downloaded[1];
+        Check("youtube.arrowEdges", !vm.YouTube.MoveTrackUpCommand.CanExecute(firstRow) &&
+            !vm.YouTube.MoveTrackDownCommand.CanExecute(secondRow),
+            "The first row cannot move up and the last cannot move down.");
+        vm.YouTube.MoveTrackDownCommand.Execute(firstRow);
+        await SettleAsync();
+        Check("youtube.arrowsReorder", vm.YouTube.Downloaded[0] == secondRow && vm.YouTube.Downloaded[1] == firstRow &&
+            firstRow.IsLast && secondRow.IsFirst,
+            $"Order: {string.Join(" | ", vm.YouTube.Downloaded.Select(track => track.Title))}.");
+        vm.YouTube.MoveTrackUpCommand.Execute(firstRow);
+        await SettleAsync();
+
+        vm.YouTube.SetDropTarget(vm.YouTube.Downloaded[0], above: true);
+        await SettleAsync();
+        Check("youtube.dropIndicator", vm.YouTube.Downloaded[0].IsDropTarget && vm.YouTube.Downloaded[0].IsDropTargetAbove,
+            "A dragged row shows where it will land.");
+        vm.YouTube.SetDropTarget(null, above: true);
+        await SettleAsync();
+        Check("youtube.dropIndicatorCleared", vm.YouTube.Downloaded.All(track => !track.IsDropTarget),
+            "Clearing the target removes the indicator.");
 
         var expected = Loc.F("L_YtCacheUsedFormat", ByteSizeFormatter.Format(vm.YouTube.CacheBytes, "КБ", "МБ", "ГБ"));
         Check("youtube.cacheSize", vm.YouTube.CacheBytes > 0 && vm.YouTube.CacheSizeText == expected &&
@@ -1035,7 +1082,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         vm.YouTube.DownloadFromQueryCommand.Execute(null);
         await UntilAsync(() => vm.YouTube.StatusText == Loc.T("L_YtFailurePlaylist"), 3000, "playlist refusal");
         Check("youtube.playlistRefused", vm.YouTube.StatusText == Loc.T("L_YtFailurePlaylist") &&
-            vm.YouTube.Downloaded.Count == 1,
+            vm.YouTube.Downloaded.Count == 2,
             $"Status='{vm.YouTube.StatusText}', rows={vm.YouTube.Downloaded.Count}.");
 
         vm.YouTube.SearchQuery = string.Empty;

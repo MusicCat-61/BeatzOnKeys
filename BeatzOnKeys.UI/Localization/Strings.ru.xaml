@@ -145,11 +145,13 @@
     <sys:String x:Key="L_CloseDialog">Закрыть</sys:String>
 
     <!-- YouTube section -->
-    <sys:String x:Key="L_TabPlaylist">Плейлист</sys:String>
+    <sys:String x:Key="L_TabPlaylist">Локально</sys:String>
     <sys:String x:Key="L_TabYouTube">YouTube</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Название трека или ссылка YouTube</sys:String>
     <sys:String x:Key="L_YtSearch">Найти</sys:String>
     <sys:String x:Key="L_YtDownloadLink">Скачать</sys:String>
+    <sys:String x:Key="L_YtTabSearch">Поиск</sys:String>
+    <sys:String x:Key="L_YtTabDownloaded">Скачанные треки</sys:String>
     <sys:String x:Key="L_YtSearchHint">Введите название и нажмите «Найти», или вставьте ссылку и нажмите «Скачать»</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Результаты поиска</sys:String>
     <sys:String x:Key="L_YtIdle">Введите запрос или вставьте ссылку</sys:String>

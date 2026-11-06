@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using System.IO;
 using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.Core.Services;
@@ -29,6 +30,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
     private string _cookiesFolderPath = string.Empty;
     private double _installProgress;
     private bool _disposed;
+    private bool _isSearchTab = true;
 
     public YouTubeViewModel(
         YouTubeTrackService service,
@@ -45,7 +47,8 @@ public sealed partial class YouTubeViewModel : ObservableObject
         _cacheEnabled = cacheEnabled;
         _cookiesFolderPath = cookiesFolderPath ?? string.Empty;
         _proxyUrl = proxyUrl ?? string.Empty;
-        _statusText = Loc.T("L_YtIdle");
+        // Empty means "nothing to report", so the line does not repeat the hint under the field.
+        _statusText = string.Empty;
 
         foreach (var state in savedTracks)
         {
@@ -66,13 +69,47 @@ public sealed partial class YouTubeViewModel : ObservableObject
         ClearCacheCommand = new RelayCommand(() => _ = ClearCacheAsync(), () => !IsBusy && Downloaded.Count > 0);
         RefreshCacheCommand = new RelayCommand(() => _ = RefreshCacheSizeAsync());
         OpenMusicFolderCommand = new RelayCommand(() => OpenMusicFolderRequested?.Invoke());
+        // Exactly the playlist's management model: arrows for one step, drag for any distance.
+        MoveTrackUpCommand = new RelayCommand<YouTubeTrackViewModel>(
+            track => MoveTrack(track, -1), track => CanMove(track, -1));
+        MoveTrackDownCommand = new RelayCommand<YouTubeTrackViewModel>(
+            track => MoveTrack(track, 1), track => CanMove(track, 1));
 
+        RefreshPositions();
         ApplyOptions();
         RefreshBinaryState();
     }
 
     /// <summary>Raised when the user asks to listen to a cached file; the window plays it.</summary>
     public event Action<string, string>? PlayRequested;
+
+    /// <summary>
+    /// The section has two inner tabs. Search is the default because that is what the user opens
+    /// the section for; the downloaded list is one click away and gets the full width when shown.
+    /// </summary>
+    public bool IsSearchTab
+    {
+        get => _isSearchTab;
+        private set
+        {
+            if (!SetProperty(ref _isSearchTab, value)) { return; }
+            OnPropertyChanged(nameof(IsDownloadedTab));
+            OnPropertyChanged(nameof(SearchTabVisible));
+            OnPropertyChanged(nameof(DownloadedTabVisible));
+        }
+    }
+
+    public bool IsDownloadedTab => !_isSearchTab;
+
+    /// <summary>Visibility helpers, so the XAML needs no converter.</summary>
+    public Visibility SearchTabVisible => _isSearchTab ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility DownloadedTabVisible => _isSearchTab ? Visibility.Collapsed : Visibility.Visible;
+
+    public RelayCommand ShowSearchTabCommand => _showSearchTab ??= new RelayCommand(() => IsSearchTab = true);
+    public RelayCommand ShowDownloadedTabCommand => _showDownloadedTab ??= new RelayCommand(() => IsSearchTab = false);
+    private RelayCommand? _showSearchTab;
+    private RelayCommand? _showDownloadedTab;
 
     public event Action? OpenMusicFolderRequested;
 
@@ -87,6 +124,8 @@ public sealed partial class YouTubeViewModel : ObservableObject
     public RelayCommand ClearCacheCommand { get; }
     public RelayCommand RefreshCacheCommand { get; }
     public RelayCommand OpenMusicFolderCommand { get; }
+    public RelayCommand<YouTubeTrackViewModel> MoveTrackUpCommand { get; }
+    public RelayCommand<YouTubeTrackViewModel> MoveTrackDownCommand { get; }
 
     public string SearchQuery
     {
@@ -160,7 +199,8 @@ public sealed partial class YouTubeViewModel : ObservableObject
         set
         {
             if (!SetProperty(ref _cacheEnabled, value)) { return; }
-            ApplyOptions();
+            RefreshPositions();
+        ApplyOptions();
             _requestSave();
         }
     }
@@ -171,7 +211,8 @@ public sealed partial class YouTubeViewModel : ObservableObject
         set
         {
             if (!SetProperty(ref _proxyUrl, value ?? string.Empty)) { return; }
-            ApplyOptions();
+            RefreshPositions();
+        ApplyOptions();
             _requestSave();
         }
     }
@@ -182,7 +223,8 @@ public sealed partial class YouTubeViewModel : ObservableObject
         set
         {
             if (!SetProperty(ref _cookiesFolderPath, value ?? string.Empty)) { return; }
-            ApplyOptions();
+            RefreshPositions();
+        ApplyOptions();
             _requestSave();
         }
     }
@@ -264,6 +306,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
         }
 
         Downloaded.Clear();
+        RefreshPositions();
         Results.Clear();
         _requestSave();
         await RefreshCacheSizeAsync().ConfigureAwait(true);
@@ -286,15 +329,75 @@ public sealed partial class YouTubeViewModel : ObservableObject
         }
 
         Downloaded.Remove(track);
+        RefreshPositions();
         _requestSave();
         _ = RefreshCacheSizeAsync();
         RefreshCommands();
         OnPropertyChanged(nameof(HasDownloaded));
     }
 
+    private bool CanMove(YouTubeTrackViewModel? track, int offset)
+    {
+        if (track is null) { return false; }
+        var index = Downloaded.IndexOf(track);
+        var target = index + offset;
+        return index >= 0 && target >= 0 && target < Downloaded.Count;
+    }
+
+    /// <summary>
+    /// Moves a row by one position. The collection raises Move, so the same instance stays in the
+    /// list and a playing track is never restarted.
+    /// </summary>
+    private void MoveTrack(YouTubeTrackViewModel? track, int offset)
+    {
+        if (track is null) { return; }
+        var index = Downloaded.IndexOf(track);
+        var target = index + offset;
+        if (index < 0 || target < 0 || target >= Downloaded.Count) { return; }
+        Downloaded.Move(index, target);
+        AfterOrderChanged();
+    }
+
+    /// <summary>Drops a dragged row at a target position; unlike the arrows it may travel far.</summary>
+    public bool MoveTrackTo(YouTubeTrackViewModel? track, int targetIndex)
+    {
+        if (track is null) { return false; }
+        var index = Downloaded.IndexOf(track);
+        if (index < 0 || targetIndex < 0 || targetIndex >= Downloaded.Count || index == targetIndex) { return false; }
+        Downloaded.Move(index, targetIndex);
+        AfterOrderChanged();
+        return true;
+    }
+
+    /// <summary>Shows where a drop would land; null clears every indicator.</summary>
+    public void SetDropTarget(YouTubeTrackViewModel? target, bool above)
+    {
+        foreach (var track in Downloaded)
+        {
+            var isTarget = target is not null && ReferenceEquals(track, target);
+            track.IsDropTarget = isTarget;
+            track.IsDropTargetAbove = isTarget && above;
+        }
+    }
+
+    private void AfterOrderChanged()
+    {
+        RefreshPositions();
+        RefreshCommands();
+        _requestSave();
+    }
+
+    private void RefreshPositions()
+    {
+        for (var index = 0; index < Downloaded.Count; index++) { Downloaded[index].SetPosition(index, Downloaded.Count); }
+        DownloadCommand.NotifyCanExecuteChanged();
+        MoveTrackUpCommand.NotifyCanExecuteChanged();
+        MoveTrackDownCommand.NotifyCanExecuteChanged();
+    }
+
     public void RefreshLocalization()
     {
-        StatusText = HasResults ? Loc.F("L_YtFoundFormat", Results.Count) : Loc.T("L_YtIdle");
+        StatusText = HasResults ? Loc.F("L_YtFoundFormat", Results.Count) : string.Empty;
         foreach (var track in Downloaded) { track.RefreshLocalization(); }
         _ = RefreshCacheSizeAsync();
         OnPropertyChanged(nameof(YtDlpStatusText));

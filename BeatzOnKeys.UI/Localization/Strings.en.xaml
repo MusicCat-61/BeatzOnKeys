@@ -145,11 +145,13 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_CloseDialog">Close</sys:String>
 
     <!-- YouTube section -->
-    <sys:String x:Key="L_TabPlaylist">Playlist</sys:String>
+    <sys:String x:Key="L_TabPlaylist">Local</sys:String>
     <sys:String x:Key="L_TabYouTube">YouTube</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Track name or a YouTube link</sys:String>
     <sys:String x:Key="L_YtSearch">Search</sys:String>
     <sys:String x:Key="L_YtDownloadLink">Download</sys:String>
+    <sys:String x:Key="L_YtTabSearch">Search</sys:String>
+    <sys:String x:Key="L_YtTabDownloaded">Downloaded tracks</sys:String>
     <sys:String x:Key="L_YtSearchHint">Type a name and press Search, or paste a link and press Download</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Search results</sys:String>
     <sys:String x:Key="L_YtIdle">Type a query or paste a link</sys:String>

@@ -773,7 +773,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="480"/>
                 <ColumnDefinition Width="16"/>
-                <ColumnDefinition Width="384"/>
+                <ColumnDefinition Width="360"/>
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Column="0">
@@ -783,46 +783,87 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <Border Style="{StaticResource CardStyle}" Padding="14">
-                    <StackPanel>
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right" Content="{DynamicResource L_YtSearch}"
-                                    Command="{Binding YouTube.SearchCommand}"
-                                    Style="{StaticResource AccentButtonStyle}" MinWidth="92" Margin="8,0,0,0"/>
-                            <Button DockPanel.Dock="Right" Content="{DynamicResource L_YtDownloadLink}"
-                                    Command="{Binding YouTube.DownloadFromQueryCommand}"
-                                    Style="{StaticResource SubtleButtonStyle}" MinWidth="104" Margin="8,0,0,0"/>
-                            <TextBox Text="{Binding YouTube.SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource InputBoxStyle}"
-                                     AutomationProperties.Name="{DynamicResource L_YtSearchPlaceholder}"/>
-                        </DockPanel>
-                        <TextBlock Text="{DynamicResource L_YtSearchHint}" FontSize="12.5" TextWrapping="Wrap"
-                                   Margin="0,8,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
-                        <TextBlock Text="{Binding YouTube.StatusText}" FontSize="12.5" TextWrapping="Wrap"
-                                   Margin="0,6,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <ProgressBar Value="{Binding YouTube.InstallProgress, Mode=OneWay}" Maximum="1" Height="4" Margin="0,8,0,0">
-                            <ProgressBar.Style>
-                                <Style TargetType="ProgressBar">
-                                    <Setter Property="Visibility" Value="Collapsed"/>
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Button Command="{Binding YouTube.ShowSearchTabCommand}"
+                                Content="{DynamicResource L_YtTabSearch}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource PageTabStyle}">
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding YouTube.IsInstalling}" Value="True">
-                                            <Setter Property="Visibility" Value="Visible"/>
+                                        <DataTrigger Binding="{Binding YouTube.IsSearchTab}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource OverlayBrush}"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </ProgressBar.Style>
-                        </ProgressBar>
+                            </Button.Style>
+                        </Button>
+                        <Button Command="{Binding YouTube.ShowDownloadedTabCommand}" Margin="6,0,0,0"
+                                Content="{DynamicResource L_YtTabDownloaded}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource PageTabStyle}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding YouTube.IsDownloadedTab}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource OverlayBrush}"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                     </StackPanel>
-                </Border>
+                    <TextBlock Text="{Binding YouTube.StatusText}" FontSize="14" TextWrapping="Wrap"
+                               Margin="2,10,0,0" Foreground="{DynamicResource TextSecondaryBrush}"
+                               Visibility="{Binding YouTube.SearchTabVisible}"/>
+                </StackPanel>
 
-                <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="12">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="{DynamicResource L_YtResultsTitle}" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" Margin="2,0,0,8"/>
+                <Grid Grid.Row="2" Visibility="{Binding YouTube.SearchTabVisible}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="12"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Border Style="{StaticResource CardStyle}" Padding="14">
+                        <StackPanel>
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="{DynamicResource L_YtSearch}"
+                                        Command="{Binding YouTube.SearchCommand}"
+                                        Style="{StaticResource AccentButtonStyle}" MinWidth="96" Margin="8,0,0,0"/>
+                                <Button DockPanel.Dock="Right" Content="{DynamicResource L_YtDownloadLink}"
+                                        Command="{Binding YouTube.DownloadFromQueryCommand}"
+                                        Style="{StaticResource SubtleButtonStyle}" MinWidth="112" Margin="8,0,0,0"/>
+                                <TextBox Text="{Binding YouTube.SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource InputBoxStyle}"
+                                         AutomationProperties.Name="{DynamicResource L_YtSearchPlaceholder}"/>
+                            </DockPanel>
+                            <TextBlock Text="{DynamicResource L_YtSearchHint}" FontSize="14" TextWrapping="Wrap"
+                                       Margin="0,10,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <ProgressBar Value="{Binding YouTube.InstallProgress, Mode=OneWay}" Maximum="1"
+                                         Height="4" Margin="0,10,0,0">
+                                <ProgressBar.Style>
+                                    <Style TargetType="ProgressBar">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding YouTube.IsInstalling}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ProgressBar.Style>
+                            </ProgressBar>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{DynamicResource L_YtResultsTitle}" FontSize="15"
+                                       FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"
+                                       Margin="2,0,0,8"/>
                         <ListBox Grid.Row="1" ItemsSource="{Binding YouTube.Results}" Background="Transparent"
                                  BorderThickness="0" Padding="0"
                                  ItemContainerStyle="{StaticResource TrackListItemStyle}"
@@ -830,7 +871,7 @@
                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid MinHeight="42">
+                                    <Grid MinHeight="44">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -840,17 +881,17 @@
                                                        TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                                <TextBlock Text="{Binding Author}" FontSize="12"
+                                                <TextBlock Text="{Binding Author}" FontSize="12.5"
                                                            TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                                <TextBlock Text="  ·  " FontSize="12"
+                                                <TextBlock Text="  ·  " FontSize="12.5"
                                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                                <TextBlock Text="{Binding DurationText}" FontSize="12"
+                                                <TextBlock Text="{Binding DurationText}" FontSize="12.5"
                                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
                                             </StackPanel>
                                         </StackPanel>
                                         <Button Grid.Column="1" Content="{DynamicResource L_YtDownloadLink}"
-                                                VerticalAlignment="Center" MinWidth="96"
+                                                VerticalAlignment="Center" MinWidth="104"
                                                 Style="{StaticResource SubtleButtonStyle}"
                                                 CommandParameter="{Binding}"
                                                 Command="{Binding DataContext.YouTube.DownloadCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
@@ -858,6 +899,183 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="10"
+                        Visibility="{Binding YouTube.DownloadedTabVisible}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <ListBox ItemsSource="{Binding YouTube.Downloaded}" Background="Transparent"
+                                 BorderThickness="0" Padding="0"
+                                 ItemContainerStyle="{StaticResource TrackListItemStyle}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 AllowDrop="True"
+                                 PreviewMouseLeftButtonDown="YouTubeList_PreviewMouseLeftButtonDown"
+                                 PreviewMouseMove="YouTubeList_PreviewMouseMove"
+                                 PreviewMouseLeftButtonUp="YouTubeList_PreviewMouseLeftButtonUp"
+                                 DragOver="YouTubeList_DragOver"
+                                 DragLeave="YouTubeList_DragLeave"
+                                 Drop="YouTubeList_Drop">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid MinHeight="48" ToolTip="{Binding TooltipText}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="38"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Grid.ColumnSpan="6" Height="2" CornerRadius="1"
+                                                VerticalAlignment="Top" Margin="-8,-6,-8,0"
+                                                Background="{DynamicResource AccentBrush}" IsHitTestVisible="False">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding IsDropTarget}" Value="True"/>
+                                                                <Condition Binding="{Binding IsDropTargetAbove}" Value="True"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                        <Border Grid.ColumnSpan="6" Height="2" CornerRadius="1"
+                                                VerticalAlignment="Bottom" Margin="-8,0,-8,-6"
+                                                Background="{DynamicResource AccentBrush}" IsHitTestVisible="False">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding IsDropTarget}" Value="True"/>
+                                                                <Condition Binding="{Binding IsDropTargetAbove}" Value="False"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+
+                                        <Border Width="30" Height="30" CornerRadius="7" VerticalAlignment="Center"
+                                                Background="{DynamicResource OverlayBrush}">
+                                            <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}"
+                                                       FontSize="14" Foreground="{DynamicResource AccentBrush}"/>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" Margin="6,0,10,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                            <DockPanel Margin="0,3,0,0">
+                                                <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressText}"
+                                                           FontSize="12" Margin="8,0,0,0"
+                                                           Foreground="{DynamicResource AccentBrush}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsDownloading}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding StatusText}" FontSize="12.5"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                            </DockPanel>
+                                            <ProgressBar Value="{Binding Progress}" Maximum="1" Height="3"
+                                                         Margin="0,6,0,0">
+                                                <ProgressBar.Style>
+                                                    <Style TargetType="ProgressBar">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDownloading}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ProgressBar.Style>
+                                            </ProgressBar>
+                                        </StackPanel>
+
+                                        <Button Grid.Column="2" Content="{DynamicResource L_YtPlay}"
+                                                Style="{StaticResource SubtleButtonStyle}" Padding="8,4"
+                                                MinWidth="84" Margin="0,0,8,0" CommandParameter="{Binding}"
+                                                Command="{Binding DataContext.YouTube.PlayCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                        <Button Grid.Column="3" Margin="0,0,2,0" CommandParameter="{Binding}"
+                                                Command="{Binding DataContext.YouTube.MoveTrackUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                ToolTip="{DynamicResource L_MoveUp}"
+                                                AutomationProperties.Name="{DynamicResource L_MoveUp}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                                    <Setter Property="Width" Value="26"/>
+                                                    <Setter Property="Height" Value="26"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsFirst}" Value="True">
+                                                            <Setter Property="IsEnabled" Value="False"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70E;"/>
+                                        </Button>
+                                        <Button Grid.Column="4" Margin="0,0,6,0" CommandParameter="{Binding}"
+                                                Command="{Binding DataContext.YouTube.MoveTrackDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                ToolTip="{DynamicResource L_MoveDown}"
+                                                AutomationProperties.Name="{DynamicResource L_MoveDown}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                                    <Setter Property="Width" Value="26"/>
+                                                    <Setter Property="Height" Value="26"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsLast}" Value="True">
+                                                            <Setter Property="IsEnabled" Value="False"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70D;"/>
+                                        </Button>
+                                        <Button Grid.Column="5" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
+                                                CommandParameter="{Binding}"
+                                                Command="{Binding DataContext.YouTube.RemoveCachedCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                ToolTip="{DynamicResource L_Remove}">
+                                            <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="13"/>
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock Grid.Row="1" Text="{DynamicResource L_YtEmpty}" FontSize="13" TextWrapping="Wrap"
+                                   Margin="6,8,6,4" Foreground="{DynamicResource TextTertiaryBrush}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding YouTube.HasDownloaded}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </Grid>
                 </Border>
             </Grid>
@@ -868,78 +1086,14 @@
 
                     <Border Style="{StaticResource CardStyle}" Padding="14">
                         <StackPanel>
-                            <TextBlock Text="{DynamicResource L_YtDownloadedTitle}" FontSize="15"
-                                       FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <ItemsControl ItemsSource="{Binding YouTube.Downloaded}" Margin="0,10,0,0">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{DynamicResource ControlBackgroundBrush}"
-                                                BorderBrush="{DynamicResource ControlBorderBrush}"
-                                                BorderThickness="1" CornerRadius="7" Padding="10"
-                                                Margin="0,0,0,8" ToolTip="{Binding TooltipText}">
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Title}" FontSize="13.5"
-                                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                                           Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                                <DockPanel Margin="0,5,0,0">
-                                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                                                        <Button Content="{DynamicResource L_YtPlay}"
-                                                                Style="{StaticResource SubtleButtonStyle}"
-                                                                Padding="8,3" MinWidth="72" CommandParameter="{Binding}"
-                                                                Command="{Binding DataContext.YouTube.PlayCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                                                        <Button Content="{DynamicResource L_YtRemove}"
-                                                                Style="{StaticResource SubtleButtonStyle}"
-                                                                Padding="8,3" Margin="6,0,0,0" CommandParameter="{Binding}"
-                                                                Command="{Binding DataContext.YouTube.RemoveCachedCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
-                                                    </StackPanel>
-                                                    <TextBlock Text="{Binding StatusText}" FontSize="12"
-                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                                               Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                                </DockPanel>
-                                                <ProgressBar Value="{Binding Progress}" Maximum="1" Height="3"
-                                                             Margin="0,6,0,0">
-                                                    <ProgressBar.Style>
-                                                        <Style TargetType="ProgressBar">
-                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsDownloading}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ProgressBar.Style>
-                                                </ProgressBar>
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Text="{DynamicResource L_YtEmpty}" FontSize="12.5" TextWrapping="Wrap"
-                                       Margin="0,8,0,0" Foreground="{DynamicResource TextTertiaryBrush}">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding YouTube.HasDownloaded}" Value="True">
-                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Padding="14" Margin="0,12,0,0">
-                        <StackPanel>
                             <TextBlock Text="{DynamicResource L_YtCacheTitle}" FontSize="15" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="{Binding YouTube.CacheSizeText}" FontSize="14" Margin="0,8,0,0"
+                            <TextBlock Text="{Binding YouTube.CacheSizeText}" FontSize="14.5" Margin="0,8,0,0"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <CheckBox IsChecked="{Binding YouTube.CacheEnabled}" Margin="0,10,0,0">
                                 <TextBlock Text="{DynamicResource L_YtCacheEnabled}" TextWrapping="Wrap"/>
                             </CheckBox>
-                            <TextBlock Text="{DynamicResource L_YtCacheHint}" FontSize="12" TextWrapping="Wrap"
+                            <TextBlock Text="{DynamicResource L_YtCacheHint}" FontSize="12.5" TextWrapping="Wrap"
                                        Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
                             <Button Content="{DynamicResource L_YtClearCache}" Click="YouTubeClearCacheClick"
                                     Style="{StaticResource DangerButtonStyle}" Padding="10,5" Margin="0,10,0,0"
@@ -955,10 +1109,10 @@
                         <StackPanel>
                             <TextBlock Text="{DynamicResource L_YtSettingsTitle}" FontSize="15"
                                        FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="{Binding YouTube.YtDlpStatusText}" FontSize="12" TextWrapping="Wrap"
+                            <TextBlock Text="{Binding YouTube.YtDlpStatusText}" FontSize="12.5" TextWrapping="Wrap"
                                        Margin="0,6,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
-                            <ProgressBar Value="{Binding YouTube.InstallProgress, Mode=OneWay}" Maximum="1" Height="4"
-                                         Margin="0,8,0,0">
+                            <ProgressBar Value="{Binding YouTube.InstallProgress, Mode=OneWay}" Maximum="1"
+                                         Height="4" Margin="0,8,0,0">
                                 <ProgressBar.Style>
                                     <Style TargetType="ProgressBar">
                                         <Setter Property="Visibility" Value="Collapsed"/>
@@ -974,16 +1128,6 @@
                                     Command="{Binding YouTube.InstallYtDlpCommand}"
                                     Style="{StaticResource AccentButtonStyle}" Padding="10,5" Margin="0,10,0,0"
                                     HorizontalAlignment="Left"/>
-                            <TextBlock Text="{DynamicResource L_YtProxy}" Style="{StaticResource ValueLabelStyle}"
-                                       Margin="0,12,0,0"/>
-                            <TextBox Text="{Binding YouTube.ProxyUrl, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource InputBoxStyle}" Margin="0,4,0,0"
-                                     AutomationProperties.Name="{DynamicResource L_YtProxy}"/>
-                            <TextBlock Text="{DynamicResource L_YtCookies}" Style="{StaticResource ValueLabelStyle}"
-                                       Margin="0,10,0,0"/>
-                            <TextBox Text="{Binding YouTube.CookiesFolderPath, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource InputBoxStyle}" Margin="0,4,0,0"
-                                     AutomationProperties.Name="{DynamicResource L_YtCookies}"/>
                         </StackPanel>
                     </Border>
 

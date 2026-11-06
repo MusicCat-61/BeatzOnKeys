@@ -50,7 +50,7 @@ public sealed partial class YouTubeViewModel
             foreach (var item in found) { Results.Add(new YouTubeSearchItemViewModel(item)); }
             StatusText = found.Count == 0 ? Loc.T("L_YtNotFound") : Loc.F("L_YtFoundFormat", found.Count);
         }
-        catch (OperationCanceledException) { StatusText = Loc.T("L_YtIdle"); }
+        catch (OperationCanceledException) { StatusText = string.Empty; }
         catch (YouTubeException exception)
         {
             StatusText = Loc.T(FailureKey(exception.Failure));
@@ -182,7 +182,7 @@ public sealed partial class YouTubeViewModel
             RefreshBinaryState();
             StatusText = Loc.T("L_YtInstallDone");
         }
-        catch (OperationCanceledException) { StatusText = Loc.T("L_YtIdle"); }
+        catch (OperationCanceledException) { StatusText = string.Empty; }
         catch (Exception exception)
         {
             StatusText = Loc.T("L_YtInstallFailed");

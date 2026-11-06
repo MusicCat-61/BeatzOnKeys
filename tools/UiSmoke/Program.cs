@@ -493,6 +493,9 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     /// <summary>The guide is a real window: it must open, render every control, and follow the language switch.</summary>
     private async Task GuideAsync()
     {
+        // The render matrix leaves Russian active; start deterministically in English.
+        _vm!.SetLanguageCommand.Execute("en");
+        await SettleAsync();
         app.ShowGuideWindow();
         await SettleAsync();
         var guide = GetField<GuideWindow>(app, "_guideWindow");
@@ -507,6 +510,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         var missing = described.Where(key => !english.Contains(Loc.T(key))).ToArray();
         Check("guide.coversEveryControl", missing.Length == 0 && english.Length > 40,
             $"{english.Length} visible labels; missing: {string.Join(", ", missing)}.");
+        Check("guide.englishFirst", english.Contains("Quick start") && english.Contains("Punch response"),
+            "The English capture really renders English text.");
         SaveScreenshot(guide, $"guide-{Theme.CurrentCode}-en.png");
 
         _vm!.SetLanguageCommand.Execute("ru");

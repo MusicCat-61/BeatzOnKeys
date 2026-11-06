@@ -115,7 +115,7 @@ BeatzOnKeys написана на C# с .NET 10 и WPF; NAudio отвечает 
 
 Переключатель `EN | RU` в заголовке мгновенно меняет язык; кнопка солнца/луны — светлую/тёмную палитру. Оба выбора сохраняются.
 
-[Светлая тема, EN](<assets/preview-light-en.png>) · [«О программе»](<assets/about-ru.png>) · [Светлое «О программе»](<assets/about-light-ru.png>)
+[Светлая тема, EN](<assets/preview-light-en.png>) · [«О программе»](<assets/about-ru.png>) · [Светлое «О программе»](<assets/about-light-ru.png>) · [Гайд, RU](<assets/guide-ru.png>) · [Гайд, EN](<assets/guide-en.png>)
 
 Совпадающая документация доступна на [английском](<README.md>) и [русском](<README.ru.md>).
 

@@ -117,7 +117,7 @@ The title-bar `EN | RU` switch changes the language immediately; the sun/moon bu
 
 ![BeatzOnKeys light theme](<assets/preview-light-en.png>)
 
-[About dialog](<assets/about-ru.png>) · [Light About dialog](<assets/about-light-ru.png>)
+[About dialog](<assets/about-ru.png>) · [Light About dialog](<assets/about-light-ru.png>) · [Guide, English](<assets/guide-en.png>) · [Guide, Russian](<assets/guide-ru.png>)
 
 Matching documentation is available in [English](<README.md>) and [Russian](<README.ru.md>).
 

@@ -3,7 +3,7 @@ namespace BeatzOnKeys.Core.Models;
 /// <summary>User preferences and playlist, stored in the local app-data folder.</summary>
 public sealed class AppSettings
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
     public const double DefaultMinVolume = 0.2;
     public const double DefaultMaxVolume = 1.0;
     public const double DefaultIdleTimeout = 3.0;
@@ -33,6 +33,21 @@ public sealed class AppSettings
     public string Theme { get; set; } = "dark";
     public List<TrackState> Tracks { get; set; } = [];
 
+    /// <summary>
+    /// Downloaded YouTube tracks. Deliberately a separate list: the local playlist stays exactly
+    /// what the user added from disk, and clearing the cache never touches it.
+    /// </summary>
+    public List<YouTubeTrackState> YouTubeTracks { get; set; } = [];
+
+    /// <summary>Keeps downloaded audio on disk instead of deleting it after playback.</summary>
+    public bool YouTubeCacheEnabled { get; set; } = true;
+
+    /// <summary>Folder scanned for Netscape-format cookie files, passed to yt-dlp when non-empty.</summary>
+    public string CookiesFolderPath { get; set; } = string.Empty;
+
+    /// <summary>Optional proxy for yt-dlp, for example http://127.0.0.1:8080.</summary>
+    public string ProxyUrl { get; set; } = string.Empty;
+
     public void Normalize()
     {
         SchemaVersion = CurrentSchemaVersion;
@@ -53,5 +68,40 @@ public sealed class AppSettings
             return ids.Add(track.Id);
         }).ToList();
         if (SelectedTrackId is Guid selected && !Tracks.Any(track => track.Id == selected)) { SelectedTrackId = null; }
+        NormalizeYouTube();
+    }
+
+    /// <summary>
+    /// Keeps the cached-track list consistent: one row per video, no empty identifiers, and a
+    /// "Downloading" row that survived a crash becomes "Failed" instead of spinning forever.
+    /// </summary>
+    private void NormalizeYouTube()
+    {
+        YouTubeTracks ??= [];
+        CookiesFolderPath = (CookiesFolderPath ?? string.Empty).Trim();
+        ProxyUrl = (ProxyUrl ?? string.Empty).Trim();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var kept = new List<YouTubeTrackState>(YouTubeTracks.Count);
+        foreach (var track in YouTubeTracks)
+        {
+            if (track is null || string.IsNullOrWhiteSpace(track.VideoId)) { continue; }
+            track.VideoId = track.VideoId.Trim();
+            if (!seen.Add(track.VideoId)) { continue; }
+            if (track.Id == Guid.Empty) { track.Id = Guid.NewGuid(); }
+            track.Title = string.IsNullOrWhiteSpace(track.Title) ? track.VideoId : track.Title.Trim();
+            track.CachedPath ??= string.Empty;
+            // A download cannot still be running across a restart.
+            if (track.Status == YouTubeTrackStatus.Downloading) { track.Status = YouTubeTrackStatus.Failed; }
+            if (track.Status == YouTubeTrackStatus.Ready && !File.Exists(track.CachedPath))
+            {
+                track.Status = YouTubeTrackStatus.Failed;
+                track.ErrorMessage = null;
+                track.CachedPath = string.Empty;
+            }
+
+            kept.Add(track);
+        }
+
+        YouTubeTracks = kept;
     }
 }

@@ -6,6 +6,28 @@ namespace BeatzOnKeys.Core.Audio;
 /// <summary>Opens audio immediately and reads only enough data to validate the source.</summary>
 public static class AudioTrackLoader
 {
+    /// <summary>
+    /// Extensions the player can decode. MP3 and WAV are read by NAudio directly; M4A goes through
+    /// Media Foundation, which is what the YouTube cache stores.
+    /// </summary>
+    private static readonly string[] SupportedExtensions = [".mp3", ".wav", ".m4a"];
+
+    public static bool IsSupported(string? pathOrExtension)
+    {
+        if (string.IsNullOrWhiteSpace(pathOrExtension)) { return false; }
+        var extension = Path.GetExtension(pathOrExtension);
+        if (string.IsNullOrEmpty(extension)) { extension = pathOrExtension.Trim(); }
+        foreach (var supported in SupportedExtensions)
+        {
+            if (extension.Equals(supported, StringComparison.OrdinalIgnoreCase)) { return true; }
+        }
+
+        return false;
+    }
+
+    /// <summary>Human-readable list for error messages, e.g. ".mp3, .wav, .m4a".</summary>
+    public static string SupportedList => string.Join(", ", SupportedExtensions);
+
     public static PlaybackTrack Load(Guid id, string sourcePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
@@ -14,11 +36,9 @@ public static class AudioTrackLoader
         {
             throw new FileNotFoundException("The source audio file no longer exists.", sourcePath);
         }
-        var extension = Path.GetExtension(sourcePath);
-        if (!extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase) &&
-            !extension.Equals(".wav", StringComparison.OrdinalIgnoreCase))
+        if (!IsSupported(sourcePath))
         {
-            throw new NotSupportedException("Only MP3 and WAV files are supported.");
+            throw new NotSupportedException($"Only {SupportedList} files are supported.");
         }
 
         using var reader = new AudioFileReader(sourcePath);
@@ -32,5 +52,27 @@ public static class AudioTrackLoader
             throw new InvalidDataException("The audio file has no decodable samples.");
         }
         return new PlaybackTrack(id, Path.GetFileName(sourcePath), sourcePath, reader.TotalTime);
+    }
+
+    /// <summary>
+    /// Non-throwing probe used by the YouTube cache: it answers "will the player be able to open
+    /// this file here?" without caring why not. On Windows without Media Foundation an M4A fails
+    /// here, which is exactly the signal to fall back to a WAV conversion.
+    /// </summary>
+    public static bool TryLoad(string sourcePath, out PlaybackTrack? track, out string? error)
+    {
+        track = null;
+        error = null;
+        try
+        {
+            track = Load(Guid.NewGuid(), sourcePath);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or NotSupportedException or
+            InvalidDataException or ArgumentException or UnauthorizedAccessException)
+        {
+            error = exception.Message;
+            return false;
+        }
     }
 }

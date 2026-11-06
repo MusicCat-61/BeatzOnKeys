@@ -73,6 +73,13 @@ public partial class GuideWindow : Window
             ("Guide_StereoPulseT", "Guide_StereoPulseX"),
             ("Guide_AdaptiveT", "Guide_AdaptiveX")),
 
+        Section("Guide_SecYouTube",
+            ("Guide_YouTubeSearchT", "Guide_YouTubeSearchX"),
+            ("Guide_YouTubeDownloadT", "Guide_YouTubeDownloadX"),
+            ("Guide_YouTubeCacheT", "Guide_YouTubeCacheX"),
+            ("Guide_YouTubeYtDlpT", "Guide_YouTubeYtDlpX"),
+            ("Guide_YouTubeLimitsT", "Guide_YouTubeLimitsX")),
+
         Section("Guide_SecTray",
             ("Guide_TrayIconT", "Guide_TrayIconX"),
             ("Guide_TrayMenuT", "Guide_TrayMenuX"),
@@ -105,6 +112,23 @@ public partial class GuideWindow : Window
             items.Select(item => new GuideItem(Loc.T(item.TitleKey), Loc.T(item.TextKey))).ToArray());
 
     private void Close_Click(object sender, RoutedEventArgs eventArgs) => Close();
+
+    /// <summary>Opens the recommended circumvention front-end; the app itself stays neutral.</summary>
+    private void ZapretClick(object sender, RoutedEventArgs eventArgs)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "https://github.com/Asterlike/zapret2UI",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception exception)
+        {
+            BeatzOnKeys.Core.Services.AppLogger.Error("ui", "Could not open the Zapret2UI page.", exception);
+        }
+    }
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs eventArgs)
     {

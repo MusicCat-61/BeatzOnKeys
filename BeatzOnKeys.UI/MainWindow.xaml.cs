@@ -273,6 +273,16 @@ public partial class MainWindow : Window
         MessageDialog.Notify(this, message, Loc.T("L_AppName"));
     }
 
+    /// <summary>The cache is deleted only after the user confirms; the playlist is never touched.</summary>
+    private async void YouTubeClearCacheClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (!ViewModel.YouTube.ClearCacheCommand.CanExecute(null)) { return; }
+        var answer = MessageDialog.Ask(this, Loc.T("L_YtClearCacheConfirm"), Loc.T("L_YtClearCacheTitle"));
+        if (!answer) { return; }
+        try { await ViewModel.YouTube.ClearCacheAsync().ConfigureAwait(true); }
+        catch (Exception exception) { AppLogger.Error("youtube", "Clearing the cache failed.", exception); }
+    }
+
     // ---- Playlist drag-and-drop -------------------------------------------------------------
     // A row is dragged with the left button held; the target row shows a line where the drop will
     // land. The move goes through the view model, so playback order follows the new layout and the

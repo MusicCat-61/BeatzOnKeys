@@ -26,7 +26,7 @@ internal static class SettingsTests
         };
         settings.Normalize();
         AssertEx.Equal(AppSettings.CurrentSchemaVersion, settings.SchemaVersion);
-        AssertEx.Equal(4, settings.SchemaVersion);
+        AssertEx.Equal(5, settings.SchemaVersion);
         AssertEx.NearlyEqual(0.2, settings.MinVolume);
         AssertEx.NearlyEqual(1, settings.MaxVolume);
         AssertEx.NearlyEqual(3, settings.IdleTimeout);

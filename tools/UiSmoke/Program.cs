@@ -20,6 +20,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using BeatzOnKeys.Core.Audio;
+using BeatzOnKeys.Core.YouTube;
 using BeatzOnKeys.Core.Input;
 using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.Core.Services;
@@ -152,6 +153,17 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             await Section("nativeHook", () => { CheckNativeHook(); return Task.CompletedTask; });
             Loc.Initialize("en");
             Theme.Apply(AppTheme.Dark, notify: false);
+            // The YouTube section must not read, write or delete the real user cache during tests.
+            var youTubeRoot = Path.Combine(session, "youtube");
+            Directory.CreateDirectory(youTubeRoot);
+            MainViewModel.YouTubeServiceFactory = () => new YouTubeTrackService(
+                new SmokeYouTubeBinaries(),
+                new SmokeYouTubeRunner(),
+                new YouTubeOptions
+                {
+                    MusicDirectory = Path.Combine(youTubeRoot, "Music"),
+                    DownloadDirectory = Path.Combine(youTubeRoot, "downloads")
+                });
             _hook = new FakeKeyboardHook();
             _player = new ContinuousAudioPlayer();
             var settingsService = MakeSettingsService(SettingsPath);
@@ -208,7 +220,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             await Section("autoAdvance", AutoAdvanceAsync);
             await Section("playlist", PlaylistManagementAsync);
             await Section("missingTrack", MissingTrackAsync);
-            await Section("settings.roundtrip", SettingsRoundtripAsync);
+            await Section("youtube", YouTubeSectionAsync);
+        await Section("settings.roundtrip", SettingsRoundtripAsync);
         }
         catch (Exception error) { Check("harness.exception", false, error.ToString()); }
         finally
@@ -961,6 +974,98 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("missingTrack.disposed", hook.IsDisposed && !hook.IsInstalled, "Missing-track VM uses custom settings and disposes its signal-only hook.");
     }
 
+    /// <summary>
+    /// The YouTube section is exercised offline: no binary is installed, so nothing downloads.
+    /// What is checked is the wiring — page switch, command state, link refusal, cache figure and
+    /// that a cached track plays without ever entering the playlist.
+    /// </summary>
+    private async Task YouTubeSectionAsync()
+    {
+        var root = Path.Combine(session, "youtube-page");
+        var music = Path.Combine(root, "Music");
+        Directory.CreateDirectory(music);
+        var cached = Path.Combine(music, "dQw4w9WgXcQ.mp3");
+        File.Copy(_fixtures[0], cached, overwrite: true);
+        MainViewModel.YouTubeServiceFactory = () => new YouTubeTrackService(
+            new SmokeYouTubeBinaries(), new SmokeYouTubeRunner(),
+            new YouTubeOptions
+            {
+                MusicDirectory = music,
+                DownloadDirectory = Path.Combine(root, "downloads")
+            });
+
+        var hook = new FakeKeyboardHook();
+        var player = new ContinuousAudioPlayer();
+        var vm = Own(new MainViewModel(
+            new AppSettings
+            {
+                Language = "en",
+                YouTubeTracks = [new YouTubeTrackState
+                {
+                    VideoId = "dQw4w9WgXcQ", Title = "Cached fixture", CachedPath = cached,
+                    Status = YouTubeTrackStatus.Ready
+                }],
+                YouTubeCacheEnabled = true
+            },
+            MakeSettingsService(Path.Combine(session, "youtube-page-settings.json")), hook, player));
+        vm.UserMessageRequested += message => _messages.Add("YouTube: " + message);
+        await vm.InitializeAsync();
+        vm.SetLanguageCommand.Execute("ru");
+        await SettleAsync();
+
+        Check("youtube.tracksStayOutOfPlaylist", vm.Tracks.Count == 0 && vm.YouTube.Downloaded.Count == 1 &&
+            vm.YouTube.Downloaded[0].IsReady,
+            $"Playlist={vm.Tracks.Count}, YouTube={vm.YouTube.Downloaded.Count}, ready={vm.YouTube.Downloaded[0].IsReady}.");
+
+        var expected = Loc.F("L_YtCacheUsedFormat", ByteSizeFormatter.Format(vm.YouTube.CacheBytes, "КБ", "МБ", "ГБ"));
+        Check("youtube.cacheSize", vm.YouTube.CacheBytes > 0 && vm.YouTube.CacheSizeText == expected &&
+            !vm.YouTube.CacheSizeText.Contains("L_YtCacheUsedFormat", StringComparison.Ordinal),
+            $"Cache: bytes={vm.YouTube.CacheBytes}, text='{vm.YouTube.CacheSizeText}', expected '{expected}'.");
+
+        Check("youtube.binaryNotInstalled", !vm.YouTube.YtDlpInstalled &&
+            vm.YouTube.YtDlpStatusText == Loc.T("L_YtNotInstalled"),
+            $"yt-dlp: installed={vm.YouTube.YtDlpInstalled}, text='{vm.YouTube.YtDlpStatusText}'.");
+
+        Check("youtube.searchNeedsQuery", !vm.YouTube.SearchCommand.CanExecute(null), "An empty query cannot search.");
+        vm.YouTube.SearchQuery = "linkin park numb";
+        Check("youtube.searchEnabledWithQuery", vm.YouTube.SearchCommand.CanExecute(null),
+            "A typed query enables the search button.");
+
+        vm.YouTube.SearchQuery = "https://www.youtube.com/playlist?list=PL1234567890";
+        vm.YouTube.DownloadFromQueryCommand.Execute(null);
+        await UntilAsync(() => vm.YouTube.StatusText == Loc.T("L_YtFailurePlaylist"), 3000, "playlist refusal");
+        Check("youtube.playlistRefused", vm.YouTube.StatusText == Loc.T("L_YtFailurePlaylist") &&
+            vm.YouTube.Downloaded.Count == 1,
+            $"Status='{vm.YouTube.StatusText}', rows={vm.YouTube.Downloaded.Count}.");
+
+        vm.YouTube.SearchQuery = string.Empty;
+        var row = vm.YouTube.Downloaded[0];
+        Check("youtube.playAvailable", vm.YouTube.PlayCommand.CanExecute(row), "A cached, existing file can be played.");
+        vm.YouTube.PlayCommand.Execute(row);
+        await UntilAsync(() => vm.IsRunning && player.IsPlaying, 5000, "YouTube playback");
+        Check("youtube.playsWithoutPlaylistEntry", vm.IsRunning && player.IsPlaying && vm.Tracks.Count == 0 &&
+            vm.NowPlayingText.Contains("Cached fixture", StringComparison.Ordinal),
+            $"Running={vm.IsRunning}, playing={player.IsPlaying}, playlist={vm.Tracks.Count}, now='{vm.NowPlayingText}'.");
+        await StopAsync(vm);
+
+        // The page switch must really swap the rendered content, so it runs on the window's own
+        // view model and is undone afterwards, keeping the rest of the suite on the playlist page.
+        var windowViewModel = _vm!;
+        windowViewModel.ShowYouTubeCommand.Execute(null);
+        await SettleAsync();
+        var searchBoxes = Descendants<TextBox>(_window!).Count(box => box.IsVisible);
+        Check("youtube.pageSwitch", windowViewModel.IsYouTubePage && !windowViewModel.IsPlaylistPage && searchBoxes >= 1,
+            $"IsYouTubePage={windowViewModel.IsYouTubePage}, visible text boxes={searchBoxes}.");
+        SaveScreenshot(_window!, $"youtube-page-{Loc.CurrentCode}.png");
+        windowViewModel.ShowPlaylistCommand.Execute(null);
+        await SettleAsync();
+        Check("youtube.pageSwitchBack", windowViewModel.IsPlaylistPage &&
+            Descendants<TextBox>(_window!).All(box => !box.IsVisible),
+            $"IsPlaylistPage={windowViewModel.IsPlaylistPage}, visible text boxes={Descendants<TextBox>(_window!).Count(box => box.IsVisible)}.");
+
+        await vm.DisposeAsync();
+        _ownedModels.Remove(vm);
+    }
     private async Task SettingsRoundtripAsync()
     {
         var vm = _vm!;
@@ -1150,6 +1255,22 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         for (var current = VisualTreeHelper.GetParent(element); current is not null; current = VisualTreeHelper.GetParent(current))
             if (current is T) return true;
         return false;
+    }
+
+    private sealed class SmokeYouTubeBinaries : IYtDlpBinaryProvider
+    {
+        public string? FindYtDlp() => null;
+        public string? FindFfmpeg() => null;
+        public Task<string> EnsureYtDlpAsync(IProgress<double>? progress, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("The smoke never downloads yt-dlp.");
+        public Task<string> EnsureFfmpegAsync(IProgress<double>? progress, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("The smoke never downloads ffmpeg.");
+    }
+
+    private sealed class SmokeYouTubeRunner : IYouTubeProcessRunner
+    {
+        public Task<YouTubeProcessResult> RunAsync(YouTubeProcessRequest request, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("The smoke never starts yt-dlp.");
     }
     private static void SetField(object instance, string name, object? value) => typeof(App)
         .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(instance, value);

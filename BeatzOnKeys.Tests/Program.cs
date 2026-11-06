@@ -75,7 +75,18 @@ internal static class Program
         ("UpdateStorage.TinyStagedFileIsDiscarded", UpdateStorageTests.TinyStagedFileIsDiscarded),
         ("UpdateStorage.StagedBuildNotNewerIsDiscarded", UpdateStorageTests.StagedBuildNotNewerIsDiscarded),
         ("UpdateStorage.ApplyScriptIsAsciiAndTakesPathsFromTheEnvironment", UpdateStorageTests.ApplyScriptIsAsciiAndTakesPathsFromTheEnvironment),
-        ("UpdateStorage.WriteProbeUsesTheApplicationFolder", UpdateStorageTests.WriteProbeUsesTheApplicationFolder)
+        ("UpdateStorage.WriteProbeUsesTheApplicationFolder", UpdateStorageTests.WriteProbeUsesTheApplicationFolder),
+        ("YouTube.SearchParsesDumpJson", YouTubeTests.SearchParsesDumpJson),
+        ("YouTube.MissingBinaryIsReportedBeforeAnyProcess", YouTubeTests.MissingBinaryIsReportedBeforeAnyProcess),
+        ("YouTube.RestrictedResponseIsClassified", YouTubeTests.RestrictedResponseIsClassified),
+        ("YouTube.DownloadExposesOnlyTwoSlots", YouTubeTests.DownloadExposesOnlyTwoSlots),
+        ("YouTube.CancellingStopsTheRealProcess", YouTubeTests.CancellingStopsTheRealProcess),
+        ("YouTube.TimeoutIsEnforcedByTheRunner", YouTubeTests.TimeoutIsEnforcedByTheRunner),
+        ("YouTube.CacheSizeSumsTheFolderAndFormats", YouTubeTests.CacheSizeSumsTheFolderAndFormats),
+        ("YouTube.LinksAreClassifiedBeforeAnythingStarts", YouTubeTests.LinksAreClassifiedBeforeAnythingStarts),
+        ("YouTube.YouTubeTracksNeverEnterTheLocalPlaylist", YouTubeTests.YouTubeTracksNeverEnterTheLocalPlaylist),
+        ("YouTube.CookiesAreOnlyTakenFromANetscapeJar", YouTubeTests.CookiesAreOnlyTakenFromANetscapeJar),
+        ("YouTube.ProgressTemplateIsParsed", YouTubeTests.ProgressTemplateIsParsed)
     ];
 
     private static async Task<int> Main()

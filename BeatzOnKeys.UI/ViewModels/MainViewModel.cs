@@ -8,6 +8,7 @@ using BeatzOnKeys.Core.Audio;
 using BeatzOnKeys.Core.Input;
 using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.Core.Services;
+using BeatzOnKeys.Core.YouTube;
 using BeatzOnKeys.UI.Infrastructure;
 using BeatzOnKeys.UI.Localization;
 using BeatzOnKeys.UI.Theming;
@@ -20,6 +21,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly PlaybackController _playbackController;
     private readonly IContinuousAudioPlayer _audioPlayer;
     private readonly TypingPlaybackService _typingPlayback;
+    private readonly YouTubeTrackService _youTube;
+    private readonly Dictionary<Guid, string> _friendlyNames = [];
+    private bool _isYouTubePage;
     private readonly DispatcherTimer _saveTimer;
     private readonly DispatcherTimer _playbackTimer;
     private readonly Guid? _savedSelectedTrackId;
@@ -60,7 +64,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private string _nowPlayingText = string.Empty;
 
     public MainViewModel(AppSettings settings, SettingsService settingsService,
-        IKeyboardHook? keyboardHook = null, IContinuousAudioPlayer? audioPlayer = null)
+        IKeyboardHook? keyboardHook = null, IContinuousAudioPlayer? audioPlayer = null,
+        YouTubeTrackService? youTubeService = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         settings.Normalize();
@@ -117,12 +122,39 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         ToggleThemeCommand = new RelayCommand(Theme.Toggle);
         OpenLogsCommand = new RelayCommand(OpenLogs);
         Tracks.CollectionChanged += OnTracksChanged;
+        // The YouTube section keeps its own list; only the audio player is shared.
+        _youTube = youTubeService ?? CreateDefaultYouTubeService();
+        YouTube = new YouTubeViewModel(_youTube, settings.YouTubeTracks, settings.YouTubeCacheEnabled,
+            settings.CookiesFolderPath, settings.ProxyUrl, QueueSave, message => UserMessageRequested?.Invoke(message));
+        YouTube.PlayRequested += OnYouTubePlayRequested;
+        YouTube.OpenMusicFolderRequested += OpenMusicFolder;
         Loc.LanguageChanged += OnLanguageChanged;
         Theme.Changed += OnThemeChanged;
         _playbackTimer.Start();
     }
 
     public ObservableCollection<TrackViewModel> Tracks { get; } = [];
+
+    /// <summary>The separate YouTube section: its own search, cache and settings.</summary>
+    public YouTubeViewModel YouTube { get; }
+
+    /// <summary>True while the YouTube page is shown; the playlist page is hidden then.</summary>
+    public bool IsYouTubePage
+    {
+        get => _isYouTubePage;
+        private set
+        {
+            if (!SetProperty(ref _isYouTubePage, value)) { return; }
+            OnPropertyChanged(nameof(IsPlaylistPage));
+        }
+    }
+
+    public bool IsPlaylistPage => !_isYouTubePage;
+
+    public RelayCommand ShowPlaylistCommand => _showPlaylist ??= new RelayCommand(() => IsYouTubePage = false);
+    public RelayCommand ShowYouTubeCommand => _showYouTube ??= new RelayCommand(() => IsYouTubePage = true);
+    private RelayCommand? _showPlaylist;
+    private RelayCommand? _showYouTube;
     public RelayCommand AddFilesCommand { get; }
     public AsyncRelayCommand StartCommand { get; }
     public AsyncRelayCommand StopCommand { get; }
@@ -362,6 +394,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         {
             if (!SetProperty(ref _isPaused, value)) { return; }
             OnPropertyChanged(nameof(PauseResumeText));
+        YouTube.RefreshLocalization();
             OnPropertyChanged(nameof(PauseResumeGlyph));
             RefreshCommands();
         }
@@ -412,6 +445,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         RefreshPlaybackProgress();
         StatusText = Loc.T("L_ReadyToType");
         RefreshCommands();
+        // The YouTube section measures its cache and reports whether yt-dlp is installed.
+        try { await YouTube.InitializeAsync().ConfigureAwait(true); }
+        catch (Exception exception) { AppLogger.Error("youtube", "Could not initialize the YouTube section.", exception); }
         // Rewrite older settings as the new schema without discarding the user's playlist/preferences.
         await SaveAsync().ConfigureAwait(true);
     }
@@ -698,7 +734,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             PunchResponseEnabled = PunchResponseEnabled, BassReactiveGain = BassReactiveGain,
             StereoPulseEnabled = StereoPulseEnabled, AdaptiveVolumeEnabled = AdaptiveVolumeEnabled,
             SelectedTrackId = SelectedTrack?.Id, Language = Loc.CurrentCode, Theme = Theme.CurrentCode,
-            Tracks = Tracks.Select(track => track.ToState()).ToList()
+            Tracks = Tracks.Select(track => track.ToState()).ToList(),
+            YouTubeTracks = YouTube.ToStates().ToList(),
+            YouTubeCacheEnabled = YouTube.CacheEnabled,
+            CookiesFolderPath = YouTube.CookiesFolderPath,
+            ProxyUrl = YouTube.ProxyUrl
         };
         try { await _settingsService.SaveAsync(snapshot).ConfigureAwait(true); }
         catch (Exception exception)
@@ -727,8 +767,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             OnPropertyChanged(nameof(PlaybackPositionText));
             OnPropertyChanged(nameof(PlaybackProgress));
         }
-        NowPlayingText = _playbackController.SelectedTrackId is null || SelectedTrack is null ? string.Empty :
-            Loc.F("L_NowPlayingFormat", SelectedTrack.FileName, FormatPosition(position), FormatPosition(duration));
+        var playing = _playbackController.CurrentTrack;
+        var playingName = playing is null ? string.Empty :
+            _friendlyNames.TryGetValue(playing.Id, out var friendly) ? friendly : playing.Name;
+        NowPlayingText = playing is null ? string.Empty :
+            Loc.F("L_NowPlayingFormat", playingName, FormatPosition(position), FormatPosition(duration));
         if (IsRunning)
         {
             // A paused run is not an ended one: the position stays short of the duration.
@@ -783,6 +826,56 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         try { Process.Start(new ProcessStartInfo { FileName = AppPaths.LogDirectory, UseShellExecute = true }); }
         catch (Exception exception) { AppLogger.Error("ui", "Could not open the logs folder.", exception); }
     }
+
+    /// <summary>
+    /// Lets a harness point the YouTube section at a scratch directory, so UI tests never read or
+    /// delete the real cache and never touch the network.
+    /// </summary>
+    public static Func<YouTubeTrackService>? YouTubeServiceFactory { get; set; }
+
+    private static YouTubeTrackService CreateDefaultYouTubeService() =>
+        YouTubeServiceFactory?.Invoke() ?? new(new YtDlpBinaryManager(), new YouTubeProcessRunner());
+
+    /// <summary>Plays a cached YouTube file through the same player, without touching the playlist.</summary>
+    private void OnYouTubePlayRequested(string path, string title) => _ = PlayYouTubeAsync(path, title);
+
+    private async Task PlayYouTubeAsync(string path, string title)
+    {
+        try
+        {
+            var playback = AudioTrackLoader.Load(Guid.NewGuid(), path);
+            _friendlyNames[playback.Id] = string.IsNullOrWhiteSpace(title) ? playback.Name : title;
+            // The controller holds the playback order; a YouTube file joins it for this run only,
+            // and Reorder keeps it at the end when the local playlist changes.
+            _playbackController.UpsertTrack(playback);
+            if (!_typingPlayback.SelectTrack(playback.Id, restart: true)) { return; }
+            if (!IsRunning)
+            {
+                await _typingPlayback.StartAsync().ConfigureAwait(true);
+                IsRunning = _typingPlayback.IsRunning;
+                IsPaused = false;
+            }
+
+            RefreshPlaybackProgress();
+            StatusText = PlaybackStatusText;
+            StateChanged?.Invoke();
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error("youtube", "Could not play the cached YouTube track.", exception);
+            UserMessageRequested?.Invoke(Loc.F("L_StartFailedFormat", exception.Message));
+        }
+    }
+
+    private static void OpenMusicFolder()
+    {
+        try
+        {
+            AppPaths.EnsureYouTubeCreated();
+            Process.Start(new ProcessStartInfo { FileName = AppPaths.MusicDirectory, UseShellExecute = true });
+        }
+        catch (Exception exception) { AppLogger.Error("youtube", "Could not open the music folder.", exception); }
+    }
     private void OnTracksChanged(object? sender, NotifyCollectionChangedEventArgs args)
     {
         RefreshTrackPositions();
@@ -805,6 +898,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(ReactionSummary));
         OnPropertyChanged(nameof(BehaviorSummary));
         OnPropertyChanged(nameof(PauseResumeText));
+        YouTube.RefreshLocalization();
         RefreshPlaybackProgress();
         StatusText = PlaybackStatusText;
         StateChanged?.Invoke();
@@ -858,6 +952,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _playbackTimer.Tick -= PlaybackTimerOnTick;
         _playbackController.CurrentTrackChanged -= OnPlaybackTrackChanged;
         _typingPlayback.PlaybackFailed -= OnPlaybackFailed;
+        YouTube.PlayRequested -= OnYouTubePlayRequested;
+        YouTube.OpenMusicFolderRequested -= OpenMusicFolder;
+        YouTube.Dispose();
         await _typingPlayback.DisposeAsync().ConfigureAwait(true);
         _lifetime.Dispose();
         _disposed = true;

@@ -4,7 +4,7 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.2.6.1-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Version](https://img.shields.io/badge/version-1.3.0-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#requirements)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
@@ -36,6 +36,7 @@ BeatzOnKeys is written in C# with .NET 10 and WPF, with NAudio for decoding and 
 | 🥁 **Music-reactive extras** | Punch attack on transients, bass boost, stereo pulse, and a quiet level that follows the track |
 | 🎛 **Playlist controls** | Move a track up or down, remove one, or clear the whole list without touching the files |
 | 🗒 **Logs and updates** | Daily UTF-8 diagnostics, quiet update checks, and a verified in-place updater that replaces the executable itself |
+| ▶️ **YouTube section** | A separate tab with search by name, direct links, a cache in `%LOCALAPPDATA%\BeatzOnKeys\Music` and a disk-usage figure |
 | 📖 **Built-in guide** | One window explains every button, slider, switch, tray action, status, and path — open it with F1 |
 
 ## How it works
@@ -93,7 +94,7 @@ Choosing another track starts that track from its beginning.
 
 Only one copy can run at a time: launching it again restores the window of the running copy.
 
-No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.2.6.1 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
+No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.3.0 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
 
 ### Requirements
 
@@ -111,6 +112,21 @@ No installer, administrator rights, or separate .NET runtime are required. **Upg
 
 **Reset** removes imported entries and saved settings. It never deletes the original audio files.
 
+## YouTube
+
+The **YouTube** tab in the title bar opens a section of its own: downloaded tracks live there and **never enter the local playlist**.
+
+- **Search.** Type a name and press **Search** for up to ten results; the **Download** button on a row saves that track.
+- **Direct link.** Paste `https://youtube.com/watch?v=…` and press **Download** — the app recognises the link and fetches it without searching.
+- **Where the files live.** `%LOCALAPPDATA%\BeatzOnKeys\Music`, which survives a reinstall. **Open the music folder** launches Explorer there.
+- **How much is used.** The YouTube cache block shows the size in KB, MB or GB.
+- **Clearing.** **Clear the YouTube cache** deletes the files after a confirmation and never touches the local playlist.
+- **Caching.** The **Cache tracks** checkbox turns accumulation off.
+- **yt-dlp.** Downloads go through `yt-dlp.exe`, which is **not** fetched at startup: 22.5 MB arrive on the first action with a progress bar, and **Download/Update yt-dlp** repeats the download.
+
+Limits: one link at a time, playlists and live streams are refused with an explanation, at most two downloads run at once, and each is capped at ten minutes.
+
+The format is M4A (AAC), decoded by Media Foundation. On Windows without that component (the "N" editions) the app converts to WAV through an `ffmpeg.exe` placed in `%LOCALAPPDATA%\BeatzOnKeys\bin`. ffmpeg is never downloaded automatically: the compact builds cannot be redistributed, and the properly licensed ones are larger than the application itself.
 ## Languages and themes
 
 The title-bar `EN | RU` switch changes the language immediately; the sun/moon button changes the light/dark palette. Both choices are saved.
@@ -118,6 +134,8 @@ The title-bar `EN | RU` switch changes the language immediately; the sun/moon bu
 ![BeatzOnKeys light theme](<assets/preview-light-en.png>)
 
 [About dialog](<assets/about-ru.png>) · [Light About dialog](<assets/about-light-ru.png>) · [Guide, English](<assets/guide-en.png>) · [Guide, Russian](<assets/guide-ru.png>)
+
+YouTube tab: [screenshot](<assets/youtube-page-ru.png>)
 
 Settings sections: [Volume](<assets/section-volume.png>) · [Music reaction](<assets/section-reaction.png>) · [Behaviour](<assets/section-behavior.png>) · [all collapsed](<assets/section-collapsed.png>)
 
@@ -164,14 +182,14 @@ dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Create the **1.2.6.1** portable self-contained folder in Windows **cmd**:
+Create the **1.3.0** portable self-contained folder in Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.2.6.1
+set BOK_VERSION=1.3.0
 publish.bat
 ```
 
-The publisher now defaults to `BOK_VERSION=1.2.6.1`; setting it explicitly makes the intended release version clear.
+The publisher now defaults to `BOK_VERSION=1.3.0`; setting it explicitly makes the intended release version clear.
 
 The publisher validates its `Build_Output` cleanup target, publishes `BeatzOnKeys.UI` self-contained for `win-x64`, and copies both READMEs, release notes, screenshots, the license, and third-party notices. It stops on any required publish/copy failure. The resulting `Build_Output` directory is the portable product.
 
@@ -205,6 +223,7 @@ publish.bat            self-contained publisher
 - **A track will not open** — confirm that the file still exists and try a normal MP3 or PCM WAV file.
 - **The track stays at its end** — use Stop → Start, enable Loop, or enable Auto-advance when more tracks exist.
 - **An update will not install** — use a writable app folder and inspect `%LOCALAPPDATA%\BeatzOnKeys\logs\update-apply.log`.
+- **YouTube will not download** — the built-in search uses yt-dlp. If your provider restricts YouTube (throttling, DPI), downloading may fail. BeatzOnKeys does not bundle any circumvention — that needs administrator rights. We recommend [Zapret2UI](https://github.com/Asterlike/zapret2UI). ⚠️ Circumvention tools are meant for research and educational use. Use them in accordance with the laws of your country.
 - **The window disappeared** — Start keeps it open; if you used the title-bar close button, open the notification-area overflow and double-click the BeatzOnKeys icon.
 - **A restored source is gone** — add the file again or remove the unavailable entry.
 
@@ -213,5 +232,7 @@ publish.bat            self-contained publisher
 - **BeatzOnKeys:** [project](https://github.com/MusicCat-61/BeatzOnKeys).
 - Design, themes, localization structure, Mica shell, tray lifecycle, and keyboard-hook approach are based on [**MusicCatRGB**](https://github.com/MusicCat-61/MusicCatRGB) by MusicCat161 / MusicCat-61.
 - Audio decoding and Windows output use [**NAudio**](https://github.com/naudio/NAudio).
+- The YouTube section drives [**yt-dlp**](https://github.com/yt-dlp/yt-dlp) (public domain, Unlicense) as an external process: the binary is downloaded on first use and is not part of any release archive.
+- The troubleshooting notes recommend [**Zapret2UI**](https://github.com/Asterlike/zapret2UI); the app does not bundle, download or run it.
 
 BeatzOnKeys is distributed under the [MIT License](<LICENSE>). Required MusicCatRGB and NAudio notices are retained in [THIRD-PARTY-NOTICES.md](<THIRD-PARTY-NOTICES.md>).

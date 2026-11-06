@@ -164,7 +164,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_StartT">Start</sys:String>
     <sys:String x:Key="Guide_StartX">Plays the selected track from the beginning at the quiet level and installs the keyboard hook. The window stays open. After Stop, the next Start begins at 0:00 again.</sys:String>
     <sys:String x:Key="Guide_PauseResumeT">Pause / Resume</sys:String>
-    <sys:String x:Key="Guide_PauseResumeX">The button appears while music is playing. Pause silences the output but remembers the spot: Resume returns to the exact same second of the track instead of starting over. Typing does not lift a pause — that is your explicit decision, unlike the idle pause, which the first key press clears.</sys:String>
+    <sys:String x:Key="Guide_PauseResumeX">The button appears while music is playing. Pause silences the output but remembers the spot: Resume returns to the exact same second of the track instead of starting over. Typing does not lift a pause — that is your explicit decision. When the track stopped on its own after the idle timeout, the button also offers Resume and returns it to the same second, but quietly: the first keystroke raises the volume.</sys:String>
     <sys:String x:Key="Guide_StopT">Stop</sys:String>
     <sys:String x:Key="Guide_StopX">Stops the music and removes the keyboard hook. An idle pause is not a stop: it keeps the position of the current run.</sys:String>
     <sys:String x:Key="Guide_ResetT">Reset</sys:String>

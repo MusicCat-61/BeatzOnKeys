@@ -320,6 +320,43 @@ internal static class ContinuousAudioTests
         return Task.CompletedTask;
     }
 
+    public static Task ResumeLiftsTheIdlePauseFromTheSamePosition()
+    {
+        using var directory = new TemporaryDirectory();
+        var clock = new ManualTimeProvider();
+        var output = new FakeWavePlayer();
+        using var player = new ContinuousAudioPlayer(() => output, clock);
+        player.IdleTimeout = 1;
+        player.PauseOnIdle = true;
+        player.LoadTrack(LoadWave(directory.Path));
+        player.Start();
+        ReadAudio(output, 0.4);
+        clock.Advance(0.4);
+
+        clock.Advance(2);
+        AssertEx.True(player.IsIdlePaused, "The idle timer pauses the run.");
+        AssertEx.False(player.IsPaused, "An idle pause is not an explicit one.");
+        var frozen = player.Position;
+
+        // The transport button calls Resume for an idle pause too, so it must lift that pause.
+        player.Resume();
+        AssertEx.True(player.IsPlaying, "Resume starts the audio again.");
+        AssertEx.False(player.IsIdlePaused, "Resume clears the idle pause.");
+        AssertEx.False(player.IsPaused, "Resume does not leave an explicit pause behind.");
+        AssertEx.Equal(1, output.InitCalls, "Resume must reuse the paused stream.");
+        AssertEx.Equal(frozen, player.Position, "Resume continues from the idle-paused sample.");
+
+        ReadAudio(output, 0.3);
+        clock.Advance(0.3);
+        AssertEx.True(player.Position > frozen, "Audio keeps moving after resuming from idle.");
+
+        // Resuming again is harmless: there is nothing left to resume.
+        var playCalls = output.PlayCalls;
+        player.Resume();
+        AssertEx.Equal(playCalls, output.PlayCalls, "Resume on a running player must not restart it.");
+        return Task.CompletedTask;
+    }
+
     private static PlaybackTrack LoadWave(string directory, string fileName = "fixture.wav") =>
         AudioTrackLoader.Load(Guid.NewGuid(), AudioTestData.CreateConstantPcm16Wave(directory, fileName, durationSeconds: 2));
 

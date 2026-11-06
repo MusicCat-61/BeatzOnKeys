@@ -30,6 +30,7 @@ internal static class Program
         ("Audio.NaturalEndFailureAndExplicitStopAreDistinct", ContinuousAudioTests.NaturalEndFailureAndExplicitStopAreDistinct),
         ("Audio.StopWaitsForOutputAndInitializationAvoidsUiContext", ContinuousAudioTests.StopWaitsForOutputAndInitializationAvoidsUiContext),
         ("Audio.PauseKeepsPositionAndResumeContinuesFromIt", ContinuousAudioTests.PauseKeepsPositionAndResumeContinuesFromIt),
+        ("Audio.ResumeLiftsTheIdlePauseFromTheSamePosition", ContinuousAudioTests.ResumeLiftsTheIdlePauseFromTheSamePosition),
         ("Audio.PausedPlayerIgnoresTheIdleTimerAndStopResetsIt", ContinuousAudioTests.PausedPlayerIgnoresTheIdleTimerAndStopResetsIt),
         ("Audio.InvalidReplacementPreservesWorkingTrackAndLoaderValidatesFormat", ContinuousAudioTests.InvalidReplacementPreservesWorkingTrackAndLoaderValidatesFormat),
         ("MP3.SequentialPacketsMatchOriginalRecording", Mp3ContinuousTests.SequentialPacketsMatchOriginalRecording),

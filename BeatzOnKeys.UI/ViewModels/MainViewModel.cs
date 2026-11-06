@@ -351,8 +351,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     /// <summary>
-    /// Mirrors the player: a user pause keeps the decoder where it is, so the same run continues
-    /// instead of the track jumping back to the start.
+    /// True whenever the audio is silenced with its position kept — either because the user
+    /// paused explicitly or because the idle timer paused it. The transport button offers
+    /// Resume in both cases, which is why idle pause counts here.
     /// </summary>
     public bool IsPaused
     {
@@ -395,7 +396,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         ? Math.Clamp(_positionSeconds / _durationSeconds * 100, 0, 100) : 0;
     public string PlaybackPositionText => $"{FormatPosition(_positionSeconds)} / {FormatPosition(_durationSeconds)}";
     private string PlaybackStatusText => _trackEnded ? Loc.T("L_TrackEnded") :
-        IsRunning ? Loc.T(IsPaused ? "L_StatusPaused" : _audioPlayer.IsIdlePaused ? "L_StatusIdlePaused" : "L_StatusListening")
+        IsRunning ? Loc.T(_audioPlayer.IsIdlePaused ? "L_StatusIdlePaused"
+            : IsPaused ? "L_StatusPaused"
+            : "L_StatusListening")
             : Loc.T("L_ReadyToType");
 
     public async Task InitializeAsync()
@@ -533,7 +536,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     {
         try
         {
-            if (_audioPlayer.IsPaused) { _typingPlayback.Resume(); }
+            // The idle pause silences the track too, so the button offers Resume there as well
+            // instead of trying to "pause" something that is already silent.
+            if (_audioPlayer.IsPaused || _audioPlayer.IsIdlePaused) { _typingPlayback.Resume(); }
             else { _typingPlayback.Pause(); }
         }
         catch (Exception exception)
@@ -542,7 +547,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             return;
         }
 
-        IsPaused = _audioPlayer.IsPaused;
+        IsPaused = _audioPlayer.IsPaused || _audioPlayer.IsIdlePaused;
         RefreshPlaybackProgress();
         StatusText = PlaybackStatusText;
         StateChanged?.Invoke();
@@ -727,7 +732,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         if (IsRunning)
         {
             // A paused run is not an ended one: the position stays short of the duration.
-            IsPaused = _audioPlayer.IsPaused;
+            IsPaused = _audioPlayer.IsPaused || _audioPlayer.IsIdlePaused;
             _trackEnded = !_audioPlayer.IsPlaying && !_audioPlayer.IsIdlePaused && !_audioPlayer.IsPaused &&
                 duration > 0 && position >= duration;
             StatusText = PlaybackStatusText;

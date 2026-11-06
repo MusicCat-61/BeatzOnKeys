@@ -275,13 +275,19 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
         }
     }
 
-    /// <summary>Continues from the exact sample <see cref="Pause"/> stopped at.</summary>
+    /// <summary>
+    /// Continues from the exact sample the playback stopped at, whether the silence came from
+    /// <see cref="Pause"/> or from the idle timer. The run itself is never recreated.
+    /// </summary>
     public void Resume()
     {
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (!_started || !_isPaused) { return; }
+            if (!_started) { return; }
+            // Nothing to resume: either the audio is already running, or it never paused.
+            if (!_isPaused && !_isIdlePaused) { return; }
+            var resumedIdle = _isIdlePaused;
             try
             {
                 _output!.Play();
@@ -294,9 +300,14 @@ public sealed class ContinuousAudioPlayer : IContinuousAudioPlayer
 
             _isPlaying = true;
             _isPaused = false;
+            _isIdlePaused = false;
             _lastActivity = _clock.GetTimestamp();
             ArmIdleCore();
-            AppLogger.Info("audio", $"Playback resumed by the user at {_provider?.Position.TotalSeconds ?? 0:F2} s.");
+            // Resuming with the mouse is not typing, so the volume stays at its quiet baseline
+            // and the next keystroke is what raises it. A key press still resumes instantly loud.
+            AppLogger.Info("audio", resumedIdle
+                ? $"Playback resumed by the user after the idle pause at {_provider?.Position.TotalSeconds ?? 0:F2} s."
+                : $"Playback resumed by the user at {_provider?.Position.TotalSeconds ?? 0:F2} s.");
         }
     }
 

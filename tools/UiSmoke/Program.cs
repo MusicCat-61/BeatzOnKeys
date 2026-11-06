@@ -395,11 +395,29 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("idle.pausedFrozen", !player.IsPlaying && player.IsIdlePaused && player.Position == frozenPosition && Near(vm.PlaybackProgress, frozen) &&
             vm.PlaybackPositionText == frozenText && Output?.PlaybackState == PlaybackState.Paused && vm.IsRunning && hook.IsInstalled,
             $"Progress={frozen:F4}%, position={frozenText}, actual device={Output?.PlaybackState}.");
+        // The idle pause also silences the track, so the transport button must offer Resume
+        // there rather than trying to pause something already silent.
+        var idleButton = PauseButton();
+        Check("idle.buttonOffersResume", idleButton is not null && idleButton.IsVisible && idleButton.IsEnabled &&
+            vm.IsPaused && vm.PauseResumeText == Loc.T("L_Resume"),
+            $"Idle pause surfaces as '{vm.PauseResumeText}' (enabled={idleButton?.IsEnabled}) with paused={vm.IsPaused}.");
+        var quietFrozen = player.Position;
+        vm.TogglePauseCommand.Execute(null);
+        await SettleAsync();
+        Check("idle.resumeFromButton", player.IsPlaying && !player.IsIdlePaused && !player.IsPaused && !vm.IsPaused &&
+            player.Position >= quietFrozen && player.Position - quietFrozen < TimeSpan.FromMilliseconds(750) &&
+            player.CurrentGain < 0.6 && vm.PauseResumeText == Loc.T("L_Pause"),
+            $"Button resume: {quietFrozen.TotalSeconds:F3}s -> {player.Position.TotalSeconds:F3}s, gain={player.CurrentGain:F3} (quiet until the next key), text='{vm.PauseResumeText}'.");
+
+        // Enter the idle pause once more, so the key-press path is checked on a fresh pause.
+        await UntilAsync(() => player.IsIdlePaused, 4500, "second idle pause");
+        await SettleAsync();
+        var keyFrozen = player.Position;
         hook.Signal();
         await UntilAsync(() => player.IsPlaying && !player.IsIdlePaused, 1000, "idle resume");
-        Check("idle.resumeSamePositionInstantMaximum", player.CurrentGain >= 0.99 && player.Position >= frozenPosition &&
-            player.Position - frozenPosition < TimeSpan.FromMilliseconds(750) && Output?.PlaybackState == PlaybackState.Playing,
-            $"First key: gain={player.CurrentGain:F3}; {frozenPosition.TotalSeconds:F3}s -> {player.Position.TotalSeconds:F3}s (normal output buffering allowed).");
+        Check("idle.resumeSamePositionInstantMaximum", player.CurrentGain >= 0.99 && player.Position >= keyFrozen &&
+            player.Position - keyFrozen < TimeSpan.FromMilliseconds(750) && Output?.PlaybackState == PlaybackState.Playing,
+            $"First key: gain={player.CurrentGain:F3}; {keyFrozen.TotalSeconds:F3}s -> {player.Position.TotalSeconds:F3}s (normal output buffering allowed).");
         // An explicit pause must keep the decoder where it is, and typing must not lift it.
         var beforePause = player.Position;
         // The real button, not just the command: a command that never raises CanExecuteChanged

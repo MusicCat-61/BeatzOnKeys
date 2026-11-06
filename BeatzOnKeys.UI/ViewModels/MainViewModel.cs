@@ -830,6 +830,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         AddFilesCommand.NotifyCanExecuteChanged();
         StartCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
+        TogglePauseCommand.NotifyCanExecuteChanged();
         RemoveTrackCommand.NotifyCanExecuteChanged();
         MoveTrackUpCommand.NotifyCanExecuteChanged();
         MoveTrackDownCommand.NotifyCanExecuteChanged();

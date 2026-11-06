@@ -402,6 +402,12 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             $"First key: gain={player.CurrentGain:F3}; {frozenPosition.TotalSeconds:F3}s -> {player.Position.TotalSeconds:F3}s (normal output buffering allowed).");
         // An explicit pause must keep the decoder where it is, and typing must not lift it.
         var beforePause = player.Position;
+        // The real button, not just the command: a command that never raises CanExecuteChanged
+        // leaves the button greyed out while the command itself reports "can execute".
+        var pauseButton = PauseButton();
+        Check("pause.buttonEnabled", pauseButton is not null && pauseButton.IsVisible && pauseButton.IsEnabled &&
+            vm.TogglePauseCommand.CanExecute(null),
+            $"Button={pauseButton?.IsVisible} visible, enabled={pauseButton?.IsEnabled}, command={vm.TogglePauseCommand.CanExecute(null)} while running.");
         vm.TogglePauseCommand.Execute(null);
         await SettleAsync();
         Check("pause.keepsPosition", vm.IsPaused && player.IsPaused && !player.IsPlaying &&
@@ -586,6 +592,13 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     {
         var height = SettingsScrollableHeight();
         return !double.IsNaN(height) && height <= 1;
+    }
+
+    /// <summary>The actual pause button in the transport row, so its WPF state is what gets checked.</summary>
+    private Button? PauseButton()
+    {
+        if (_window?.DataContext is not MainViewModel viewModel) { return null; }
+        return Descendants<Button>(_window).FirstOrDefault(button => ReferenceEquals(button.Command, viewModel.TogglePauseCommand));
     }
 
     private static T? FindByName<T>(DependencyObject root, string name) where T : FrameworkElement

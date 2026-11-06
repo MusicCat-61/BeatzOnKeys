@@ -39,6 +39,14 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private double _bassReactiveGain;
     private bool _stereoPulseEnabled;
     private bool _adaptiveVolumeEnabled;
+    private bool _volumeExpanded = true;
+    private bool _reactionExpanded;
+    private bool _behaviorExpanded;
+    private string _activeSection = SectionVolume;
+
+    public const string SectionVolume = "volume";
+    public const string SectionReaction = "reaction";
+    public const string SectionBehavior = "behavior";
     private bool _isRunning;
     private bool _changingPlayback;
     private bool _initializing = true;
@@ -167,6 +175,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             _audioPlayer.MaxVolume = normalized;
             OnPropertyChanged(nameof(MaxVolumePercentValue));
             OnPropertyChanged(nameof(MaxVolumePercent));
+            OnPropertyChanged(nameof(VolumeSummary));
             QueueSave();
         }
     }
@@ -183,6 +192,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             _audioPlayer.MinVolume = normalized;
             OnPropertyChanged(nameof(MinVolumePercentValue));
             OnPropertyChanged(nameof(MinVolumePercent));
+            OnPropertyChanged(nameof(VolumeSummary));
             QueueSave();
         }
     }
@@ -197,6 +207,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             if (!SetProperty(ref _idleTimeout, normalized)) { return; }
             _audioPlayer.IdleTimeout = normalized;
             OnPropertyChanged(nameof(IdleTimeoutText));
+            OnPropertyChanged(nameof(VolumeSummary));
             QueueSave();
         }
     }
@@ -209,13 +220,90 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public bool AutoAdvance
     {
         get => _autoAdvance;
-        set { if (SetProperty(ref _autoAdvance, value)) { _playbackController.AutoAdvance = value; QueueSave(); } }
+        set { if (SetProperty(ref _autoAdvance, value)) { _playbackController.AutoAdvance = value; OnPropertyChanged(nameof(BehaviorSummary)); QueueSave(); } }
     }
     public bool Loop
     {
         get => _loop;
-        set { if (SetProperty(ref _loop, value)) { _playbackController.Loop = value; QueueSave(); } }
+        set { if (SetProperty(ref _loop, value)) { _playbackController.Loop = value; OnPropertyChanged(nameof(BehaviorSummary)); QueueSave(); } }
     }
+
+    /// <summary>
+    /// Sections start expanded, so every control stays visible on first launch and nothing hides
+    /// behind a click. Collapsing is a per-session convenience and is never persisted.
+    /// </summary>
+    public bool IsVolumeExpanded
+    {
+        get => _volumeExpanded;
+        private set => SetProperty(ref _volumeExpanded, value);
+    }
+
+    public bool IsReactionExpanded
+    {
+        get => _reactionExpanded;
+        private set => SetProperty(ref _reactionExpanded, value);
+    }
+
+    public bool IsBehaviorExpanded
+    {
+        get => _behaviorExpanded;
+        private set => SetProperty(ref _behaviorExpanded, value);
+    }
+
+    /// <summary>The chip of the section the user last opened, so it stays highlighted.</summary>
+    public string ActiveSection
+    {
+        get => _activeSection;
+        private set
+        {
+            if (!SetProperty(ref _activeSection, value)) { return; }
+            OnPropertyChanged(nameof(IsVolumeChipActive));
+            OnPropertyChanged(nameof(IsReactionChipActive));
+            OnPropertyChanged(nameof(IsBehaviorChipActive));
+        }
+    }
+
+    public bool IsVolumeChipActive => ActiveSection == SectionVolume;
+    public bool IsReactionChipActive => ActiveSection == SectionReaction;
+    public bool IsBehaviorChipActive => ActiveSection == SectionBehavior;
+
+    /// <summary>Live one-line summary that keeps a collapsed section readable.</summary>
+    public string VolumeSummary => Loc.F("L_VolumeSummaryFormat", MaxVolumePercent, MinVolumePercent, IdleTimeoutText);
+    public string ReactionSummary => Loc.F("L_ReactionSummaryFormat", BassReactivePercent, StateWord(StereoPulseEnabled));
+    public string BehaviorSummary => Loc.F("L_BehaviorSummaryFormat", StateWord(AutoAdvance), StateWord(Loop));
+
+    private static string StateWord(bool value) => Loc.T(value ? "L_StateOn" : "L_StateOff");
+
+    /// <summary>
+    /// Opens one section and closes the others: a chip means "take me there", and a single open
+    /// section keeps the panel free of scrolling. The headers still toggle freely.
+    /// </summary>
+    public void ShowSection(string section)
+    {
+        IsVolumeExpanded = section == SectionVolume;
+        IsReactionExpanded = section == SectionReaction;
+        IsBehaviorExpanded = section == SectionBehavior;
+        ActiveSection = section;
+    }
+
+    public void ToggleSection(string section)
+    {
+        switch (section)
+        {
+            case SectionReaction:
+                IsReactionExpanded = !IsReactionExpanded;
+                break;
+            case SectionBehavior:
+                IsBehaviorExpanded = !IsBehaviorExpanded;
+                break;
+            default:
+                IsVolumeExpanded = !IsVolumeExpanded;
+                break;
+        }
+
+        ActiveSection = section;
+    }
+
 
     public bool PunchResponseEnabled
     {
@@ -234,6 +322,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             _audioPlayer.BassReactiveGain = normalized;
             OnPropertyChanged(nameof(BassReactivePercentValue));
             OnPropertyChanged(nameof(BassReactivePercent));
+            OnPropertyChanged(nameof(ReactionSummary));
             QueueSave();
         }
     }
@@ -244,7 +333,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public bool StereoPulseEnabled
     {
         get => _stereoPulseEnabled;
-        set { if (SetProperty(ref _stereoPulseEnabled, value)) { _audioPlayer.StereoPulseEnabled = value; QueueSave(); } }
+        set { if (SetProperty(ref _stereoPulseEnabled, value)) { _audioPlayer.StereoPulseEnabled = value; OnPropertyChanged(nameof(ReactionSummary)); QueueSave(); } }
     }
 
     public bool AdaptiveVolumeEnabled
@@ -624,6 +713,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(TrackCountText));
         OnPropertyChanged(nameof(SelectedTrackText));
         OnPropertyChanged(nameof(IdleTimeoutText));
+        OnPropertyChanged(nameof(VolumeSummary));
+        OnPropertyChanged(nameof(ReactionSummary));
+        OnPropertyChanged(nameof(BehaviorSummary));
         RefreshPlaybackProgress();
         StatusText = PlaybackStatusText;
         StateChanged?.Invoke();

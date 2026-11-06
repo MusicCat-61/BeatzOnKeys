@@ -41,6 +41,111 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
 
+    <!-- A settings chip: jumps to a section and keeps a tinted active state. -->
+    <Style x:Key="SettingsChipStyle" TargetType="ToggleButton">
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="9,5"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Chip" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chip" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Chip" Property="Background" Value="{DynamicResource DropAreaBrush}"/>
+                            <Setter TargetName="Chip" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Clickable section header: chevron, title, optional count, live summary. -->
+    <Style x:Key="SettingsSectionHeaderStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Padding" Value="0,7"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Header" Background="{TemplateBinding Background}" CornerRadius="5"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Header" Property="Background" Value="{DynamicResource DropAreaBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SettingsSectionTitleStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="13.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="SettingsSectionSummaryStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="8,0,0,0"/>
+        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+    </Style>
+
+    <!-- The rounded counter that tells how many controls a collapsed section hides. -->
+    <Style x:Key="SettingsCountBadgeStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource DropAreaBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="9"/>
+        <Setter Property="Padding" Value="6,0"/>
+        <Setter Property="Margin" Value="7,0,0,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="MinWidth" Value="18"/>
+        <Setter Property="Height" Value="18"/>
+    </Style>
+
+    <Style x:Key="SettingsCountBadgeTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="10.5"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+        <Setter Property="HorizontalAlignment" Value="Center"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="SettingsChevronStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Width" Value="14"/>
+        <Setter Property="Text" Value="&#xE76C;"/>
+    </Style>
+
     <Style x:Key="AccentButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>

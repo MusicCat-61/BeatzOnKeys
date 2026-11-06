@@ -4,211 +4,211 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.2.1-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#requirements)
+[![Version](https://img.shields.io/badge/version-1.2.2-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#требования)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
-![BeatzOnKeys English interface](<assets/preview-en.png>)
+![Русский интерфейс BeatzOnKeys](<assets/preview-ru.png>)
 
-*English interface · the Russian one is shown on the [Russian page](<README.ru.md>).*
+*Русский интерфейс; английский показан на [английской странице](<README.en.md>).*
 
-**English** · [Русский](<README.ru.md>)
+[English](<README.en.md>) · **Русский**
 
-**An audio player that plays continuously, gets louder while you type, and becomes quieter when you stop. After a few seconds of inactivity, the track pauses.**
+**Программа работает как аудиоплеер. Трек играет непрерывно, но становится громче при печати и затихает, когда ты останавливаешься. Через несколько секунд простоя трек ставится на паузу**.
 
-Add an MP3 track (PCM WAV is also supported) and press **Start**: playback begins immediately at `0:00`. Typing controls the volume, not the playback position. Idle pausing is enabled by default and can be switched off for continuous quiet playback.
+Добавьте MP3 (также поддерживается PCM WAV) и нажмите **«Старт»**: воспроизведение сразу начнётся с `0:00`. Набор текста управляет громкостью, а не позицией трека. Пауза при простое включена по умолчанию; её можно отключить для непрерывного тихого воспроизведения.
 
-BeatzOnKeys is written in C# with .NET 10 and WPF, with NAudio for decoding and Windows audio output. The portable release is self-contained: no installer, administrator rights, or separately installed .NET runtime are required.
+BeatzOnKeys написана на C# с .NET 10 и WPF; NAudio отвечает за декодирование и вывод звука Windows. Портативный релиз самодостаточен: установщик, права администратора и отдельно установленный .NET Runtime не нужны.
 
-## What is inside
+## Что внутри
 
 | | |
 |---|---|
-| 🎹 **Typing-reactive volume** | Smooth volume changes between quiet and typing levels; Shift, Ctrl, and Alt alone are ignored |
-| 🎧 **Continuous playback** | The selected MP3 or PCM WAV plays normally from its beginning |
-| ⏸ **Optional idle pause** | Pause after a configurable timeout; the first key resumes at the same position |
-| 🔁 **Advance and loop** | Continue to the next track, repeat one track, or loop the complete list |
-| 🪟 **Mica window** | Native Windows 11 backdrop, custom frameless title bar, and a solid Windows 10 fallback |
-| 🌗 **Frost themes** | Dark and light MusicCatRGB-inspired palettes switch without a restart |
-| 🌐 **Two languages** | English and Russian switch instantly; first launch follows the system language |
-| 🔕 **Tray mode** | The window stays open after Start and hides only when you explicitly close it to the tray |
-| 💾 **Saved preferences** | Playlist, selection, volume levels, idle options, language, theme, auto-advance, and loop |
-| 🥁 **Music-reactive extras** | Punch attack on transients, bass boost, stereo pulse, and a quiet level that follows the track |
-| 🎛 **Playlist controls** | Move a track up or down, remove one, or clear the whole list without touching the files |
-| 🗒 **Logs and updates** | Daily UTF-8 diagnostics, quiet update checks, and SHA-256-verified downloads |
-| 📖 **Built-in guide** | One window explains every button, slider, switch, tray action, status, and path — open it with F1 |
+| 🎹 **Громкость от печати** | Плавные переходы между тихим и максимальным уровнями; одиночные Shift, Ctrl и Alt игнорируются |
+| 🎧 **Непрерывное воспроизведение** | Выбранный MP3 или PCM WAV играет обычным образом с начала |
+| ⏸ **Пауза при простое** | Настраиваемое ожидание; первая клавиша возобновляет трек с той же позиции |
+| 🔁 **Переход и повтор** | Следующий трек, повтор одного трека или зацикливание всего списка |
+| 🪟 **Окно Mica** | Подложка Windows 11, собственный заголовок без рамки и сплошной фон для Windows 10 |
+| 🌗 **Темы Frost** | Светлая и тёмная палитры в стиле MusicCatRGB меняются без перезапуска |
+| 🌐 **Два языка** | Русский и английский переключаются сразу; первый запуск следует языку системы |
+| 🔕 **Режим трея** | После «Старт» окно остаётся открытым и скрывается только по явному нажатию кнопки закрытия |
+| 💾 **Сохранённые настройки** | Список и выбор треков, уровни громкости, простой, язык, тема, автопереход и повтор |
+| 🥁 **Реакция на музыку** | Ударный отклик на транзиенты, усиление на бас, стерео-пульс и тихий уровень под трек |
+| 🎛 **Управление плейлистом** | Переставлять трек вверх и вниз, удалять один или очистить весь список, не трогая файлы |
+| 🗒 **Логи и обновления** | Ежедневная UTF-8 диагностика, тихая проверка обновлений и SHA-256 для скачанного архива |
+| 📖 **Встроенный гайд** | В одном окне описаны каждая кнопка, ползунок, переключатель, действие в трее, статус и пути — открывается по F1 |
 
-## How it works
+## Как это работает
 
-- **Start** immediately plays the selected track from `0:00` at the quiet level and enables the keyboard hook.
-- A key press other than **Shift, Ctrl, or Alt** raises volume smoothly from the quiet level (`MinVolume`) to `MaxVolume` over **50 ms**. After **150 ms** without a qualifying key, volume falls to the quiet level over **200 ms**.
-- With **Pause on idle** enabled, inactivity longer than `IdleTimeout` pauses the track. The first qualifying key resumes playback **at the same position and instantly at `MaxVolume`**.
-- With idle pausing disabled, the track keeps playing at the quiet level while you are not typing.
-- **Stop → Start always restarts from the beginning.** An idle pause/resume preserves the position during the current run; playback position is not saved across application restarts.
+- **«Старт»** сразу запускает выбранный трек с `0:00` на тихом уровне и включает перехват клавиатуры.
+- Нажатие любой клавиши, кроме **Shift, Ctrl и Alt**, плавно повышает громкость от тихого уровня (`MinVolume`) до `MaxVolume` за **50 мс**. Через **150 мс** без таких нажатий начинается снижение до тихого уровня за **200 мс**.
+- Если включено **«Ставить на паузу при простое»**, отсутствие нажатий дольше `IdleTimeout` ставит трек на паузу. Первая подходящая клавиша возобновляет воспроизведение **с той же позиции и мгновенно на `MaxVolume`**.
+- Если пауза при простое выключена, трек продолжает играть на тихом уровне, пока вы не печатаете.
+- **«Стоп» → «Старт» всегда начинает трек сначала.** Позиция текущего запуска сохраняется при паузе/возобновлении из-за простоя, но не после перезапуска приложения.
 
-## Settings
+## Настройки
 
-| Setting | Control / range | Default |
+| Поле | Элемент управления / диапазон | По умолчанию |
 |---|---|---|
-| `MinVolume` | Quiet-volume slider, **0–50%** | **20%** |
-| `MaxVolume` | **Volume** slider / typing-volume ceiling, **0–100%** | **100%** |
-| `IdleTimeout` | Idle timeout, **1–10 seconds** | **3 seconds** |
-| `PauseOnIdle` | **Pause on idle** checkbox | **On (`true`)** |
+| `MinVolume` | Слайдер тихой громкости, **0–50%** | **20%** |
+| `MaxVolume` | Слайдер **«Громкость»** / верхний уровень при печати, **0–100%** | **100%** |
+| `IdleTimeout` | Ожидание простоя, **1–10 секунд** | **3 секунды** |
+| `PauseOnIdle` | Чекбокс **«Ставить на паузу при простое»** | **Включён (`true`)** |
 
-The effective quiet volume is `min(MinVolume, MaxVolume)`: it never exceeds the maximum volume, even when the maximum slider is set below the quiet-volume slider.
+Фактическая тихая громкость равна `min(MinVolume, MaxVolume)`: она никогда не выше максимальной, даже если слайдер максимума установлен ниже слайдера тихого уровня.
 
-Settings are stored in `%LOCALAPPDATA%\BeatzOnKeys\settings.json`. **Schema 3** contains `MinVolume`, `MaxVolume`, `IdleTimeout`, `PauseOnIdle`, `AutoAdvance`, `Loop`, `SelectedTrackId`, `Language`, `Theme`, and `Tracks`. In JSON, volumes are fractions in `0..1` (`0.2` means 20%; `MinVolume` is limited to `0.5`), and `IdleTimeout` is in seconds.
+Настройки хранятся в `%LOCALAPPDATA%\BeatzOnKeys\settings.json`. **Схема 3** содержит `MinVolume`, `MaxVolume`, `IdleTimeout`, `PauseOnIdle`, `AutoAdvance`, `Loop`, `SelectedTrackId`, `Language`, `Theme` и `Tracks`. В JSON громкости — доли в диапазоне `0..1` (`0.2` означает 20%; `MinVolume` ограничен `0.5`), а `IdleTimeout` — секунды.
 
-The old `Volume` value automatically migrates to `MaxVolume`. Other new values use their defaults: `MinVolume = 0.2`, `IdleTimeout = 3`, `PauseOnIdle = true`. Your existing playlist and other saved preferences are retained.
+Старое значение `Volume` автоматически переносится в `MaxVolume`. Остальные новые значения получают настройки по умолчанию: `MinVolume = 0.2`, `IdleTimeout = 3`, `PauseOnIdle = true`. Существующий список треков и другие сохранённые предпочтения остаются.
 
-Per-user data lives outside the portable application folder:
+Пользовательские данные находятся вне портативной папки программы:
 
 ```text
 %LOCALAPPDATA%\BeatzOnKeys\
-├─ settings.json    # schema 3 preferences and playlist
-├─ logs/            # daily UTF-8 diagnostics
-└─ updates/         # verified update staging data
+├─ settings.json    # настройки схемы 3 и список треков
+├─ logs/            # ежедневная UTF-8 диагностика
+└─ updates/         # подготовленные и проверенные обновления
 ```
 
-## End-of-track behavior
+## Поведение в конце трека
 
-These switches act at the track's **natural end**, not during an idle pause.
+Переключатели действуют при **естественном завершении трека**, а не при паузе из-за простоя.
 
-| Auto-advance | Loop | Result at the end |
+| Автоперелистывание треков | Зацикливание | Результат |
 |---|---|---|
-| Off | Off | Stay at the end; choose a track or use Stop → Start to restart |
-| Off | On | Restart and repeat the same track |
-| On | Off | Play the next track; stop after the final track |
-| On | On | Play the next track and wrap the complete list back to the first |
+| Выключено | Выключено | Остаться в конце; выбрать трек или нажать «Стоп» → «Старт» |
+| Выключено | Включено | Вернуться в начало и повторять текущий трек |
+| Включено | Выключено | Играть следующий трек; после последнего остановиться |
+| Включено | Включено | Играть следующие треки и после последнего вернуться к первому |
 
-Choosing another track starts that track from its beginning.
+При выборе другого трека он начинается с начала.
 
-## Installation
+## Установка
 
-### Portable release
+### Портативный релиз
 
-1. Download the latest **BeatzOnKeys win-x64** archive from [Releases](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest).
-2. Extract the archive's `BeatzOnKeys.exe` to a writable location, for example `C:\BeatzOnKeys`.
-3. Run `BeatzOnKeys.exe`. It is the whole application; the documentation files are optional.
+1. Скачайте последний архив **BeatzOnKeys win-x64** на странице [Releases](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest).
+2. Распакуйте `BeatzOnKeys.exe` из архива в доступное для записи место, например `C:\BeatzOnKeys`.
+3. Запустите `BeatzOnKeys.exe`. Это и есть вся программа; файлы документации необязательны.
 
-Only one copy can run at a time: launching it again restores the window of the running copy.
+Одновременно может работать только одна копия: повторный запуск возвращает окно уже работающей.
 
-No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.2.1 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
+Установщик, права администратора и отдельный .NET Runtime не нужны. **Обновление с 1.0.x:** закройте старую программу, скачайте 1.2.2 вручную и замените старую папку, не используя старый встроенный установщик. Настройки перенесутся автоматически, как описано [выше](#настройки).
 
-### Requirements
+### Требования
 
-- Windows 10 x64 or Windows 11 x64.
-- A working Windows audio output device.
-- At least one readable MP3 file; PCM WAV is optional.
+- Windows 10 x64 или Windows 11 x64.
+- Рабочее устройство вывода звука Windows.
+- Хотя бы один читаемый MP3; PCM WAV поддерживается дополнительно.
 
-## Usage
+## Использование
 
-1. Drag MP3 or PCM WAV files onto the drop area, or use **Add files**; select a track. The arrows in a row reorder the playlist and **Clear all** empties it.
-2. Set the quiet and maximum volume levels, idle timeout, and **Pause on idle**. Choose **Auto-advance** and **Loop** as needed.
-3. Click **Start**. The track starts immediately from the beginning and the window stays open.
-4. Type in any application to raise the volume; stop typing to lower it. If idle pausing is enabled, the first key after a pause resumes the track at the same position.
-5. Use the title-bar close button to hide the window to the tray. Double-click the tray icon to reopen it, or use **Stop playback** / **Exit** in its menu.
+1. Перетащите MP3 или PCM WAV в область загрузки либо нажмите **«Добавить файлы»**; выберите трек. Стрелки в строке меняют порядок плейлиста, **«Очистить всё»** убирает список целиком.
+2. Настройте тихую и максимальную громкость, время простоя и **«Ставить на паузу при простое»**. При необходимости включите **«Автоперелистывание треков»** и **«Зацикливание»**.
+3. Нажмите **«Старт»** — трек сразу начнётся сначала, а окно останется открытым.
+4. Печатайте в любом приложении, чтобы увеличить громкость; перестаньте печатать, чтобы уменьшить её. При включённой паузе первая клавиша после простоя продолжит трек с той же позиции.
+5. Нажмите кнопку закрытия в заголовке, чтобы скрыть окно в трей. Двойной щелчок по значку вернёт окно; в меню значка также доступны **«Остановить воспроизведение»** и **«Выход»**.
 
-**Reset** removes imported entries and saved settings. It never deletes the original audio files.
+**«Сброс»** удаляет импортированные записи и сохранённые настройки. Исходные аудиофайлы никогда не удаляются.
 
-## Languages and themes
+## Язык и тема
 
-The title-bar `EN | RU` switch changes the language immediately; the sun/moon button changes the light/dark palette. Both choices are saved.
+Переключатель `EN | RU` в заголовке мгновенно меняет язык; кнопка солнца/луны — светлую/тёмную палитру. Оба выбора сохраняются.
 
-![BeatzOnKeys light theme](<assets/preview-light-en.png>)
+[Светлая тема, EN](<assets/preview-light-en.png>) · [«О программе»](<assets/about-ru.png>) · [Светлое «О программе»](<assets/about-light-ru.png>) · [Гайд, RU](<assets/guide-ru.png>) · [Гайд, EN](<assets/guide-en.png>)
 
-[About dialog](<assets/about-ru.png>) · [Light About dialog](<assets/about-light-ru.png>) · [Guide, English](<assets/guide-en.png>) · [Guide, Russian](<assets/guide-ru.png>)
+Разделы панели настроек: [«Громкость»](<assets/section-volume.png>) · [«Реакция на музыку»](<assets/section-reaction.png>) · [«Поведение»](<assets/section-behavior.png>) · [все свёрнуты](<assets/section-collapsed.png>)
 
-Matching documentation is available in [English](<README.md>) and [Russian](<README.ru.md>).
+Совпадающая документация доступна на [английском](<README.en.md>) и [русском](<README.md>).
 
-## Privacy
+## Приватность
 
-The keyboard hook follows the privacy-preserving approach used by MusicCatRGB:
+Перехватчик клавиатуры следует подходу MusicCatRGB:
 
-- it does **not** convert key codes into text;
-- it does **not** inspect the focused window, clipboard, or text fields;
-- it does **not** log keys or application names;
-- injected events and bare Shift/Ctrl/Alt presses are ignored; the existing hook also ignores CapsLock and Windows keys;
-- the callback only signals keyboard activity and returns immediately; audio work stays on the playback side.
+- **не** превращает коды клавиш в текст;
+- **не** читает активное окно, буфер обмена и текстовые поля;
+- **не** записывает клавиши и названия приложений в лог;
+- игнорирует программно внедрённые события и одиночные Shift/Ctrl/Alt; существующий фильтр также игнорирует CapsLock и клавиши Windows;
+- callback только сообщает об активности клавиатуры и сразу возвращается; аудиообработка остаётся на стороне воспроизведения.
 
-The hook is active only after **Start** and is removed on **Stop** or exit. It runs in a **separate headless watcher process** (`BeatzOnKeys.exe --watcher`, the same approach as MusicCatRGB), so hiding, minimising, or a busy window cannot delay or silence typing. The watcher reports readiness and real key deliveries to the app, and a dropped connection is logged instead of failing silently. Keep the application folder together: the watcher is the same executable.
+Перехват работает только после **«Старт»** и снимается по **«Стоп»** или при выходе. Он выполняется в **отдельном безоконном процессе-наблюдателе** (`BeatzOnKeys.exe --watcher`, как в MusicCatRGB), поэтому скрытие, сворачивание и занятый интерфейс не задерживают и не отключают набор. Наблюдатель сообщает приложению о готовности и о реальных нажатиях, а разрыв связи пишется в журнал. Папку приложения нужно держать целиком: наблюдатель — этот же исполняемый файл.
 
-## About and updates
+## О программе и обновления
 
-**About** is available from the footer and tray menu. It shows the installed version, developer, project/license/support links, and update controls. MusicCatRGB attribution remains in [Credits & License](#credits--license) and the third-party notices.
+Окно **«О программе»** открывается из нижней панели и меню трея. В нём видны версия, автор, ссылки на проект, лицензии и поддержку, а также управление обновлением. Атрибуция MusicCatRGB остаётся в [разделе об авторах](#авторы-и-лицензия) и сторонних уведомлениях.
 
-A quiet background check runs after startup; only a genuinely newer release produces a tray notice. Opening **About** can refresh a stale result, and **Check for updates** is available manually.
+Тихая фоновая проверка запускается после старта; уведомление трея появляется только для действительно новой версии. Открытие **«О программе»** может обновить устаревший результат, а **«Проверить обновления»** доступно вручную.
 
-Downloads are verified against the published SHA-256 checksum, and archive paths are validated before extraction. **Install and restart** uses a detached helper to replace the writable portable folder and relaunch the app. Per-user settings and logs are not overwritten.
+Скачанный архив сверяется с опубликованной SHA-256, а его пути проверяются до извлечения. **«Установить и перезапустить»** запускает отдельный помощник, заменяет доступную для записи портативную папку и снова открывает программу. Настройки и логи пользователя не перезаписываются.
 
-## Logs
+## Логи
 
-Logs are written to `%LOCALAPPDATA%\BeatzOnKeys\logs\beatzonkeys-YYYYMMDD.log`. Use **Logs** in the footer to open the folder.
+Логи лежат в `%LOCALAPPDATA%\BeatzOnKeys\logs\beatzonkeys-YYYYMMDD.log`. Кнопка **«Логи»** в нижней панели открывает папку.
 
-| Category | What it records |
+| Категория | Что записывается |
 |---|---|
-| `[audio]` | Decoder and output-device failures |
-| `[playback]` | Playback lifecycle and worker failures — never typed keys |
-| `[settings]` | Settings load, normalization, and save failures |
-| `[update]` | Checks, verification, staging, and apply results |
-| `[ui]` | UI lifecycle and unhandled errors |
+| `[audio]` | Сбои декодера и устройства вывода |
+| `[playback]` | Жизненный цикл воспроизведения и ошибки рабочего потока — не нажатые клавиши |
+| `[settings]` | Ошибки загрузки, нормализации и сохранения настроек |
+| `[update]` | Проверки, верификация, подготовка и результат установки |
+| `[ui]` | Жизненный цикл интерфейса и необработанные ошибки |
 
-## Building from source
+## Сборка из исходников
 
-Requires Windows and the .NET 10 SDK. Build and run the non-interactive test harness with:
+Нужны Windows и .NET 10 SDK. Команды сборки и запуска неинтерактивного тестового harness:
 
 ```powershell
 dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Create the **1.2.1** portable self-contained folder in Windows **cmd**:
+Создайте портативную самодостаточную папку **1.2.2** в Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.2.1
+set BOK_VERSION=1.2.2
 publish.bat
 ```
 
-The publisher now defaults to `BOK_VERSION=1.2.1`; setting it explicitly makes the intended release version clear.
+Теперь скрипт по умолчанию использует `BOK_VERSION=1.2.2`; явное указание переменной делает целевую версию релиза однозначной.
 
-The publisher validates its `Build_Output` cleanup target, publishes `BeatzOnKeys.UI` self-contained for `win-x64`, and copies both READMEs, release notes, screenshots, the license, and third-party notices. It stops on any required publish/copy failure. The resulting `Build_Output` directory is the portable product.
+Скрипт проверяет цель очистки `Build_Output`, публикует `BeatzOnKeys.UI` как self-contained `win-x64` и копирует оба README, примечания к релизу, скриншоты, лицензию и сторонние уведомления. Любая обязательная ошибка публикации/копирования останавливает сборку. Итоговый `Build_Output` — портативный продукт.
 
-### Tray and native keyboard regression
+### Регрессия трея и клавиатурного перехвата
 
-On an interactive Windows desktop with an audio output device, run:
+На интерактивном рабочем столе Windows с устройством вывода звука:
 
 ```powershell
 dotnet run --project tools/UiSmoke -c Release -- --root . --session tray-regression --production-tray
 ```
 
-This runs the actual `App.Run` / startup path with a generated quiet WAV and isolated settings/logs under `artifacts`. It checks Start, explicit hide, idle resume, tray Open/Stop/Exit, and native callback delivery while the UI thread is intentionally stalled. Tagged injected F24 probes go only to the test's own window and remain ignored by the production filter; a separate synthetic non-injected callback checks the playback signal path. It does not claim a physical-keyboard end-to-end test or record typed text.
+Тест использует настоящий `App.Run` / startup, тихий сгенерированный WAV и изолированные настройки/логи в `artifacts`. Проверяются «Старт», явное скрытие, возобновление после простоя, меню трея «Открыть»/«Стоп»/«Выход» и доставка нативных callbacks при намеренной задержке UI-потока. Помеченные программные сигналы F24 направляются только в окно самого теста и по-прежнему отбрасываются рабочим фильтром; отдельный синтетический callback без injected-флага проверяет путь сигнала до воспроизведения. Это не заявляется как сквозная проверка физической клавиатуры; набираемый текст не записывается.
 
-### Repository layout
+### Структура репозитория
 
 ```text
-BeatzOnKeys.Core/       playback, settings, keyboard hook, updates
-BeatzOnKeys.UI/         WPF shell, Frost themes, EN/RU resources, tray lifecycle
-BeatzOnKeys.Tests/      non-interactive console test harness
-assets/                English and Russian screenshots
-third-party/           licenses for redistributed/adapted components
-publish.bat            self-contained publisher
+BeatzOnKeys.Core/       воспроизведение, настройки, keyboard hook, обновления
+BeatzOnKeys.UI/         WPF-оболочка, темы Frost, EN/RU, жизненный цикл трея
+BeatzOnKeys.Tests/      неинтерактивный консольный тестовый harness
+assets/                скриншоты английского и русского интерфейса
+third-party/           лицензии адаптированных и поставляемых компонентов
+publish.bat            self-contained публикация
 ```
 
-## Troubleshooting
+## Если что-то не работает
 
-- **No sound while typing** — select a readable track, check the Windows output device, its volume, and its mute state, and raise the maximum **Volume**. BeatzOnKeys multiplies its own gain by the system volume, so a 6% system level silences even 100% typing volume.
-- **Too quiet when idle** — raise `MinVolume`; its effective level cannot exceed `MaxVolume`.
-- **Unexpected idle pauses** — increase `IdleTimeout` or disable **Pause on idle** for continuous quiet playback.
-- **A track will not open** — confirm that the file still exists and try a normal MP3 or PCM WAV file.
-- **The track stays at its end** — use Stop → Start, enable Loop, or enable Auto-advance when more tracks exist.
-- **An update will not install** — use a writable app folder and inspect `%LOCALAPPDATA%\BeatzOnKeys\logs\update-apply.log`.
-- **The window disappeared** — Start keeps it open; if you used the title-bar close button, open the notification-area overflow and double-click the BeatzOnKeys icon.
-- **A restored source is gone** — add the file again or remove the unavailable entry.
+- **При печати нет звука** — выберите читаемый трек, проверьте устройство вывода Windows, его громкость и мьют, и увеличьте максимальную **«Громкость»**. BeatzOnKeys умножает собственную громкость на системную, поэтому при 6% в системе не слышно даже 100% громкости набора.
+- **В простое слишком тихо** — увеличьте `MinVolume`; фактический уровень не может превышать `MaxVolume`.
+- **Неожиданные паузы** — увеличьте `IdleTimeout` или отключите **«Ставить на паузу при простое»** для непрерывного тихого воспроизведения.
+- **Трек не открывается** — проверьте наличие файла и попробуйте обычный MP3 или PCM WAV.
+- **Трек остаётся в конце** — нажмите «Стоп» → «Старт», включите повтор или автопереход при наличии других треков.
+- **Обновление не устанавливается** — используйте доступную для записи папку и проверьте `%LOCALAPPDATA%\BeatzOnKeys\logs\update-apply.log`.
+- **Окно исчезло** — после «Старт» оно остаётся открытым; если вы нажали кнопку закрытия, откройте скрытые значки области уведомлений и дважды щёлкните BeatzOnKeys.
+- **Сохранённый источник пропал** — добавьте файл снова либо удалите недоступную запись.
 
-## Credits & License
+## Авторы и лицензия
 
-- **BeatzOnKeys:** [project](https://github.com/MusicCat-61/BeatzOnKeys).
-- Design, themes, localization structure, Mica shell, tray lifecycle, and keyboard-hook approach are based on [**MusicCatRGB**](https://github.com/MusicCat-61/MusicCatRGB) by MusicCat161 / MusicCat-61.
-- Audio decoding and Windows output use [**NAudio**](https://github.com/naudio/NAudio).
+- **BeatzOnKeys:** [проект](https://github.com/MusicCat-61/BeatzOnKeys).
+- Дизайн, темы, структура локализации, Mica-оболочка, работа с треем и подход к перехвату клавиатуры основаны на [**MusicCatRGB**](https://github.com/MusicCat-61/MusicCatRGB) от MusicCat161 / MusicCat-61.
+- Декодирование звука и вывод Windows используют [**NAudio**](https://github.com/naudio/NAudio).
 
-BeatzOnKeys is distributed under the [MIT License](<LICENSE>). Required MusicCatRGB and NAudio notices are retained in [THIRD-PARTY-NOTICES.md](<THIRD-PARTY-NOTICES.md>).
+BeatzOnKeys распространяется по [лицензии MIT](<LICENSE>). Обязательные уведомления MusicCatRGB и NAudio сохранены в [THIRD-PARTY-NOTICES.md](<THIRD-PARTY-NOTICES.md>).

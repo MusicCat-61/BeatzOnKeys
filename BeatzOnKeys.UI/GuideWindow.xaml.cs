@@ -46,6 +46,12 @@ public partial class GuideWindow : Window
             ("Guide_ThemeT", "Guide_ThemeX"),
             ("Guide_WinT", "Guide_WinX")),
 
+        Section("Guide_SecPanel",
+            ("Guide_ChipsT", "Guide_ChipsX"),
+            ("Guide_CollapseT", "Guide_CollapseX"),
+            ("Guide_CountT", "Guide_CountX"),
+            ("Guide_SummaryT", "Guide_SummaryX")),
+
         Section("Guide_SecSliders",
             ("Guide_MaxT", "Guide_MaxX"),
             ("Guide_MinT", "Guide_MinX"),
@@ -85,6 +91,7 @@ public partial class GuideWindow : Window
             ("Guide_PausesT", "Guide_PausesX"),
             ("Guide_HiddenT", "Guide_HiddenX"),
             ("Guide_EndT", "Guide_EndX"),
+            ("Guide_UpdStorageT", "Guide_UpdStorageX"),
             ("Guide_NotSavedT", "Guide_NotSavedX")),
 
         Section("Guide_SecFiles",

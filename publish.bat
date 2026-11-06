@@ -7,7 +7,7 @@ set "PROJECT=%ROOT%\BeatzOnKeys.UI\BeatzOnKeys.UI.csproj"
 for %%I in ("%ROOT%\Build_Output") do set "OUTPUT=%%~fI"
 for %%I in ("%OUTPUT%") do set "OUTPUT_NAME=%%~nxI"
 for %%I in ("%OUTPUT%\..") do set "OUTPUT_PARENT=%%~fI"
-if not defined BOK_VERSION set "BOK_VERSION=1.2.1"
+if not defined BOK_VERSION set "BOK_VERSION=1.2.2"
 
 if /I not "%OUTPUT_NAME%"=="Build_Output" goto :unsafe_output
 if /I not "%OUTPUT_PARENT%"=="%ROOT%" goto :unsafe_output
@@ -39,7 +39,7 @@ echo.
 echo [3/3] Copying documentation and licenses...
 call :copy_file "%ROOT%\README.md" "%OUTPUT%\README.md"
 if errorlevel 1 goto :fail
-call :copy_file "%ROOT%\README.ru.md" "%OUTPUT%\README.ru.md"
+call :copy_file "%ROOT%\README.en.md" "%OUTPUT%\README.en.md"
 if errorlevel 1 goto :fail
 call :copy_file "%ROOT%\RELEASE_NOTES.md" "%OUTPUT%\RELEASE_NOTES.md"
 if errorlevel 1 goto :fail

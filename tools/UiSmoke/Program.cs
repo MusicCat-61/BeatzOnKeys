@@ -159,6 +159,9 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             _vm.UserMessageRequested += message => _messages.Add(message);
             await _vm.InitializeAsync();
             Check("defaults.loop", _vm.Loop, "A fresh VM keeps Loop=true.");
+            Check("defaults.sections", _vm.IsVolumeExpanded && !_vm.IsReactionExpanded && !_vm.IsBehaviorExpanded &&
+                _vm.ActiveSection == MainViewModel.SectionVolume,
+                $"Fresh sections: volume={_vm.IsVolumeExpanded}, reaction={_vm.IsReactionExpanded}, behavior={_vm.IsBehaviorExpanded}, active={_vm.ActiveSection}.");
             Check("defaults.typingVolumeAndIdle", Near(_vm.MinVolume, 0.2) && Near(_vm.MaxVolume, 1) && Near(_vm.IdleTimeout, 3) && _vm.PauseOnIdle,
                 $"Fresh settings: Min={_vm.MinVolumePercent}, Max={_vm.MaxVolumePercent}, Idle={_vm.IdleTimeout}s, Pause={_vm.PauseOnIdle}.");
             Check("defaults.reactive", _vm.PunchResponseEnabled && Near(_vm.BassReactiveGain, 0.15) && !_vm.StereoPulseEnabled &&
@@ -198,6 +201,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 "Rendered playlist has filename/path/duration/extension only.");
             await Section("lifecycle.audio", AudioLifecycleAsync);
             await Section("render.matrix", CaptureMatrixAsync);
+            await Section("settings.sections", SettingsSectionsAsync);
             await Section("guide", GuideAsync);
             await Section("autoAdvance", AutoAdvanceAsync);
             await Section("playlist", PlaylistManagementAsync);
@@ -490,6 +494,64 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         await SettleAsync();
     }
 
+    /// <summary>
+    /// Each settings section expands on its own, shows its controls, and collapses back to a header
+    /// with a live summary. The captures document all three sections for the README.
+    /// </summary>
+    private async Task SettingsSectionsAsync()
+    {
+        var vm = _vm!;
+        var window = _window!;
+        vm.SetLanguageCommand.Execute("ru");
+        await SettleAsync();
+        var sections = new (string Key, string Summary, Func<bool> Expanded, int Count)[]
+        {
+            (MainViewModel.SectionVolume, nameof(MainViewModel.VolumeSummary), () => vm.IsVolumeExpanded, 4),
+            (MainViewModel.SectionReaction, nameof(MainViewModel.ReactionSummary), () => vm.IsReactionExpanded, 4),
+            (MainViewModel.SectionBehavior, nameof(MainViewModel.BehaviorSummary), () => vm.IsBehaviorExpanded, 2)
+        };
+
+        Check("sections.defaultOnlyVolume", vm.IsVolumeExpanded && !vm.IsReactionExpanded && !vm.IsBehaviorExpanded,
+            $"Fresh view: volume={vm.IsVolumeExpanded}, reaction={vm.IsReactionExpanded}, behavior={vm.IsBehaviorExpanded}.");
+
+        foreach (var section in sections)
+        {
+            vm.ShowSection(section.Key);
+            await SettleAsync();
+            var expanded = section.Expanded();
+            var others = sections.Where(other => other.Key != section.Key).All(other => !other.Expanded());
+            var controls = VisibleControls(window);
+            Check($"sections.{section.Key}.expands", expanded && others && vm.ActiveSection == section.Key,
+                $"Active={vm.ActiveSection}; volume={vm.IsVolumeExpanded}, reaction={vm.IsReactionExpanded}, behavior={vm.IsBehaviorExpanded}.");
+            Check($"sections.{section.Key}.controlsVisible", controls >= 2,
+                $"{section.Key}: {controls} visible sliders and checkboxes, others collapsed={others}.");
+            SaveScreenshot(window, $"section-{section.Key}.png");
+        }
+
+        // Every section collapsed still names itself and keeps its summary, so nothing is lost.
+        foreach (var section in sections)
+        {
+            if (section.Expanded()) { vm.ToggleSection(section.Key); }
+        }
+
+        await SettleAsync();
+        var collapsed = !vm.IsVolumeExpanded && !vm.IsReactionExpanded && !vm.IsBehaviorExpanded;
+        var summaries = new[] { vm.VolumeSummary, vm.ReactionSummary, vm.BehaviorSummary };
+        Check("sections.collapsedKeepsSummaries", collapsed && summaries.All(text => !string.IsNullOrWhiteSpace(text)) &&
+            summaries.Distinct().Count() == 3,
+            $"Collapsed={collapsed}; summaries: {string.Join(" | ", summaries)}.");
+        SaveScreenshot(window, "section-collapsed.png");
+
+        vm.ShowSection(MainViewModel.SectionVolume);
+        await SettleAsync();
+        Check("sections.badgeCounts", sections.Select(section => section.Count).Sum() == 10,
+            "Badges announce 4 volume, 4 reaction, and 2 behaviour controls.");
+    }
+
+    private static int VisibleControls(Window window) =>
+        Descendants<Slider>(window).Count(control => control.IsVisible) +
+        Descendants<CheckBox>(window).Count(control => control.IsVisible);
+
     /// <summary>The guide is a real window: it must open, render every control, and follow the language switch.</summary>
     private async Task GuideAsync()
     {
@@ -506,7 +568,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         await UntilAsync(() => Descendants<TextBlock>(guide).Any(text => text.Text == Loc.T("Guide_SecQuick")), 4000, "guide content");
         var english = Descendants<TextBlock>(guide).Where(text => text.IsVisible).Select(text => text.Text ?? "").ToArray();
         var described = new[] { "Guide_StartT", "Guide_StopT", "Guide_ResetT", "Guide_MaxT", "Guide_MinT", "Guide_IdleT",
-            "Guide_PauseT", "Guide_AutoT", "Guide_LoopT", "Guide_TrayMenuT", "Guide_StatusT", "Guide_NoSoundT" };
+            "Guide_PauseT", "Guide_AutoT", "Guide_LoopT", "Guide_TrayMenuT", "Guide_StatusT", "Guide_NoSoundT",
+            "Guide_ChipsT", "Guide_CollapseT", "Guide_CountT", "Guide_SummaryT", "Guide_UpdStorageT" };
         var missing = described.Where(key => !english.Contains(Loc.T(key))).ToArray();
         Check("guide.coversEveryControl", missing.Length == 0 && english.Length > 40,
             $"{english.Length} visible labels; missing: {string.Join(", ", missing)}.");

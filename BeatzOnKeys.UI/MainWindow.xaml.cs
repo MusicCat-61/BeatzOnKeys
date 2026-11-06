@@ -119,6 +119,29 @@ public partial class MainWindow : Window
     private void GuideClick(object sender, RoutedEventArgs eventArgs) =>
         ((App)System.Windows.Application.Current).ShowGuideWindow();
 
+    /// <summary>A chip expands its section and scrolls it into view, so nothing stays hidden.</summary>
+    private void VolumeChipClick(object sender, RoutedEventArgs eventArgs) => ShowSection(MainViewModel.SectionVolume, VolumeSection);
+
+    private void ReactionChipClick(object sender, RoutedEventArgs eventArgs) => ShowSection(MainViewModel.SectionReaction, ReactionSection);
+
+    private void BehaviorChipClick(object sender, RoutedEventArgs eventArgs) => ShowSection(MainViewModel.SectionBehavior, BehaviorSection);
+
+    private void ShowSection(string section, FrameworkElement target)
+    {
+        if (DataContext is not MainViewModel viewModel) { return; }
+        viewModel.ShowSection(section);
+        target.BringIntoView();
+    }
+
+    private void VolumeHeaderClick(object sender, RoutedEventArgs eventArgs) =>
+        (DataContext as MainViewModel)?.ToggleSection(MainViewModel.SectionVolume);
+
+    private void ReactionHeaderClick(object sender, RoutedEventArgs eventArgs) =>
+        (DataContext as MainViewModel)?.ToggleSection(MainViewModel.SectionReaction);
+
+    private void BehaviorHeaderClick(object sender, RoutedEventArgs eventArgs) =>
+        (DataContext as MainViewModel)?.ToggleSection(MainViewModel.SectionBehavior);
+
     /// <summary>F1 opens the reference without disturbing playback or the playlist.</summary>
     private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs eventArgs)
     {

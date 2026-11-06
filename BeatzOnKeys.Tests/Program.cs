@@ -66,7 +66,11 @@ internal static class Program
         ("Settings.LegacyVolumeMigratesAndNewFieldsTakePrecedence", SettingsTests.LegacyVolumeMigratesAndNewFieldsTakePrecedence),
         ("Settings.MissingAndCorruptJsonUseDefaults", SettingsTests.MissingAndCorruptJsonUseDefaults),
         ("Settings.ConcurrentSavesRemainAtomic", SettingsTests.ConcurrentSavesRemainAtomic),
-        ("Settings.ReactiveFieldsMigrateFromSchemaThree", SettingsTests.ReactiveFieldsMigrateFromSchemaThree)
+        ("Settings.ReactiveFieldsMigrateFromSchemaThree", SettingsTests.ReactiveFieldsMigrateFromSchemaThree),
+        ("UpdateStorage.PrimaryDirectoryIsUsedWhenWritable", UpdateStorageTests.PrimaryDirectoryIsUsedWhenWritable),
+        ("UpdateStorage.BlockedPrimaryFallsBackToTemp", UpdateStorageTests.BlockedPrimaryFallsBackToTemp),
+        ("UpdateStorage.NoWritableFolderReportsAPermissionProblem", UpdateStorageTests.NoWritableFolderReportsAPermissionProblem),
+        ("UpdateStorage.StagedPathsAreRecognisedUnderBothRoots", UpdateStorageTests.StagedPathsAreRecognisedUnderBothRoots)
     ];
 
     private static async Task<int> Main()

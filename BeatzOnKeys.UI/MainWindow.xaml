@@ -344,93 +344,276 @@
                         <StackPanel>
                             <TextBlock Text="{DynamicResource L_Settings}" Style="{StaticResource SectionLabelStyle}"/>
 
-                            <DockPanel Margin="0,2,0,0">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding MaxVolumePercent}"
-                                           Style="{StaticResource ValueLabelStyle}"/>
-                                <TextBlock Text="{DynamicResource L_MaxVolume}" Style="{StaticResource ValueLabelStyle}"/>
-                            </DockPanel>
-                            <Slider Minimum="0" Maximum="100"
-                                    Value="{Binding MaxVolumePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                    ToolTip="{DynamicResource L_MaxVolumeHint}"
-                                    TickFrequency="1" Margin="0,4,0,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <ToggleButton Style="{StaticResource SettingsChipStyle}"
+                                              Content="{DynamicResource L_ChipVolume}"
+                                              IsChecked="{Binding IsVolumeChipActive, Mode=OneWay}"
+                                              Click="VolumeChipClick"/>
+                                <ToggleButton Style="{StaticResource SettingsChipStyle}" Margin="6,0,0,0"
+                                              Content="{DynamicResource L_ChipReaction}"
+                                              IsChecked="{Binding IsReactionChipActive, Mode=OneWay}"
+                                              Click="ReactionChipClick"/>
+                                <ToggleButton Style="{StaticResource SettingsChipStyle}" Margin="6,0,0,0"
+                                              Content="{DynamicResource L_ChipBehavior}"
+                                              IsChecked="{Binding IsBehaviorChipActive, Mode=OneWay}"
+                                              Click="BehaviorChipClick"/>
+                            </StackPanel>
 
-                            <DockPanel Margin="0,14,0,0">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding MinVolumePercent}"
-                                           Style="{StaticResource ValueLabelStyle}"/>
-                                <TextBlock Text="{DynamicResource L_MinVolume}" Style="{StaticResource ValueLabelStyle}"/>
-                            </DockPanel>
-                            <Slider Minimum="0" Maximum="50"
-                                    Value="{Binding MinVolumePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                    ToolTip="{DynamicResource L_MinVolumeHint}"
-                                    TickFrequency="1" Margin="0,4,0,0"/>
+                            <Border x:Name="VolumeSection">
+                                <StackPanel>
+                                    <Button Style="{StaticResource SettingsSectionHeaderStyle}" Click="VolumeHeaderClick">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock>
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource SettingsChevronStyle}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsVolumeExpanded}" Value="True">
+                                                                <Setter Property="Text" Value="&#xE70D;"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Grid.Column="1" Text="{DynamicResource L_VolumeSection}"
+                                                       Style="{StaticResource SettingsSectionTitleStyle}"/>
+                                            <Border Grid.Column="2">
+                                                <Border.Style>
+                                                    <Style TargetType="Border" BasedOn="{StaticResource SettingsCountBadgeStyle}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsVolumeExpanded}" Value="False">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="4" Style="{StaticResource SettingsCountBadgeTextStyle}"/>
+                                            </Border>
+                                            <TextBlock Grid.Column="3" Text="{Binding VolumeSummary}"
+                                                       Style="{StaticResource SettingsSectionSummaryStyle}"
+                                                       HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Button>
 
-                            <DockPanel Margin="0,14,0,0">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding IdleTimeoutText}"
-                                           Style="{StaticResource ValueLabelStyle}"/>
-                                <TextBlock Text="{DynamicResource L_IdleTimeout}" Style="{StaticResource ValueLabelStyle}"/>
-                            </DockPanel>
-                            <Slider Minimum="1" Maximum="10"
-                                    Value="{Binding IdleTimeout, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                    ToolTip="{DynamicResource L_IdleTimeoutHint}"
-                                    TickFrequency="0.1" SmallChange="0.1" LargeChange="1"
-                                    IsSnapToTickEnabled="True" Margin="0,4,0,0"/>
+                                    <StackPanel Margin="14,2,0,2">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsVolumeExpanded}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
 
-                            <CheckBox IsChecked="{Binding PauseOnIdle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                      ToolTip="{DynamicResource L_IdleTimeoutHint}" Margin="0,12,0,0">
-                                <TextBlock Text="{DynamicResource L_PauseOnIdle}" TextWrapping="Wrap"/>
-                            </CheckBox>
+                                        <DockPanel Margin="0,2,0,0">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding MaxVolumePercent}"
+                                                       Style="{StaticResource ValueLabelStyle}"/>
+                                            <TextBlock Text="{DynamicResource L_MaxVolume}" Style="{StaticResource ValueLabelStyle}"/>
+                                        </DockPanel>
+                                        <Slider Minimum="0" Maximum="100"
+                                                Value="{Binding MaxVolumePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ToolTip="{DynamicResource L_MaxVolumeHint}"
+                                                TickFrequency="1" Margin="0,4,0,0"/>
 
-                            <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,13,0,12"/>
+                                        <DockPanel Margin="0,12,0,0">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding MinVolumePercent}"
+                                                       Style="{StaticResource ValueLabelStyle}"/>
+                                            <TextBlock Text="{DynamicResource L_MinVolume}" Style="{StaticResource ValueLabelStyle}"/>
+                                        </DockPanel>
+                                        <Slider Minimum="0" Maximum="50"
+                                                Value="{Binding MinVolumePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ToolTip="{DynamicResource L_MinVolumeHint}"
+                                                TickFrequency="1" Margin="0,4,0,0"/>
 
-                            <CheckBox IsChecked="{Binding AutoAdvance}">
-                                <TextBlock Text="{DynamicResource L_AutoAdvance}" TextWrapping="Wrap"/>
-                            </CheckBox>
-                            <TextBlock Text="{DynamicResource L_AutoAdvanceHint}" FontSize="12.5" TextWrapping="Wrap"
-                                       Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                        <DockPanel Margin="0,12,0,0">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding IdleTimeoutText}"
+                                                       Style="{StaticResource ValueLabelStyle}"/>
+                                            <TextBlock Text="{DynamicResource L_IdleTimeout}" Style="{StaticResource ValueLabelStyle}"/>
+                                        </DockPanel>
+                                        <Slider Minimum="1" Maximum="10"
+                                                Value="{Binding IdleTimeout, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ToolTip="{DynamicResource L_IdleTimeoutHint}"
+                                                TickFrequency="0.1" SmallChange="0.1" LargeChange="1"
+                                                IsSnapToTickEnabled="True" Margin="0,4,0,0"/>
 
-                            <CheckBox IsChecked="{Binding Loop}" Margin="0,12,0,0">
-                                <TextBlock Text="{DynamicResource L_Loop}" TextWrapping="Wrap"/>
-                            </CheckBox>
-                            <TextBlock Text="{DynamicResource L_LoopHint}" FontSize="12.5" TextWrapping="Wrap"
-                                       Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                        <CheckBox IsChecked="{Binding PauseOnIdle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  ToolTip="{DynamicResource L_IdleTimeoutHint}" Margin="0,10,0,4">
+                                            <TextBlock Text="{DynamicResource L_PauseOnIdle}" TextWrapping="Wrap"/>
+                                        </CheckBox>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
 
-                            <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,13,0,12"/>
+                            <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,6,0,4"/>
 
-                            <TextBlock Text="{DynamicResource L_MusicReaction}" Style="{StaticResource SectionLabelStyle}"
-                                       FontSize="13.5" Margin="0,0,0,8"/>
+                            <Border x:Name="ReactionSection">
+                                <StackPanel>
+                                    <Button Style="{StaticResource SettingsSectionHeaderStyle}" Click="ReactionHeaderClick">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock>
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource SettingsChevronStyle}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsReactionExpanded}" Value="True">
+                                                                <Setter Property="Text" Value="&#xE70D;"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Grid.Column="1" Text="{DynamicResource L_ReactionSection}"
+                                                       Style="{StaticResource SettingsSectionTitleStyle}"/>
+                                            <Border Grid.Column="2">
+                                                <Border.Style>
+                                                    <Style TargetType="Border" BasedOn="{StaticResource SettingsCountBadgeStyle}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsReactionExpanded}" Value="False">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="4" Style="{StaticResource SettingsCountBadgeTextStyle}"/>
+                                            </Border>
+                                            <TextBlock Grid.Column="3" Text="{Binding ReactionSummary}"
+                                                       Style="{StaticResource SettingsSectionSummaryStyle}"
+                                                       HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Button>
 
-                            <CheckBox IsChecked="{Binding PunchResponseEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                      ToolTip="{DynamicResource L_PunchResponseHint}">
-                                <TextBlock Text="{DynamicResource L_PunchResponse}" TextWrapping="Wrap"/>
-                            </CheckBox>
-                            <TextBlock Text="{DynamicResource L_PunchResponseHint}" FontSize="12.5" TextWrapping="Wrap"
-                                       Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                    <StackPanel Margin="14,2,0,2">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsReactionExpanded}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
 
-                            <DockPanel Margin="0,14,0,0">
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding BassReactivePercent}"
-                                           Style="{StaticResource ValueLabelStyle}"/>
-                                <TextBlock Text="{DynamicResource L_BassGain}" Style="{StaticResource ValueLabelStyle}"/>
-                            </DockPanel>
-                            <Slider Minimum="0" Maximum="30"
-                                    Value="{Binding BassReactivePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                    ToolTip="{DynamicResource L_BassGainHint}"
-                                    TickFrequency="1" Margin="0,4,0,0"/>
-                            <TextBlock Text="{DynamicResource L_BassGainHint}" FontSize="12.5" TextWrapping="Wrap"
-                                       Margin="0,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                        <CheckBox IsChecked="{Binding PunchResponseEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  ToolTip="{DynamicResource L_PunchResponseHint}" Margin="0,2,0,0">
+                                            <TextBlock Text="{DynamicResource L_PunchResponse}" TextWrapping="Wrap"/>
+                                        </CheckBox>
+                                        <TextBlock Text="{DynamicResource L_PunchResponseHint}" FontSize="12" TextWrapping="Wrap"
+                                                   Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
-                            <CheckBox IsChecked="{Binding StereoPulseEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                      ToolTip="{DynamicResource L_StereoPulseHint}" Margin="0,12,0,0">
-                                <TextBlock Text="{DynamicResource L_StereoPulse}" TextWrapping="Wrap"/>
-                            </CheckBox>
-                            <TextBlock Text="{DynamicResource L_StereoPulseHint}" FontSize="12.5" TextWrapping="Wrap"
-                                       Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                        <DockPanel Margin="0,12,0,0">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding BassReactivePercent}"
+                                                       Style="{StaticResource ValueLabelStyle}"/>
+                                            <TextBlock Text="{DynamicResource L_BassGain}" Style="{StaticResource ValueLabelStyle}"/>
+                                        </DockPanel>
+                                        <Slider Minimum="0" Maximum="30"
+                                                Value="{Binding BassReactivePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ToolTip="{DynamicResource L_BassGainHint}"
+                                                TickFrequency="1" Margin="0,4,0,0"/>
+                                        <TextBlock Text="{DynamicResource L_BassGainHint}" FontSize="12" TextWrapping="Wrap"
+                                                   Margin="0,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
-                            <CheckBox IsChecked="{Binding AdaptiveVolumeEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                      ToolTip="{DynamicResource L_AdaptiveVolumeHint}" Margin="0,12,0,0">
-                                <TextBlock Text="{DynamicResource L_AdaptiveVolume}" TextWrapping="Wrap"/>
-                            </CheckBox>
-                            <TextBlock Text="{DynamicResource L_AdaptiveVolumeHint}" FontSize="12.5" TextWrapping="Wrap"
-                                       Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                        <CheckBox IsChecked="{Binding StereoPulseEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  ToolTip="{DynamicResource L_StereoPulseHint}" Margin="0,10,0,0">
+                                            <TextBlock Text="{DynamicResource L_StereoPulse}" TextWrapping="Wrap"/>
+                                        </CheckBox>
+                                        <TextBlock Text="{DynamicResource L_StereoPulseHint}" FontSize="12" TextWrapping="Wrap"
+                                                   Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+
+                                        <CheckBox IsChecked="{Binding AdaptiveVolumeEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                  ToolTip="{DynamicResource L_AdaptiveVolumeHint}" Margin="0,10,0,0">
+                                            <TextBlock Text="{DynamicResource L_AdaptiveVolume}" TextWrapping="Wrap"/>
+                                        </CheckBox>
+                                        <TextBlock Text="{DynamicResource L_AdaptiveVolumeHint}" FontSize="12" TextWrapping="Wrap"
+                                                   Margin="30,4,0,4" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,6,0,4"/>
+
+                            <Border x:Name="BehaviorSection">
+                                <StackPanel>
+                                    <Button Style="{StaticResource SettingsSectionHeaderStyle}" Click="BehaviorHeaderClick">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock>
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock" BasedOn="{StaticResource SettingsChevronStyle}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsBehaviorExpanded}" Value="True">
+                                                                <Setter Property="Text" Value="&#xE70D;"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Grid.Column="1" Text="{DynamicResource L_BehaviorSection}"
+                                                       Style="{StaticResource SettingsSectionTitleStyle}"/>
+                                            <Border Grid.Column="2">
+                                                <Border.Style>
+                                                    <Style TargetType="Border" BasedOn="{StaticResource SettingsCountBadgeStyle}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsBehaviorExpanded}" Value="False">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="2" Style="{StaticResource SettingsCountBadgeTextStyle}"/>
+                                            </Border>
+                                            <TextBlock Grid.Column="3" Text="{Binding BehaviorSummary}"
+                                                       Style="{StaticResource SettingsSectionSummaryStyle}"
+                                                       HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </Button>
+
+                                    <StackPanel Margin="14,2,0,2">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsBehaviorExpanded}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+
+                                        <CheckBox IsChecked="{Binding AutoAdvance}" Margin="0,2,0,0">
+                                            <TextBlock Text="{DynamicResource L_AutoAdvance}" TextWrapping="Wrap"/>
+                                        </CheckBox>
+                                        <TextBlock Text="{DynamicResource L_AutoAdvanceHint}" FontSize="12" TextWrapping="Wrap"
+                                                   Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+
+                                        <CheckBox IsChecked="{Binding Loop}" Margin="0,10,0,0">
+                                            <TextBlock Text="{DynamicResource L_Loop}" TextWrapping="Wrap"/>
+                                        </CheckBox>
+                                        <TextBlock Text="{DynamicResource L_LoopHint}" FontSize="12" TextWrapping="Wrap"
+                                                   Margin="30,4,0,4" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Border>
 

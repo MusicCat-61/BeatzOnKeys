@@ -268,14 +268,31 @@ public static class UpdateService
         await DownloadGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            AppPaths.EnsureCreated();
+            // The per-user folder may be unwritable; resolution below reports that properly, so
+            // creating it here must not throw first.
+            try { AppPaths.EnsureCreated(); }
+            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+            {
+                AppLogger.Warning("update", $"Could not create the app-data folders: {exception.Message}");
+            }
+
             var safeTag = string.Concat(result.Tag.Where(character => char.IsLetterOrDigit(character) || character is '.' or '-' or '_'));
             if (string.IsNullOrWhiteSpace(safeTag))
             {
                 throw new InvalidDataException("The release tag cannot be used as an update directory.");
             }
 
-            var updateRoot = Path.Combine(AppPaths.UpdateDirectory, safeTag);
+            var location = AppPaths.ResolveUpdateDirectory() ?? throw new UpdateStorageException(
+                "No folder accepted the update. Check the permissions of the BeatzOnKeys app-data folder, "
+                + "or download the release manually.",
+                AppPaths.UpdateDirectories);
+            if (location.IsFallback)
+            {
+                AppLogger.Warning("update",
+                    $"The per-user update folder is not writable ({location.PrimaryFailure}); staging in '{location.Path}' instead.");
+            }
+
+            var updateRoot = Path.Combine(location.Path, safeTag);
             if (Directory.Exists(updateRoot))
             {
                 Directory.Delete(updateRoot, recursive: true);
@@ -332,12 +349,19 @@ public static class UpdateService
     {
         try
         {
-            AppPaths.EnsureCreated();
-            foreach (var manifestPath in Directory.EnumerateFiles(
-                         AppPaths.UpdateDirectory,
-                         PreparedManifestName,
-                         SearchOption.AllDirectories)
-                     .OrderByDescending(File.GetLastWriteTimeUtc))
+            try { AppPaths.EnsureCreated(); }
+            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+            {
+                AppLogger.Warning("update", $"Could not create the app-data folders: {exception.Message}");
+            }
+
+            // A staged update may live in the temp fallback when the per-user folder was blocked,
+            // so every candidate root is searched.
+            var manifests = AppPaths.UpdateDirectories
+                .Where(Directory.Exists)
+                .SelectMany(root => Directory.EnumerateFiles(root, PreparedManifestName, SearchOption.AllDirectories))
+                .OrderByDescending(File.GetLastWriteTimeUtc);
+            foreach (var manifestPath in manifests)
             {
                 var prepared = JsonSerializer.Deserialize<PreparedUpdate>(File.ReadAllText(manifestPath));
                 if (prepared is null ||
@@ -360,15 +384,9 @@ public static class UpdateService
         return null;
     }
 
-    private static bool PreparedPathsAreSafe(PreparedUpdate prepared)
-    {
-        var root = Path.GetFullPath(AppPaths.UpdateDirectory)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        var payload = Path.GetFullPath(prepared.PayloadDirectory);
-        var archive = Path.GetFullPath(prepared.ArchivePath);
-        return payload.StartsWith(root, StringComparison.OrdinalIgnoreCase) &&
-               archive.StartsWith(root, StringComparison.OrdinalIgnoreCase);
-    }
+    private static bool PreparedPathsAreSafe(PreparedUpdate prepared) =>
+        AppPaths.IsInsideUpdateDirectory(prepared.PayloadDirectory) &&
+        AppPaths.IsInsideUpdateDirectory(prepared.ArchivePath);
 
     private static void RevalidatePreparedUpdate(PreparedUpdate prepared)
     {

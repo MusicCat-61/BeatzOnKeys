@@ -129,8 +129,8 @@
     <sys:String x:Key="Upd_OpenRelease">Открыть страницу релиза</sys:String>
     <sys:String x:Key="Upd_NotWritable">Нет записи в папку программы: {0}. Переместите BeatzOnKeys в доступную для записи папку.</sys:String>
     <sys:String x:Key="Upd_DownloadFailed">Не удалось подготовить обновление. {0}</sys:String>
-    <sys:String x:Key="Upd_NoStorage">Нет папки, доступной для записи. Проверьте права на папку BeatzOnKeys в профиле или скачайте релиз вручную. Пробовали:{0}</sys:String>
-    <sys:String x:Key="Upd_FallbackNote">Основная папка недоступна, обновление сохраняется во временную.</sys:String>
+    <sys:String x:Key="Upd_NoStorage">В папку программы нельзя записать. Переместите BeatzOnKeys в доступную папку или скачайте релиз вручную. Проверяли:{0}</sys:String>
+    
     <sys:String x:Key="Upd_Applying">BeatzOnKeys закрывается для установки проверенного обновления…</sys:String>
     <sys:String x:Key="Upd_RestartFailed">Не удалось запустить установщик обновления. {0}</sys:String>
     <sys:String x:Key="Upd_NothingStaged">Нет проверенного обновления, готового к установке.</sys:String>
@@ -255,8 +255,8 @@
     <sys:String x:Key="Guide_HiddenX">Крестик скрывает окно в трей. Дважды щёлкните значок в области уведомлений или запустите BeatzOnKeys снова.</sys:String>
     <sys:String x:Key="Guide_EndT">Трек остаётся в конце</sys:String>
     <sys:String x:Key="Guide_EndX">Нажмите «Стоп», затем «Старт», включите повтор или автоперелистывание.</sys:String>
-    <sys:String x:Key="Guide_UpdStorageT">Обновление не скачивается</sys:String>
-    <sys:String x:Key="Guide_UpdStorageX">Если основная папка в профиле недоступна для записи, обновление автоматически сохраняется во временную папку, и об этом будет сказано в окне «О программе». Если не подходит ни одна папка, скачайте релиз вручную со страницы релиза.</sys:String>
+    <sys:String x:Key="Guide_UpdStorageT">Обновление не скачивается или не встаёт</sys:String>
+    <sys:String x:Key="Guide_UpdStorageX">Апдейтер скачивает BeatzOnKeys.exe рядом с программой и подменяет её после выхода. Если папка программы недоступна для записи, обновление не начнётся, и окно «О программе» объяснит почему — тогда скачайте релиз вручную.</sys:String>
     <sys:String x:Key="Guide_NotSavedT">Настройки не сохраняются</sys:String>
     <sys:String x:Key="Guide_NotSavedX">Если папка профиля недоступна для записи, приложение сообщает об этом при запуске. Настройки хранятся в профиле пользователя.</sys:String>
 

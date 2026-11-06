@@ -1,121 +1,125 @@
-using System.Reflection;
-using System.Reflection.Emit;
-using BeatzOnKeys.Core.Services;
+using System.Diagnostics;
+using BeatzOnKeys.Core.Updates;
 
 namespace BeatzOnKeys.Tests;
 
 /// <summary>
-/// The update download must survive a per-user folder it cannot write to, which is what happens when
-/// the app runs under a restricted token or the profile folder lost its permissions.
+/// The update is one executable parked beside the running one. These checks guard the parts that
+/// decide whether a download can be trusted and whether the swap is safe to hand over.
 /// </summary>
 internal static class UpdateStorageTests
 {
-    private delegate ref string StaticStringRef();
-
-    public static Task PrimaryDirectoryIsUsedWhenWritable()
+    public static Task ReleaseAssetsPointAtTheExecutable()
     {
-        using var directory = new TemporaryDirectory();
-        using var scope = new RedirectedPaths(directory.Path);
-        var resolved = AppPaths.ResolveUpdateDirectory()
-            ?? throw new TestFailureException("A writable per-user folder must resolve.");
-        AssertEx.False(resolved.IsFallback, "A writable per-user folder must be preferred.");
-        AssertEx.Equal(AppPaths.UpdateDirectory, resolved.Path);
-        AssertEx.Null(resolved.PrimaryFailure);
-        AssertEx.True(Directory.Exists(AppPaths.UpdateDirectory), "Resolving must create the folder it returns.");
-        AssertEx.Equal(0, Directory.GetFiles(AppPaths.UpdateDirectory, ".write-probe-*").Length,
+        // The updater replaces the portable executable itself; the zip stays on the release for
+        // manual installs but must never be what the updater downloads.
+        AssertEx.Equal("BeatzOnKeys.exe", UpdateService.AssetFileName);
+        AssertEx.Equal("BeatzOnKeys.exe.sha256", UpdateService.ChecksumFileName);
+        AssertEx.Equal("BeatzOnKeys.update.exe", UpdateService.StagedFileName);
+        return Task.CompletedTask;
+    }
+
+    public static Task StagedFileSitsBesideTheExecutable()
+    {
+        var expected = Path.Combine(UpdateService.ExecutableDirectory, UpdateService.StagedFileName);
+        AssertEx.Equal(expected, UpdateService.StagedFilePath);
+        AssertEx.Equal(UpdateService.ExecutableDirectory, Path.GetDirectoryName(UpdateService.StagedFilePath),
+            "The staged build must live in the application folder, so the swap is a same-volume rename.");
+        return Task.CompletedTask;
+    }
+
+    public static Task TinyStagedFileIsDiscarded()
+    {
+        var staged = UpdateService.StagedFilePath;
+        try
+        {
+            File.WriteAllBytes(staged, new byte[64]);
+            AssertEx.Null(UpdateService.FindPreparedUpdate(),
+                "A file far below any real build size must not be offered as an update.");
+            AssertEx.False(File.Exists(staged), "The rejected file must be deleted, not offered again.");
+        }
+        finally
+        {
+            TryDelete(staged);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public static Task StagedBuildNotNewerIsDiscarded()
+    {
+        var staged = UpdateService.StagedFilePath;
+        try
+        {
+            // The running test host carries this build's version, so it stands in for "a leftover of
+            // an already installed release". Padding keeps it above the size floor so the version
+            // guard, not the size guard, is what rejects it.
+            WritePaddedCopy(Environment.ProcessPath ?? throw new TestFailureException("No process path."), staged, 2 * 1024 * 1024);
+            var fileVersion = FileVersionInfo.GetVersionInfo(staged).FileVersion;
+            AssertEx.True(!string.IsNullOrWhiteSpace(fileVersion), "The fixture must carry a file version.");
+
+            AssertEx.Null(UpdateService.FindPreparedUpdate(),
+                $"A staged build of {fileVersion} must not be offered to {UpdateService.CurrentVersion.Display}.");
+            AssertEx.False(File.Exists(staged), "Applying it would downgrade the app, so it must be deleted.");
+        }
+        finally
+        {
+            TryDelete(staged);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public static Task ApplyScriptIsAsciiAndTakesPathsFromTheEnvironment()
+    {
+        var script = UpdateService.ApplyScriptText;
+        AssertEx.True(script.All(character => character is '\n' or '\r' || character < 128),
+            "The apply script must stay pure ASCII: cmd.exe reads a .cmd file in the OEM code page.");
+        AssertEx.True(script.Contains("%BOK_STAGED%", StringComparison.Ordinal) &&
+            script.Contains("%BOK_TARGET%", StringComparison.Ordinal) &&
+            script.Contains("%BOK_LOG%", StringComparison.Ordinal) &&
+            script.Contains("%BOK_PID%", StringComparison.Ordinal),
+            "Every path must arrive through an environment variable.");
+        AssertEx.False(script.Contains(":\\", StringComparison.Ordinal),
+            "The script must not embed a literal path; a Cyrillic profile folder would be mangled.");
+        AssertEx.True(script.Contains("move /Y", StringComparison.Ordinal),
+            "The swap must be a rename first.");
+        AssertEx.True(script.Contains("copy /Y /B", StringComparison.Ordinal),
+            "A rename can fail for reasons no retry fixes, so a copy fallback must exist.");
+        AssertEx.True(script.Contains("taskkill", StringComparison.Ordinal),
+            "A process that never exits on its own has to be ended before the retry.");
+        AssertEx.True(script.Contains("RESULT=OK", StringComparison.Ordinal) &&
+            script.Contains("RESULT=FAILED", StringComparison.Ordinal),
+            "The script must report its outcome, so a failed update is not silent.");
+        return Task.CompletedTask;
+    }
+
+    public static Task WriteProbeUsesTheApplicationFolder()
+    {
+        AssertEx.True(UpdateService.CanWriteToInstallFolder(),
+            $"The test host folder must be writable: {UpdateService.ExecutableDirectory}");
+        AssertEx.Equal(0, Directory.GetFiles(UpdateService.ExecutableDirectory, ".beatzonkeys-write-*").Length,
             "The writability probe must not leave files behind.");
         return Task.CompletedTask;
     }
 
-    public static Task BlockedPrimaryFallsBackToTemp()
+    private static void WritePaddedCopy(string source, string destination, int size)
     {
-        using var directory = new TemporaryDirectory();
-        using var scope = new RedirectedPaths(directory.Path);
-        // A file where the folder belongs makes every attempt to create it fail, without ACL surgery.
-        Directory.CreateDirectory(AppPaths.RootDirectory);
-        File.WriteAllText(AppPaths.UpdateDirectory, "not a directory");
-
-        var resolved = AppPaths.ResolveUpdateDirectory()
-            ?? throw new TestFailureException("A blocked per-user folder must fall back, not fail.");
-        AssertEx.True(resolved.IsFallback, "A blocked per-user folder must fall back to the temp folder.");
-        AssertEx.Equal(AppPaths.FallbackUpdateDirectory, resolved.Path);
-        AssertEx.True(resolved.PrimaryFailure?.Contains(AppPaths.UpdateDirectory, StringComparison.OrdinalIgnoreCase) == true,
-            $"The failure must name the blocked folder, got '{resolved.PrimaryFailure}'.");
-        AssertEx.True(Directory.Exists(AppPaths.FallbackUpdateDirectory), "The fallback folder must exist.");
-        return Task.CompletedTask;
+        var bytes = File.ReadAllBytes(source);
+        using var stream = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None);
+        stream.Write(bytes);
+        stream.SetLength(Math.Max(size, bytes.Length));
     }
 
-    public static Task NoWritableFolderReportsAPermissionProblem()
+    private static void TryDelete(string path)
     {
-        using var directory = new TemporaryDirectory();
-        using var scope = new RedirectedPaths(directory.Path);
-        Directory.CreateDirectory(AppPaths.RootDirectory);
-        File.WriteAllText(AppPaths.UpdateDirectory, "not a directory");
-        Directory.CreateDirectory(AppPaths.FallbackUpdateDirectory);
-        File.WriteAllText(Path.Combine(AppPaths.FallbackUpdateDirectory, "blocked"), "not a directory");
-        // Replace the fallback folder itself with a file so nothing is writable.
-        Directory.Delete(AppPaths.FallbackUpdateDirectory, recursive: true);
-        File.WriteAllText(AppPaths.FallbackUpdateDirectory, "not a directory");
-
-        AssertEx.Null(AppPaths.ResolveUpdateDirectory(),
-            "When no folder is writable the resolver must report failure instead of throwing.");
-        return Task.CompletedTask;
-    }
-
-    public static Task StagedPathsAreRecognisedUnderBothRoots()
-    {
-        using var directory = new TemporaryDirectory();
-        using var scope = new RedirectedPaths(directory.Path);
-        var primary = Path.Combine(AppPaths.UpdateDirectory, "v1.2.2", "payload", "BeatzOnKeys.exe");
-        var fallback = Path.Combine(AppPaths.FallbackUpdateDirectory, "v1.2.2", "payload", "BeatzOnKeys.exe");
-        var elsewhere = Path.Combine(directory.Path, "elsewhere", "BeatzOnKeys.exe");
-        AssertEx.True(AppPaths.IsInsideUpdateDirectory(primary), "A staged payload in the per-user folder is valid.");
-        AssertEx.True(AppPaths.IsInsideUpdateDirectory(fallback), "A staged payload in the temp fallback is valid.");
-        AssertEx.False(AppPaths.IsInsideUpdateDirectory(elsewhere), "A payload outside both roots must be rejected.");
-        return Task.CompletedTask;
-    }
-
-    /// <summary>Points every app-data path at a throwaway folder for the duration of a test.</summary>
-    private sealed class RedirectedPaths : IDisposable
-    {
-        private readonly (string Name, string Original)[] _originals;
-        private readonly string _root;
-
-        public RedirectedPaths(string root)
+        try
         {
-            _root = root;
-            _originals =
-            [
-                ("RootDirectory", AppPaths.RootDirectory),
-                ("SettingsFile", AppPaths.SettingsFile),
-                ("LogDirectory", AppPaths.LogDirectory),
-                ("UpdateDirectory", AppPaths.UpdateDirectory),
-                ("FallbackUpdateDirectory", AppPaths.FallbackUpdateDirectory)
-            ];
-            Set("RootDirectory", Path.Combine(root, "root"));
-            Set("SettingsFile", Path.Combine(root, "root", "settings.json"));
-            Set("LogDirectory", Path.Combine(root, "root", "logs"));
-            Set("UpdateDirectory", Path.Combine(root, "root", "updates"));
-            Set("FallbackUpdateDirectory", Path.Combine(root, "temp", "updates"));
+            if (File.Exists(path)) { File.Delete(path); }
         }
-
-        public void Dispose()
+        catch
         {
-            foreach (var (name, original) in _originals) { Set(name, original); }
-        }
-
-        private static void Set(string property, string value)
-        {
-            var field = typeof(AppPaths).GetField($"<{property}>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)
-                ?? throw new MissingFieldException(typeof(AppPaths).FullName, property);
-            _ = typeof(AppPaths).GetProperty(property)!.GetValue(null); // Initialize before taking the reference.
-            var method = new DynamicMethod("TestsPath_" + property, typeof(string).MakeByRefType(), Type.EmptyTypes,
-                typeof(AppPaths).Module, skipVisibility: true);
-            var il = method.GetILGenerator();
-            il.Emit(OpCodes.Ldsflda, field);
-            il.Emit(OpCodes.Ret);
-            var accessor = (StaticStringRef)method.CreateDelegate(typeof(StaticStringRef));
-            accessor() = value;
+            // Cleanup is best effort.
         }
     }
 }

@@ -17,8 +17,8 @@ internal static class UpdateServiceTests
         var assemblyVersion = AssertEx.NotNull(typeof(UpdateService).Assembly.GetName().Version);
         AssertEx.Equal(1, assemblyVersion.Major);
         AssertEx.Equal(2, assemblyVersion.Minor);
-        AssertEx.Equal(2, assemblyVersion.Build);
-        AssertEx.Equal("1.2.2", UpdateService.CurrentVersion.Display);
+        AssertEx.Equal(3, assemblyVersion.Build);
+        AssertEx.Equal("1.2.3", UpdateService.CurrentVersion.Display);
 
         var current = Version("1.1.1");
         var result = UpdateService.ParseRelease(ReleaseJson("v1.1.1"), current);
@@ -196,49 +196,48 @@ internal static class UpdateServiceTests
         return Task.CompletedTask;
     }
 
-    public static Task PayloadRequiresOnlyCurrentRuntimeFiles()
+    public static Task DownloadedExecutableIsValidatedBeforeTheSwap()
     {
         using var directory = new TemporaryDirectory();
-        var executable = System.IO.Path.Combine(directory.Path, "BeatzOnKeys.exe");
-        File.WriteAllText(executable, "x");
+        var current = Version("1.0.0");
+        var target = System.IO.Path.Combine(directory.Path, UpdateService.StagedFileName);
+        var host = Environment.ProcessPath ?? throw new TestFailureException("No process path.");
 
-        // A single-file package ships only the executable, so that alone must be accepted.
-        UpdateService.ValidatePayload(directory.Path);
+        // A real build passes and reports its size.
+        WritePaddedCopy(host, target, 2 * 1024 * 1024);
+        var size = new FileInfo(target).Length;
+        AssertEx.Equal(size, UpdateService.ValidateDownloadedExecutable(target, size, current),
+            "A genuine executable of the advertised size must be accepted.");
 
-        // The executable is always required, whatever the layout.
-        File.Delete(executable);
-        AssertEx.Throws<InvalidDataException>(() => UpdateService.ValidatePayload(directory.Path));
-        File.WriteAllText(executable, "x");
-        File.WriteAllBytes(executable, []);
-        AssertEx.Throws<InvalidDataException>(() => UpdateService.ValidatePayload(directory.Path));
-        File.WriteAllText(executable, "x");
+        // An error page saved under the asset name must not reach the swap. It is padded past the
+        // size floor so the signature check, not the size check, is what rejects it.
+        var errorPage = "<!DOCTYPE html><html><body>404 Not Found</body></html>";
+        File.WriteAllText(target, errorPage + new string(' ', 2 * 1024 * 1024));
+        var notExecutable = AssertEx.Throws<InvalidDataException>(
+            () => UpdateService.ValidateDownloadedExecutable(target, 0, current));
+        AssertEx.True(notExecutable.Message.Contains("not a Windows executable", StringComparison.Ordinal),
+            notExecutable.Message);
 
-        // A folder layout is also accepted, but a half-extracted one must be rejected.
-        var folderFiles = new[]
-        {
-            "BeatzOnKeys.dll",
-            "BeatzOnKeys.Core.dll",
-            "BeatzOnKeys.deps.json",
-            "BeatzOnKeys.runtimeconfig.json"
-        };
-        foreach (var fileName in folderFiles)
-        {
-            File.WriteAllText(System.IO.Path.Combine(directory.Path, fileName), "x");
-        }
+        // A truncated download is caught by the advertised size.
+        WritePaddedCopy(host, target, 2 * 1024 * 1024);
+        var truncated = AssertEx.Throws<InvalidDataException>(
+            () => UpdateService.ValidateDownloadedExecutable(target, size + 1, current));
+        AssertEx.True(truncated.Message.Contains("but the release says", StringComparison.Ordinal), truncated.Message);
 
-        UpdateService.ValidatePayload(directory.Path);
-        foreach (var fileName in folderFiles)
-        {
-            var path = System.IO.Path.Combine(directory.Path, fileName);
-            File.Delete(path);
-            var exception = AssertEx.Throws<InvalidDataException>(() => UpdateService.ValidatePayload(directory.Path));
-            AssertEx.True(exception.Message.Contains(fileName, StringComparison.OrdinalIgnoreCase));
-            File.WriteAllText(path, "x");
-        }
-
-        // A neighbouring unrelated folder must not satisfy the folder layout checks.
-        AssertEx.False(Directory.Exists(System.IO.Path.Combine(directory.Path, "python")));
+        // A build older than the running one would be a silent downgrade.
+        var newer = Version("9.9.9");
+        var downgrade = AssertEx.Throws<InvalidDataException>(
+            () => UpdateService.ValidateDownloadedExecutable(target, size, newer));
+        AssertEx.True(downgrade.Message.Contains("older than", StringComparison.Ordinal), downgrade.Message);
         return Task.CompletedTask;
+    }
+
+    private static void WritePaddedCopy(string source, string destination, int size)
+    {
+        var bytes = File.ReadAllBytes(source);
+        using var stream = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None);
+        stream.Write(bytes);
+        stream.SetLength(Math.Max(size, bytes.Length));
     }
 
     private static HttpClient Client(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) =>

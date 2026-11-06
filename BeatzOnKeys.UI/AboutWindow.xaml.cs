@@ -54,7 +54,7 @@ public partial class AboutWindow : Window
                 return parsed.Display;
             }
 
-            return assembly.GetName().Version?.ToString(3) ?? "1.2.2";
+            return assembly.GetName().Version?.ToString(3) ?? "1.2.3";
         }
     }
 
@@ -121,13 +121,6 @@ public partial class AboutWindow : Window
     {
         _prepared = prepared;
         UpdateStatusText.Text = Loc.F("Upd_Ready", prepared.Version);
-        // Say where it went when the per-user folder was blocked, so the path is not a surprise.
-        if (AppPaths.IsInsideUpdateDirectory(prepared.PayloadDirectory) &&
-            prepared.PayloadDirectory.StartsWith(AppPaths.FallbackUpdateDirectory, StringComparison.OrdinalIgnoreCase))
-        {
-            UpdateStatusText.Text += " " + Loc.T("Upd_FallbackNote");
-        }
-
         UpdateProgress.Value = 100;
         UpdateProgress.Visibility = Visibility.Visible;
         SetButtons(check: false, download: false, install: true, release: false);
@@ -198,7 +191,7 @@ public partial class AboutWindow : Window
         }
         catch (UpdateStorageException exception)
         {
-            // The folders were probed before downloading, so this is a permission problem the user
+            // The folder was probed before downloading, so this is a permission problem the user
             // can act on: say so, and keep the manual download path available.
             _busy = false;
             UpdateProgress.Visibility = Visibility.Collapsed;

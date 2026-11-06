@@ -29,10 +29,22 @@ jobs:
           (Get-FileHash BeatzOnKeys-win-x64.zip -Algorithm SHA256).Hash + '  BeatzOnKeys-win-x64.zip' | Set-Content BeatzOnKeys-win-x64.zip.sha256
           Copy-Item Build_Output\BeatzOnKeys.exe .\BeatzOnKeys.exe
           (Get-FileHash BeatzOnKeys.exe -Algorithm SHA256).Hash + '  BeatzOnKeys.exe' | Set-Content BeatzOnKeys.exe.sha256
+      - name: Select release notes for this tag
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $specific = "release-notes/$tag.md"
+          if (Test-Path $specific) {
+            Write-Host "Using $specific"
+            Copy-Item $specific RELEASE_BODY.md
+          } else {
+            Write-Host "No $specific found; falling back to the full archive."
+            Copy-Item RELEASE_NOTES.md RELEASE_BODY.md
+          }
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          body_path: RELEASE_NOTES.md
+          body_path: RELEASE_BODY.md
           files: |
             BeatzOnKeys.exe
             BeatzOnKeys.exe.sha256

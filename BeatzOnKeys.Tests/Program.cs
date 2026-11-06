@@ -60,17 +60,19 @@ internal static class Program
         ("UpdateService.HttpStatusesAndMalformedJson", UpdateServiceTests.HttpStatusesAndMalformedJson),
         ("UpdateService.RepositoryAssetUrlsRejectSpoofing", UpdateServiceTests.RepositoryAssetUrlsRejectSpoofing),
         ("UpdateService.TagLocationValidation", UpdateServiceTests.TagLocationValidation),
-        ("UpdateService.PayloadRequiresOnlyCurrentRuntimeFiles", UpdateServiceTests.PayloadRequiresOnlyCurrentRuntimeFiles),
+        ("UpdateService.DownloadedExecutableIsValidatedBeforeTheSwap", UpdateServiceTests.DownloadedExecutableIsValidatedBeforeTheSwap),
         ("Settings.DefaultsAndNormalization", SettingsTests.DefaultsAndNormalization),
         ("Settings.RoundTripAllFieldsAndDelete", SettingsTests.RoundTripAllFieldsAndDelete),
         ("Settings.LegacyVolumeMigratesAndNewFieldsTakePrecedence", SettingsTests.LegacyVolumeMigratesAndNewFieldsTakePrecedence),
         ("Settings.MissingAndCorruptJsonUseDefaults", SettingsTests.MissingAndCorruptJsonUseDefaults),
         ("Settings.ConcurrentSavesRemainAtomic", SettingsTests.ConcurrentSavesRemainAtomic),
         ("Settings.ReactiveFieldsMigrateFromSchemaThree", SettingsTests.ReactiveFieldsMigrateFromSchemaThree),
-        ("UpdateStorage.PrimaryDirectoryIsUsedWhenWritable", UpdateStorageTests.PrimaryDirectoryIsUsedWhenWritable),
-        ("UpdateStorage.BlockedPrimaryFallsBackToTemp", UpdateStorageTests.BlockedPrimaryFallsBackToTemp),
-        ("UpdateStorage.NoWritableFolderReportsAPermissionProblem", UpdateStorageTests.NoWritableFolderReportsAPermissionProblem),
-        ("UpdateStorage.StagedPathsAreRecognisedUnderBothRoots", UpdateStorageTests.StagedPathsAreRecognisedUnderBothRoots)
+        ("UpdateStorage.ReleaseAssetsPointAtTheExecutable", UpdateStorageTests.ReleaseAssetsPointAtTheExecutable),
+        ("UpdateStorage.StagedFileSitsBesideTheExecutable", UpdateStorageTests.StagedFileSitsBesideTheExecutable),
+        ("UpdateStorage.TinyStagedFileIsDiscarded", UpdateStorageTests.TinyStagedFileIsDiscarded),
+        ("UpdateStorage.StagedBuildNotNewerIsDiscarded", UpdateStorageTests.StagedBuildNotNewerIsDiscarded),
+        ("UpdateStorage.ApplyScriptIsAsciiAndTakesPathsFromTheEnvironment", UpdateStorageTests.ApplyScriptIsAsciiAndTakesPathsFromTheEnvironment),
+        ("UpdateStorage.WriteProbeUsesTheApplicationFolder", UpdateStorageTests.WriteProbeUsesTheApplicationFolder)
     ];
 
     private static async Task<int> Main()

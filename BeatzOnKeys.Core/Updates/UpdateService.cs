@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
@@ -43,24 +42,35 @@ public sealed record UpdateCheckResult
     public bool HasUpdate => Status == UpdateStatus.UpdateAvailable;
 }
 
-public sealed record PreparedUpdate(
-    string Tag,
-    string Version,
-    string PayloadDirectory,
-    string ArchivePath,
-    string Sha256);
+/// <summary>
+/// A downloaded build parked beside the running executable. Only one file is involved: the
+/// portable app is a single self-contained executable, so the update is that same file.
+/// </summary>
+public sealed record PreparedUpdate(string Version, string StagedFile, long Size);
 
 public sealed record UpdateApplyReport(bool Succeeded, string Detail);
 
-/// <summary>Checks, verifies, stages, and applies portable GitHub release updates.</summary>
+/// <summary>
+/// Checks, downloads, and applies portable GitHub release updates by replacing the application
+/// executable. Windows locks a running executable against being overwritten, so the swap is handed
+/// to a detached script that waits for this process to exit.
+/// </summary>
 public static class UpdateService
 {
     public const string Repository = "MusicCat-61/BeatzOnKeys";
-    public const string AssetFileName = "BeatzOnKeys-win-x64.zip";
-    public const string ChecksumFileName = "BeatzOnKeys-win-x64.zip.sha256";
+
+    /// <summary>The portable executable; the updater replaces exactly this one file.</summary>
+    public const string AssetFileName = "BeatzOnKeys.exe";
+
+    public const string ChecksumFileName = "BeatzOnKeys.exe.sha256";
+
+    /// <summary>Name the download is parked under, in the application folder.</summary>
+    public const string StagedFileName = "BeatzOnKeys.update.exe";
+
+    /// <summary>A real build is tens of megabytes; anything smaller is an error page or a stub.</summary>
+    private const long MinimumAssetBytes = 1024 * 1024;
 
     private const string LatestReleaseUrl = "https://api.github.com/repos/" + Repository + "/releases/latest";
-    private const string PreparedManifestName = "prepared.json";
     private static readonly SemaphoreSlim CheckGate = new(1, 1);
     private static readonly SemaphoreSlim DownloadGate = new(1, 1);
     private static readonly object ClientGate = new();
@@ -81,12 +91,18 @@ public static class UpdateService
     public static string ExecutablePath =>
         Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "BeatzOnKeys.exe");
 
+    /// <summary>Folder the application was started from — where the update is written.</summary>
     public static string ExecutableDirectory =>
         Path.GetDirectoryName(ExecutablePath) ?? AppContext.BaseDirectory;
 
+    /// <summary>Full path the download is parked under until the app restarts.</summary>
+    public static string StagedFilePath => Path.Combine(ExecutableDirectory, StagedFileName);
+
+    /// <summary>Where the apply script records what it did; read on the next start.</summary>
     public static string ApplyLogPath => Path.Combine(AppPaths.LogDirectory, "update-apply.log");
 
-    private static string ApplyScriptPath => Path.Combine(AppPaths.RootDirectory, "apply-update.ps1");
+    /// <summary>Script that performs the swap after this process is gone.</summary>
+    private static string ApplyScriptPath => Path.Combine(AppPaths.RootDirectory, "apply-update.cmd");
 
     private static HttpClient ReleaseClient
     {
@@ -130,15 +146,7 @@ public static class UpdateService
             LastResult = result;
             LastCheckUtc = DateTimeOffset.UtcNow;
             AppLogger.Info("update", Describe(result));
-            try
-            {
-                Checked?.Invoke(null, result);
-            }
-            catch (Exception exception)
-            {
-                AppLogger.Error("update", "An update-check subscriber failed.", exception);
-            }
-
+            Checked?.Invoke(null, result);
             return result;
         }
         finally
@@ -157,16 +165,21 @@ public static class UpdateService
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseUrl);
             request.Headers.Accept.ParseAdd("application/vnd.github+json");
-            using var response = await client.SendAsync(request,
-                HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            using var response = await client.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken).ConfigureAwait(false);
+
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return new UpdateCheckResult { Status = UpdateStatus.NoReleases, Current = CurrentVersion };
             }
+
             if (!response.IsSuccessStatusCode)
             {
                 return Failed($"GitHub answered HTTP {(int)response.StatusCode}.");
             }
+
             var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             return ParseRelease(json, CurrentVersion);
         }
@@ -176,19 +189,25 @@ public static class UpdateService
         }
         catch (Exception exception)
         {
+            AppLogger.Error("update", "Update check failed.", exception);
             return Failed(exception.Message);
         }
     }
 
-    internal static UpdateCheckResult ParseRelease(string json, ReleaseVersion current)
+    public static UpdateCheckResult ParseRelease(string json, ReleaseVersion current)
     {
         using var document = JsonDocument.Parse(json);
         var release = document.RootElement;
-        if ((release.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True) ||
-            (release.TryGetProperty("prerelease", out var prerelease) && prerelease.ValueKind == JsonValueKind.True))
+        if (release.TryGetProperty("draft", out var draft) && draft.ValueKind == JsonValueKind.True)
         {
             return new UpdateCheckResult { Status = UpdateStatus.NoReleases, Current = current };
         }
+
+        if (release.TryGetProperty("prerelease", out var prerelease) && prerelease.ValueKind == JsonValueKind.True)
+        {
+            return new UpdateCheckResult { Status = UpdateStatus.NoReleases, Current = current };
+        }
+
         var tag = release.TryGetProperty("tag_name", out var tagValue) ? tagValue.GetString() : null;
         if (!ReleaseVersion.TryParse(tag, out var latest))
         {
@@ -197,6 +216,7 @@ public static class UpdateService
                 Status = UpdateStatus.Failed, Current = current, Error = "GitHub returned an invalid release version."
             };
         }
+
         var releaseUrl = $"https://github.com/{Repository}/releases/tag/{Uri.EscapeDataString(tag!)}";
         if (latest <= current)
         {
@@ -226,13 +246,14 @@ public static class UpdateService
                 else if (name == ChecksumFileName) { checksumUrl = url; }
             }
         }
+
+        var downloadable = downloadUrl is not null && checksumUrl is not null;
         return new UpdateCheckResult
         {
-            Status = downloadUrl is not null && checksumUrl is not null ? UpdateStatus.UpdateAvailable : UpdateStatus.NoDownload,
+            Status = downloadable ? UpdateStatus.UpdateAvailable : UpdateStatus.NoDownload,
             Current = current, Latest = latest, Tag = tag, ReleaseUrl = releaseUrl,
             DownloadUrl = downloadUrl, ChecksumUrl = checksumUrl, AssetSize = assetSize,
-            Error = downloadUrl is not null && checksumUrl is not null ? null :
-                $"Release {tag} must contain {AssetFileName} and {ChecksumFileName}."
+            Error = downloadable ? null : $"Release {tag} must contain {AssetFileName} and {ChecksumFileName}."
         };
     }
 
@@ -251,13 +272,17 @@ public static class UpdateService
         return !tag.Contains('/') && ReleaseVersion.TryParse(tag, out _) ? tag : null;
     }
 
+    /// <summary>
+    /// Downloads the new executable beside the running one and validates it: checksum, size, a real
+    /// PE header, and a version newer than this build. Anything that fails is deleted, so a broken
+    /// download can never be applied later.
+    /// </summary>
     public static async Task<PreparedUpdate> DownloadAndPrepareAsync(
         UpdateCheckResult result,
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
     {
         if (!result.HasUpdate ||
-            string.IsNullOrWhiteSpace(result.Tag) ||
             string.IsNullOrWhiteSpace(result.DownloadUrl) ||
             string.IsNullOrWhiteSpace(result.ChecksumUrl) ||
             result.Latest is null)
@@ -268,76 +293,49 @@ public static class UpdateService
         await DownloadGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            // The per-user folder may be unwritable; resolution below reports that properly, so
-            // creating it here must not throw first.
-            try { AppPaths.EnsureCreated(); }
-            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+            // The update replaces the executable, so the application folder itself must accept a
+            // write. Checking first turns a failed swap into an immediate, explainable message.
+            if (!CanWriteToInstallFolder())
             {
-                AppLogger.Warning("update", $"Could not create the app-data folders: {exception.Message}");
+                throw new UpdateStorageException(
+                    $"The application folder is not writable: {ExecutableDirectory}. "
+                    + "Move BeatzOnKeys to a folder you own, or download the release manually.",
+                    [ExecutableDirectory]);
             }
-
-            var safeTag = string.Concat(result.Tag.Where(character => char.IsLetterOrDigit(character) || character is '.' or '-' or '_'));
-            if (string.IsNullOrWhiteSpace(safeTag))
-            {
-                throw new InvalidDataException("The release tag cannot be used as an update directory.");
-            }
-
-            var location = AppPaths.ResolveUpdateDirectory() ?? throw new UpdateStorageException(
-                "No folder accepted the update. Check the permissions of the BeatzOnKeys app-data folder, "
-                + "or download the release manually.",
-                AppPaths.UpdateDirectories);
-            if (location.IsFallback)
-            {
-                AppLogger.Warning("update",
-                    $"The per-user update folder is not writable ({location.PrimaryFailure}); staging in '{location.Path}' instead.");
-            }
-
-            var updateRoot = Path.Combine(location.Path, safeTag);
-            if (Directory.Exists(updateRoot))
-            {
-                Directory.Delete(updateRoot, recursive: true);
-            }
-
-            Directory.CreateDirectory(updateRoot);
-            var archivePath = Path.Combine(updateRoot, AssetFileName);
-            var payloadDirectory = Path.Combine(updateRoot, "payload");
-            Directory.CreateDirectory(payloadDirectory);
 
             var expectedHash = await DownloadChecksumAsync(result.ChecksumUrl, cancellationToken)
                 .ConfigureAwait(false);
-            await DownloadFileAsync(
-                result.DownloadUrl,
-                archivePath,
-                result.AssetSize,
-                progress,
-                cancellationToken).ConfigureAwait(false);
 
-            var actualHash = await ComputeSha256Async(archivePath, cancellationToken).ConfigureAwait(false);
-            if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+            var staged = StagedFilePath;
+            var partial = staged + ".part";
+            TryDelete(partial);
+            try
             {
-                throw new InvalidDataException(
-                    $"Update checksum mismatch. Expected {expectedHash}, got {actualHash}.");
+                await DownloadFileAsync(result.DownloadUrl, partial, result.AssetSize, progress, cancellationToken)
+                    .ConfigureAwait(false);
+
+                var actualHash = await ComputeSha256Async(partial, cancellationToken).ConfigureAwait(false);
+                if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"Update checksum mismatch. Expected {expectedHash}, got {actualHash}.");
+                }
+
+                progress?.Report(0.95);
+                var size = ValidateDownloadedExecutable(partial, result.AssetSize, CurrentVersion);
+                File.Move(partial, staged, overwrite: true);
+                progress?.Report(1);
+
+                var prepared = new PreparedUpdate(result.Latest.Display, staged, size);
+                AppLogger.Info("update",
+                    $"Update {prepared.Version} verified ({size} bytes) and staged at '{staged}'.");
+                return prepared;
             }
-
-            progress?.Report(0.86);
-            ExtractArchiveSafely(archivePath, payloadDirectory);
-            ValidatePayload(payloadDirectory);
-
-            var prepared = new PreparedUpdate(
-                result.Tag,
-                result.Latest.Display,
-                payloadDirectory,
-                archivePath,
-                actualHash);
-            var manifestPath = Path.Combine(updateRoot, PreparedManifestName);
-            await File.WriteAllTextAsync(
-                manifestPath,
-                JsonSerializer.Serialize(prepared, new JsonSerializerOptions { WriteIndented = true }),
-                Encoding.UTF8,
-                cancellationToken).ConfigureAwait(false);
-            progress?.Report(1);
-            AppLogger.Info("update", $"Update {prepared.Version} verified and staged at '{payloadDirectory}'.");
-            return prepared;
+            catch
+            {
+                TryDelete(partial);
+                throw;
+            }
         }
         finally
         {
@@ -345,78 +343,85 @@ public static class UpdateService
         }
     }
 
+    /// <summary>
+    /// Rejects a truncated file, a proxy error page saved as ".exe", and a build that is not newer
+    /// than the running one — each of those would either fail the swap or silently downgrade.
+    /// </summary>
+    internal static long ValidateDownloadedExecutable(string path, long expectedSize, ReleaseVersion current)
+    {
+        var info = new FileInfo(path);
+        if (!info.Exists || info.Length < MinimumAssetBytes)
+        {
+            throw new InvalidDataException($"The downloaded update is too small to be a build ({info.Length} bytes).");
+        }
+
+        if (expectedSize > 0 && info.Length != expectedSize)
+        {
+            throw new InvalidDataException(
+                $"The downloaded update is {info.Length} bytes, but the release says {expectedSize}.");
+        }
+
+        // A portable executable starts with "MZ". An HTML or JSON error page does not.
+        Span<byte> header = stackalloc byte[2];
+        using (var stream = File.OpenRead(path))
+        {
+            if (stream.Read(header) != 2 || header[0] != (byte)'M' || header[1] != (byte)'Z')
+            {
+                throw new InvalidDataException("The downloaded file is not a Windows executable.");
+            }
+        }
+
+        var text = FileVersionInfo.GetVersionInfo(path).FileVersion;
+        if (ReleaseVersion.TryParse(text, out var version) && version < current)
+        {
+            throw new InvalidDataException(
+                $"The downloaded build is {version.Display}, which is older than {current.Display}.");
+        }
+
+        return info.Length;
+    }
+
+    /// <summary>
+    /// The staged build, when one is on disk and newer than the running one. A leftover of an
+    /// already installed release is deleted: it would be offered for ever otherwise, and applying
+    /// it would quietly downgrade the app.
+    /// </summary>
     public static PreparedUpdate? FindPreparedUpdate()
     {
         try
         {
-            try { AppPaths.EnsureCreated(); }
-            catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
+            var staged = StagedFilePath;
+            if (!File.Exists(staged))
             {
-                AppLogger.Warning("update", $"Could not create the app-data folders: {exception.Message}");
+                return null;
             }
 
-            // A staged update may live in the temp fallback when the per-user folder was blocked,
-            // so every candidate root is searched.
-            var manifests = AppPaths.UpdateDirectories
-                .Where(Directory.Exists)
-                .SelectMany(root => Directory.EnumerateFiles(root, PreparedManifestName, SearchOption.AllDirectories))
-                .OrderByDescending(File.GetLastWriteTimeUtc);
-            foreach (var manifestPath in manifests)
+            var size = new FileInfo(staged).Length;
+            if (size < MinimumAssetBytes || IsNotNewer(staged))
             {
-                var prepared = JsonSerializer.Deserialize<PreparedUpdate>(File.ReadAllText(manifestPath));
-                if (prepared is null ||
-                    !PreparedPathsAreSafe(prepared) ||
-                    !ReleaseVersion.TryParse(prepared.Version, out var version) ||
-                    version <= CurrentVersion)
-                {
-                    continue;
-                }
-
-                ValidatePayload(prepared.PayloadDirectory);
-                return prepared;
+                AppLogger.Info("update", $"Discarding a stale staged build at '{staged}'.");
+                TryDelete(staged);
+                return null;
             }
+
+            var text = FileVersionInfo.GetVersionInfo(staged).FileVersion;
+            var version = ReleaseVersion.TryParse(text, out var parsed) ? parsed.Display : "unknown";
+            return new PreparedUpdate(version, staged, size);
         }
         catch (Exception exception)
         {
-            AppLogger.Error("update", "Could not inspect staged updates.", exception);
+            AppLogger.Error("update", "Could not inspect the staged update.", exception);
+            return null;
         }
-
-        return null;
     }
 
-    private static bool PreparedPathsAreSafe(PreparedUpdate prepared) =>
-        AppPaths.IsInsideUpdateDirectory(prepared.PayloadDirectory) &&
-        AppPaths.IsInsideUpdateDirectory(prepared.ArchivePath);
-
-    private static void RevalidatePreparedUpdate(PreparedUpdate prepared)
+    /// <summary>True when the staged build is not newer than the running one.</summary>
+    private static bool IsNotNewer(string staged)
     {
-        if (!PreparedPathsAreSafe(prepared))
-        {
-            throw new InvalidDataException("The staged update points outside the BeatzOnKeys update directory.");
-        }
-
-        if (!File.Exists(prepared.ArchivePath))
-        {
-            throw new FileNotFoundException("The verified update archive is missing.", prepared.ArchivePath);
-        }
-
-        using (var stream = File.OpenRead(prepared.ArchivePath))
-        {
-            var actualHash = Convert.ToHexString(SHA256.HashData(stream));
-            if (!actualHash.Equals(prepared.Sha256, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidDataException("The staged update archive changed after verification.");
-            }
-        }
-
-        if (Directory.Exists(prepared.PayloadDirectory))
-        {
-            Directory.Delete(prepared.PayloadDirectory, recursive: true);
-        }
-
-        Directory.CreateDirectory(prepared.PayloadDirectory);
-        ExtractArchiveSafely(prepared.ArchivePath, prepared.PayloadDirectory);
-        ValidatePayload(prepared.PayloadDirectory);
+        // A file without a readable version is kept: refusing a real update would be worse
+        // than offering it twice.
+        var text = FileVersionInfo.GetVersionInfo(staged).FileVersion;
+        return ReleaseVersion.TryParse(text, out var stagedVersion) && stagedVersion <= CurrentVersion;
     }
 
     public static bool CanWriteToInstallFolder()
@@ -434,42 +439,59 @@ public static class UpdateService
         }
     }
 
+    /// <summary>
+    /// Hands the staged file to a detached script that replaces the executable and starts it again.
+    /// Windows keeps a running executable locked, so the swap has to happen after this process is
+    /// gone.
+    /// </summary>
     public static bool TryLaunchApplyScript(PreparedUpdate prepared, out string error)
     {
         error = string.Empty;
         try
         {
-            RevalidatePreparedUpdate(prepared);
+            if (!File.Exists(prepared.StagedFile))
+            {
+                error = "The downloaded file is gone.";
+                return false;
+            }
+
+            if (new FileInfo(prepared.StagedFile).Length != prepared.Size)
+            {
+                error = "The downloaded file changed after verification.";
+                return false;
+            }
+
             if (!CanWriteToInstallFolder())
             {
                 error = $"The application folder is not writable: {ExecutableDirectory}";
                 return false;
             }
 
-            AppPaths.EnsureCreated();
-            File.WriteAllText(ApplyScriptPath, ApplyScript, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            Directory.CreateDirectory(AppPaths.RootDirectory);
+            Directory.CreateDirectory(AppPaths.LogDirectory);
+
+            // The script text stays pure ASCII and takes every path from the environment. cmd.exe
+            // reads a .cmd file in the OEM code page, so a path like "C:\Users\Маksim\..." would be
+            // mangled if it were written into the file itself.
+            File.WriteAllLines(ApplyScriptPath, ApplyScriptLines, Encoding.ASCII);
+
+            // A report left behind by an earlier attempt would be mistaken for this one's.
+            TryDelete(ApplyLogPath);
+
             var startInfo = new ProcessStartInfo
             {
-                FileName = "powershell.exe",
+                FileName = "cmd.exe",
+                Arguments = $"/c \"\"{ApplyScriptPath}\"\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden
             };
-            startInfo.ArgumentList.Add("-NoProfile");
-            startInfo.ArgumentList.Add("-ExecutionPolicy");
-            startInfo.ArgumentList.Add("Bypass");
-            startInfo.ArgumentList.Add("-File");
-            startInfo.ArgumentList.Add(ApplyScriptPath);
-            startInfo.ArgumentList.Add("-ApplicationProcessId");
-            startInfo.ArgumentList.Add(Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            startInfo.ArgumentList.Add("-Payload");
-            startInfo.ArgumentList.Add(prepared.PayloadDirectory);
-            startInfo.ArgumentList.Add("-Target");
-            startInfo.ArgumentList.Add(ExecutableDirectory);
-            startInfo.ArgumentList.Add("-Executable");
-            startInfo.ArgumentList.Add(ExecutablePath);
-            startInfo.ArgumentList.Add("-Log");
-            startInfo.ArgumentList.Add(ApplyLogPath);
+            startInfo.Environment["BOK_STAGED"] = prepared.StagedFile;
+            startInfo.Environment["BOK_TARGET"] = ExecutablePath;
+            startInfo.Environment["BOK_LOG"] = ApplyLogPath;
+            startInfo.Environment["BOK_PID"] = Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            startInfo.Environment["BOK_EXPECT"] = prepared.Size.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
             Process.Start(startInfo);
             AppLogger.Info("update", $"Detached updater launched for {prepared.Version}.");
             return true;
@@ -482,28 +504,21 @@ public static class UpdateService
         }
     }
 
+    /// <summary>
+    /// Outcome of the last apply attempt, or null when the script never got as far as writing one.
+    /// Reading it also cleans up the script and its log, so a failed update is reported once and
+    /// then forgotten.
+    /// </summary>
     public static UpdateApplyReport? ConsumeLastApplyReport()
     {
         try
         {
-            if (!File.Exists(ApplyLogPath))
+            var report = ReadApplyReport();
+            if (report is not null)
             {
-                return null;
+                AppLogger.Info("update", $"Previous apply result: {report.Detail}");
             }
 
-            var resultLine = File.ReadLines(ApplyLogPath)
-                .LastOrDefault(line => line.Contains("RESULT=", StringComparison.Ordinal));
-            if (resultLine is null)
-            {
-                return null;
-            }
-
-            var result = resultLine[(resultLine.IndexOf("RESULT=", StringComparison.Ordinal) + 7)..].Trim();
-            var report = result.StartsWith("OK", StringComparison.OrdinalIgnoreCase)
-                ? new UpdateApplyReport(true, result)
-                : new UpdateApplyReport(false, result);
-            AppLogger.Info("update", $"Previous apply result: {result}");
-            File.Delete(ApplyLogPath);
             return report;
         }
         catch (Exception exception)
@@ -511,30 +526,34 @@ public static class UpdateService
             AppLogger.Error("update", "Could not read the previous update report.", exception);
             return null;
         }
+        finally
+        {
+            TryDelete(ApplyLogPath);
+            TryDelete(ApplyScriptPath);
+        }
     }
 
-    private static async Task<(bool Exists, long Size)> ProbeAssetAsync(
-        string url,
-        CancellationToken cancellationToken)
+    private static UpdateApplyReport? ReadApplyReport()
     {
-        try
+        if (!File.Exists(ApplyLogPath))
         {
-            using var request = new HttpRequestMessage(HttpMethod.Head, url);
-            using var response = await DownloadClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken).ConfigureAwait(false);
-            return (response.IsSuccessStatusCode, response.Content.Headers.ContentLength ?? 0);
+            return null;
         }
-        catch
+
+        var resultLine = File.ReadLines(ApplyLogPath)
+            .LastOrDefault(line => line.Contains("RESULT=", StringComparison.Ordinal));
+        if (resultLine is null)
         {
-            return (true, 0);
+            return null;
         }
+
+        var result = resultLine[(resultLine.IndexOf("RESULT=", StringComparison.Ordinal) + 7)..].Trim();
+        return result.StartsWith("OK", StringComparison.OrdinalIgnoreCase)
+            ? new UpdateApplyReport(true, result)
+            : new UpdateApplyReport(false, result);
     }
 
-    private static async Task<string> DownloadChecksumAsync(
-        string url,
-        CancellationToken cancellationToken)
+    private static async Task<string> DownloadChecksumAsync(string url, CancellationToken cancellationToken)
     {
         using var response = await DownloadClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
@@ -578,14 +597,14 @@ public static class UpdateService
             totalRead += read;
             if (totalLength > 0)
             {
-                progress?.Report(Math.Clamp(totalRead / (double)totalLength * 0.82, 0, 0.82));
+                progress?.Report(Math.Clamp(totalRead / (double)totalLength * 0.9, 0, 0.9));
             }
         }
 
         await target.FlushAsync(cancellationToken).ConfigureAwait(false);
         if (totalLength > 0 && totalRead != totalLength)
         {
-            throw new IOException("The update archive download was incomplete.");
+            throw new IOException("The update download was incomplete.");
         }
     }
 
@@ -596,61 +615,15 @@ public static class UpdateService
         return Convert.ToHexString(hash);
     }
 
-    private static void ExtractArchiveSafely(string archivePath, string payloadDirectory)
+    private static void TryDelete(string path)
     {
-        var root = Path.GetFullPath(payloadDirectory)
-            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        using var archive = ZipFile.OpenRead(archivePath);
-        foreach (var entry in archive.Entries)
+        try
         {
-            var destination = Path.GetFullPath(Path.Combine(payloadDirectory, entry.FullName));
-            if (!destination.StartsWith(root, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidDataException($"Unsafe path in update archive: {entry.FullName}");
-            }
-
-            if (string.IsNullOrEmpty(entry.Name))
-            {
-                Directory.CreateDirectory(destination);
-                continue;
-            }
-
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            entry.ExtractToFile(destination, overwrite: true);
+            if (File.Exists(path)) { File.Delete(path); }
         }
-    }
-
-    internal static void ValidatePayload(string payloadDirectory)
-    {
-        // A single-file build ships just the executable; a folder build ships the runtime set.
-        var executable = Path.Combine(payloadDirectory, "BeatzOnKeys.exe");
-        if (!File.Exists(executable) || new FileInfo(executable).Length == 0)
+        catch
         {
-            throw new InvalidDataException($"The update package is incomplete: {executable}");
-        }
-
-        var folderLayout = new[]
-        {
-            Path.Combine(payloadDirectory, "BeatzOnKeys.dll"),
-            Path.Combine(payloadDirectory, "BeatzOnKeys.Core.dll")
-        };
-        if (folderLayout.All(path => !File.Exists(path)))
-        {
-            // Single-file: the executable alone is the whole payload.
-            return;
-        }
-
-        var companionFiles = new[]
-        {
-            folderLayout[0],
-            folderLayout[1],
-            Path.Combine(payloadDirectory, "BeatzOnKeys.deps.json"),
-            Path.Combine(payloadDirectory, "BeatzOnKeys.runtimeconfig.json")
-        };
-        var missing = companionFiles.FirstOrDefault(path => !File.Exists(path) || new FileInfo(path).Length == 0);
-        if (missing is not null)
-        {
-            throw new InvalidDataException($"The update package is incomplete: {missing}");
+            // A leftover file is harmless.
         }
     }
 
@@ -665,7 +638,7 @@ public static class UpdateService
     {
         UpdateStatus.UpToDate => $"Up to date ({CurrentVersion.Display}).",
         UpdateStatus.UpdateAvailable => $"Update {result.Latest?.Display} is available.",
-        UpdateStatus.NoDownload => result.Error ?? "The latest release has no portable archive.",
+        UpdateStatus.NoDownload => result.Error ?? "The latest release has no portable executable.",
         UpdateStatus.NoReleases => "No public releases have been published yet.",
         UpdateStatus.Failed => $"Update check failed: {result.Error}",
         _ => "Update state is unknown."
@@ -710,49 +683,97 @@ public static class UpdateService
         return client;
     }
 
-    private const string ApplyScript = """
-param(
-    [Parameter(Mandatory = $true)][int] $ApplicationProcessId,
-    [Parameter(Mandatory = $true)][string] $Payload,
-    [Parameter(Mandatory = $true)][string] $Target,
-    [Parameter(Mandatory = $true)][string] $Executable,
-    [Parameter(Mandatory = $true)][string] $Log
-)
-$ErrorActionPreference = 'Stop'
-function Write-UpdateLog([string] $Message) {
-    $directory = Split-Path -Parent $Log
-    New-Item -ItemType Directory -Path $directory -Force | Out-Null
-    Add-Content -LiteralPath $Log -Value "[$([DateTime]::Now.ToString('yyyy-MM-dd HH:mm:ss.fff'))] $Message" -Encoding UTF8
-}
-try {
-    Write-UpdateLog "Waiting for process $ApplicationProcessId."
-    $exited = $false
-    for ($attempt = 0; $attempt -lt 120; $attempt++) {
-        if (-not (Get-Process -Id $ApplicationProcessId -ErrorAction SilentlyContinue)) {
-            $exited = $true
-            break
-        }
-        Start-Sleep -Milliseconds 500
-    }
-    if (-not $exited) { throw "The application did not exit within 60 seconds." }
-    Write-UpdateLog "Copying verified payload from $Payload to $Target."
-    & robocopy.exe $Payload $Target /E /R:3 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-    $copyCode = $LASTEXITCODE
-    if ($copyCode -ge 8) { throw "Robocopy failed with code $copyCode." }
-    if (-not (Test-Path -LiteralPath $Executable)) { throw "Updated executable is missing: $Executable" }
-    Write-UpdateLog "RESULT=OK"
-    Start-Process -FilePath $Executable -WorkingDirectory $Target
-    $updateRoot = Split-Path -Parent $Payload
-    Remove-Item -LiteralPath $updateRoot -Recurse -Force -ErrorAction SilentlyContinue
-}
-catch {
-    Write-UpdateLog "RESULT=FAILED $($_.Exception.Message)"
-    if (Test-Path -LiteralPath $Executable) {
-        Start-Process -FilePath $Executable -WorkingDirectory $Target
-    }
-}
-finally {
-    Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue
-}
-""";
+    /// <summary>
+    /// The apply script as it is written to disk. Exposed so a test can guard the two properties
+    /// that matter: it is pure ASCII, and it carries no literal path.
+    /// </summary>
+    internal static string ApplyScriptText => string.Join('\n', ApplyScriptLines);
+
+    /// <summary>
+    /// The replacement script. It decides nothing on its own: it waits for the app to exit, swaps
+    /// the file, checks the result, starts the app again and records every step in the apply log,
+    /// errors included. Pure ASCII, because cmd.exe reads a .cmd file in the OEM code page.
+    /// </summary>
+    private static readonly string[] ApplyScriptLines =
+    {
+        "@echo off",
+        "setlocal",
+        "set \"STAGED=%BOK_STAGED%\"",
+        "set \"TARGET=%BOK_TARGET%\"",
+        "set \"LOG=%BOK_LOG%\"",
+        "set \"APPPID=%BOK_PID%\"",
+        "set \"EXPECT=%BOK_EXPECT%\"",
+        "call :note \"apply start: pid=%APPPID% expected bytes=%EXPECT%\"",
+        "call :note \"staged: %STAGED%\"",
+        "call :note \"target: %TARGET%\"",
+        "",
+        "rem Windows keeps a running executable locked, so retry the move itself: that is the",
+        "rem condition we actually care about, and it cannot be fooled by a process id that",
+        "rem shows up in unrelated tasklist output.",
+        "set /a tries=0",
+        ":swap",
+        "move /Y \"%STAGED%\" \"%TARGET%\" >nul 2>nul",
+        "if not errorlevel 1 goto swapped",
+        "set /a tries+=1",
+        "if %tries% geq 30 goto stuck",
+        "call :sleep",
+        "goto swap",
+        "",
+        ":stuck",
+        "rem Still locked after half a minute, so the process holding the file did not go",
+        "rem away by itself. The lock it is still holding proves that the id is ours.",
+        "call :note \"still locked after 30s, ending pid %APPPID%\"",
+        "taskkill /PID %APPPID% /T /F >nul 2>nul",
+        "call :sleep",
+        "set /a tries=0",
+        ":swapagain",
+        "move /Y \"%STAGED%\" \"%TARGET%\" >nul 2>nul",
+        "if not errorlevel 1 goto swapped",
+        "set /a tries+=1",
+        "if %tries% geq 15 goto copyfile",
+        "call :sleep",
+        "goto swapagain",
+        "",
+        ":copyfile",
+        "rem A rename can also fail for reasons no retry can fix (another volume, a filter",
+        "rem driver holding the file). Copying fails differently, so give it one chance.",
+        "call :note \"rename failed, trying a copy\"",
+        "copy /Y /B \"%STAGED%\" \"%TARGET%\" >>\"%LOG%\" 2>&1",
+        "if errorlevel 1 goto failed",
+        "del /F /Q \"%STAGED%\" >nul 2>nul",
+        "",
+        ":swapped",
+        "call :verify",
+        "if errorlevel 1 goto failed",
+        "call :note \"RESULT=OK\"",
+        "call :note \"the new build is in place, starting it\"",
+        "start \"\" \"%TARGET%\"",
+        "goto done",
+        "",
+        ":failed",
+        "call :note \"RESULT=FAILED the downloaded file could not replace the running one\"",
+        "call :note \"kept for another try: %STAGED%\"",
+        "start \"\" \"%TARGET%\"",
+        "goto done",
+        "",
+        ":done",
+        "rem Nothing left to do here: the app deletes this script when it starts again.",
+        "exit /b 0",
+        "",
+        ":verify",
+        "if not exist \"%TARGET%\" exit /b 1",
+        "for %%A in (\"%TARGET%\") do if %%~zA LSS 1024 exit /b 1",
+        "if \"%EXPECT%\"==\"\" exit /b 0",
+        "for %%A in (\"%TARGET%\") do if not \"%%~zA\"==\"%EXPECT%\" exit /b 1",
+        "exit /b 0",
+        "",
+        ":note",
+        ">>\"%LOG%\" echo [%DATE% %TIME%] %~1",
+        "exit /b 0",
+        "",
+        ":sleep",
+        "rem A wait that works without a console window.",
+        "ping -n 2 127.0.0.1 >nul 2>nul",
+        "exit /b 0"
+    };
 }

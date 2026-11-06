@@ -129,8 +129,8 @@ Details: {1}</sys:String>
     <sys:String x:Key="Upd_OpenRelease">Open release page</sys:String>
     <sys:String x:Key="Upd_NotWritable">The application folder is not writable: {0}. Move BeatzOnKeys to a writable folder.</sys:String>
     <sys:String x:Key="Upd_DownloadFailed">The update could not be prepared. {0}</sys:String>
-    <sys:String x:Key="Upd_NoStorage">No folder accepts the download. Check the permissions of the BeatzOnKeys folder in your profile, or download the release manually. Tried:{0}</sys:String>
-    <sys:String x:Key="Upd_FallbackNote">The main folder is unavailable, so the update goes to the temporary folder.</sys:String>
+    <sys:String x:Key="Upd_NoStorage">The application folder is not writable. Move BeatzOnKeys to a folder you own, or download the release manually. Tried:{0}</sys:String>
+    
     <sys:String x:Key="Upd_Applying">Closing BeatzOnKeys to install the verified update…</sys:String>
     <sys:String x:Key="Upd_RestartFailed">The update installer could not start. {0}</sys:String>
     <sys:String x:Key="Upd_NothingStaged">No verified update is ready to install.</sys:String>
@@ -255,8 +255,8 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_HiddenX">The close button hides the window to the tray. Double-click the tray icon, or launch BeatzOnKeys again.</sys:String>
     <sys:String x:Key="Guide_EndT">The track stays at its end</sys:String>
     <sys:String x:Key="Guide_EndX">Press Stop, then Start, or enable loop or auto-advance.</sys:String>
-    <sys:String x:Key="Guide_UpdStorageT">The update will not download</sys:String>
-    <sys:String x:Key="Guide_UpdStorageX">When the main folder in your profile is not writable, the update is saved to the temporary folder automatically and the About window says so. If no folder accepts it, download the release from the release page manually.</sys:String>
+    <sys:String x:Key="Guide_UpdStorageT">The update will not download or will not install</sys:String>
+    <sys:String x:Key="Guide_UpdStorageX">The updater downloads BeatzOnKeys.exe beside the application and replaces it after the app exits. If the application folder is not writable the update will not start, and the About window explains why — download the release manually in that case.</sys:String>
     <sys:String x:Key="Guide_NotSavedT">Settings are not saved</sys:String>
     <sys:String x:Key="Guide_NotSavedX">When the profile folder is not writable the app says so at startup. Settings live in the user profile.</sys:String>
 

@@ -373,7 +373,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_EndT">The track stays at its end</sys:String>
     <sys:String x:Key="Guide_EndX">Press Stop, then Start, or enable loop or auto-advance.</sys:String>
     <sys:String x:Key="Guide_UpdStorageT">The update will not download or will not install</sys:String>
-    <sys:String x:Key="Guide_UpdStorageX">The updater downloads BeatzOnKeys.exe beside the application and replaces it after the app exits. If the application folder is not writable the update will not start, and the About window explains why — download the release manually in that case.</sys:String>
+    <sys:String x:Key="Guide_UpdStorageX">The update downloads into the application folder and swaps the file on the next start. If the transfer breaks — you closed the window, the connection dropped — the bytes already on disk are kept, and the next attempt continues from there instead of starting over. Half-downloaded files from other versions are removed automatically.</sys:String>
     <sys:String x:Key="Guide_NotSavedT">Settings are not saved</sys:String>
     <sys:String x:Key="Guide_NotSavedX">When the profile folder is not writable the app says so at startup. Settings live in the user profile.</sys:String>
 

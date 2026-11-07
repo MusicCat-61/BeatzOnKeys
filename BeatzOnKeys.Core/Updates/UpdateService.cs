@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -312,8 +313,12 @@ public static class UpdateService
                 .ConfigureAwait(false);
 
             var staged = StagedFilePath;
-            var partial = staged + ".part";
-            TryDelete(partial);
+            // The partial carries the version, so a leftover from an older attempt can never be
+            // appended to a different build.
+            var partial = staged + "." + result.Latest.Display + ".part";
+            // Leftovers from other versions can never be resumed into this one, so they are swept
+            // here instead of growing into a pile of half-downloaded builds.
+            DeleteStalePartials(staged, partial);
             try
             {
                 await DownloadFileAsync(result.DownloadUrl, partial, result.AssetSize, progress, cancellationToken)
@@ -322,6 +327,9 @@ public static class UpdateService
                 var actualHash = await ComputeSha256Async(partial, cancellationToken).ConfigureAwait(false);
                 if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
                 {
+                    // Wrong bytes are the one thing worth discarding: keeping them would only
+                    // fail the same check on the next attempt.
+                    TryDelete(partial);
                     throw new InvalidDataException(
                         $"Update checksum mismatch. Expected {expectedHash}, got {actualHash}.");
                 }
@@ -336,9 +344,12 @@ public static class UpdateService
                     $"Update {prepared.Version} verified ({size} bytes) and staged at '{staged}'.");
                 return prepared;
             }
-            catch
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
-                TryDelete(partial);
+                // A cancelled transfer keeps its bytes, so the next attempt continues from where
+                // this one stopped instead of pulling the whole asset again.
+                AppLogger.Info("update",
+                    $"The update download was interrupted; keeping '{partial}' to resume later.");
                 throw;
             }
         }
@@ -572,29 +583,68 @@ public static class UpdateService
         return hash;
     }
 
-    private static async Task DownloadFileAsync(
+    /// <summary>
+    /// Downloads the asset, continuing a file left by an interrupted attempt. The partial file is
+    /// kept on cancellation and on any transport failure, because the alternative is asking the
+    /// user to pull another 72 MB over a connection that just proved it cannot finish the job.
+    /// </summary>
+    /// <summary>Test only: a handler-backed client, so a resumed transfer can be exercised offline.</summary>
+    internal static HttpClient? DownloadClientOverride
+    {
+        get => _downloadClient;
+        set => _downloadClient = value;
+    }
+
+    internal static async Task DownloadFileAsync(
         string url,
         string targetPath,
         long expectedLength,
         IProgress<double>? progress,
         CancellationToken cancellationToken)
     {
-        using var response = await DownloadClient.GetAsync(
-            url,
-            HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken).ConfigureAwait(false);
+        var alreadyHave = ExistingBytes(targetPath);
+        // A complete file needs no network at all; it only has to survive the checks below.
+        if (expectedLength > 0 && alreadyHave == expectedLength)
+        {
+            progress?.Report(0.9);
+            return;
+        }
+
+        // A partial longer than the asset is junk from another build, not something to extend.
+        if (expectedLength > 0 && alreadyHave > expectedLength)
+        {
+            TryDelete(targetPath);
+            alreadyHave = 0;
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        if (alreadyHave > 0)
+        {
+            request.Headers.Range = new RangeHeaderValue(alreadyHave, null);
+        }
+
+        using var response = await DownloadClient
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        var totalLength = response.Content.Headers.ContentLength ?? expectedLength;
+
+        // A server that ignores Range answers 200 with the whole body, so the file restarts.
+        var resumed = alreadyHave > 0 && response.StatusCode == HttpStatusCode.PartialContent;
+        if (!resumed) { alreadyHave = 0; }
+        var totalLength = resumed
+            ? alreadyHave + (response.Content.Headers.ContentLength ?? 0)
+            : response.Content.Headers.ContentLength ?? expectedLength;
+
         await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         await using var target = new FileStream(
             targetPath,
-            FileMode.Create,
+            resumed ? FileMode.Append : FileMode.Create,
             FileAccess.Write,
             FileShare.None,
             128 * 1024,
             useAsync: true);
         var buffer = new byte[128 * 1024];
-        long totalRead = 0;
+        long totalRead = alreadyHave;
         int read;
         while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
         {
@@ -609,7 +659,40 @@ public static class UpdateService
         await target.FlushAsync(cancellationToken).ConfigureAwait(false);
         if (totalLength > 0 && totalRead != totalLength)
         {
-            throw new IOException("The update download was incomplete.");
+            throw new IOException($"The update download stopped at {totalRead} of {totalLength} bytes.");
+        }
+    }
+
+    /// <summary>Removes partial downloads that belong to a different version than the one wanted.</summary>
+    private static void DeleteStalePartials(string stagedPath, string keep)
+    {
+        try
+        {
+            var folder = Path.GetDirectoryName(stagedPath);
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder)) { return; }
+            var pattern = Path.GetFileName(stagedPath) + ".*.part";
+            foreach (var file in Directory.EnumerateFiles(folder, pattern, SearchOption.TopDirectoryOnly))
+            {
+                if (!string.Equals(file, keep, StringComparison.OrdinalIgnoreCase)) { TryDelete(file); }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Warning("update", $"Could not clear stale update parts: {exception.Message}");
+        }
+    }
+
+    /// <summary>Size of a file that may not exist; a missing partial simply means "start over".</summary>
+    internal static long ExistingBytes(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists ? info.Length : 0L;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return 0L;
         }
     }
 

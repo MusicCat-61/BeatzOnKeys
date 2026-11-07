@@ -18,8 +18,8 @@ internal static class UpdateServiceTests
         AssertEx.Equal(1, assemblyVersion.Major);
         AssertEx.Equal(3, assemblyVersion.Minor);
         AssertEx.Equal(1, assemblyVersion.Build);
-        AssertEx.Equal(2, assemblyVersion.Revision);
-        AssertEx.Equal("1.3.1.2", UpdateService.CurrentVersion.Display);
+        AssertEx.Equal(3, assemblyVersion.Revision);
+        AssertEx.Equal("1.3.1.3", UpdateService.CurrentVersion.Display);
 
         var current = Version("1.1.1");
         var result = UpdateService.ParseRelease(ReleaseJson("v1.1.1"), current);
@@ -328,5 +328,186 @@ internal static class UpdateServiceTests
             !blocks[2].Text.Contains("https://", StringComparison.Ordinal),
             $"A link keeps its label only: '{blocks[2].Text}'");
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// An interrupted update must continue from the bytes already on disk. Without this the user
+    /// pays for the whole asset again every time the download is cut off.
+    /// </summary>
+    public static async Task UpdateDownloadResumesFromThePartialFile()
+    {
+        using var folder = new TemporaryDirectory();
+        var target = Path.Combine(folder.Path, "BeatzOnKeys.exe");
+        var payload = Enumerable.Range(0, 500).Select(value => (byte)value).ToArray();
+        await File.WriteAllBytesAsync(target, payload[..200]);
+
+        var handler = new RangeRecordingHandler(payload);
+        var previous = UpdateService.DownloadClientOverride;
+        UpdateService.DownloadClientOverride = new HttpClient(handler);
+        try
+        {
+            await UpdateService.DownloadFileAsync(
+                "https://example.com/BeatzOnKeys.exe", target, payload.Length, null, CancellationToken.None);
+        }
+        finally
+        {
+            UpdateService.DownloadClientOverride = previous;
+        }
+
+        AssertEx.True(handler.RangeHeader is not null, "The second attempt asked for the rest of the file.");
+        AssertEx.Equal("bytes=200-", handler.RangeHeader!);
+        AssertEx.Equal(500L, new FileInfo(target).Length);
+        AssertEx.True(File.ReadAllBytes(target).SequenceEqual(payload), "The resumed file is byte-identical.");
+    }
+
+    /// <summary>A file that is already complete must not touch the network at all.</summary>
+    public static async Task UpdateDownloadSkipsACompleteFile()
+    {
+        using var folder = new TemporaryDirectory();
+        var target = Path.Combine(folder.Path, "BeatzOnKeys.exe");
+        var payload = Enumerable.Range(0, 300).Select(value => (byte)value).ToArray();
+        await File.WriteAllBytesAsync(target, payload);
+
+        var handler = new RangeRecordingHandler(payload);
+        var previous = UpdateService.DownloadClientOverride;
+        UpdateService.DownloadClientOverride = new HttpClient(handler);
+        try
+        {
+            await UpdateService.DownloadFileAsync(
+                "https://example.com/BeatzOnKeys.exe", target, payload.Length, null, CancellationToken.None);
+        }
+        finally
+        {
+            UpdateService.DownloadClientOverride = previous;
+        }
+
+        AssertEx.Equal(0, handler.Requests);
+        AssertEx.True(File.ReadAllBytes(target).SequenceEqual(payload), "The complete file stayed untouched.");
+    }
+
+    /// <summary>A partial bigger than the asset is junk from another build and must be replaced.</summary>
+    public static async Task UpdateDownloadDiscardsAnOversizedPartial()
+    {
+        using var folder = new TemporaryDirectory();
+        var target = Path.Combine(folder.Path, "BeatzOnKeys.exe");
+        var payload = Enumerable.Range(0, 400).Select(value => (byte)value).ToArray();
+        await File.WriteAllBytesAsync(target, new byte[900]);
+
+        var handler = new RangeRecordingHandler(payload);
+        var previous = UpdateService.DownloadClientOverride;
+        UpdateService.DownloadClientOverride = new HttpClient(handler);
+        try
+        {
+            await UpdateService.DownloadFileAsync(
+                "https://example.com/BeatzOnKeys.exe", target, payload.Length, null, CancellationToken.None);
+        }
+        finally
+        {
+            UpdateService.DownloadClientOverride = previous;
+        }
+
+        AssertEx.True(handler.RangeHeader is null, "An oversized leftover is not extended.");
+        AssertEx.True(File.ReadAllBytes(target).SequenceEqual(payload), "The file was replaced from scratch.");
+    }
+
+    /// <summary>Answers a range request with the tail of the payload and records what was asked.</summary>
+    /// <summary>
+    /// The scenario the user hits: closing the window or losing the connection mid-transfer. The
+    /// bytes already written must survive, or the next attempt starts from zero.
+    /// </summary>
+    public static async Task UpdateDownloadKeepsItsBytesWhenCancelled()
+    {
+        using var folder = new TemporaryDirectory();
+        var target = Path.Combine(folder.Path, "BeatzOnKeys.exe");
+        await File.WriteAllBytesAsync(target, new byte[120]);
+
+        var previous = UpdateService.DownloadClientOverride;
+        UpdateService.DownloadClientOverride = new HttpClient(new FailingStreamHandler());
+        try
+        {
+            await UpdateService.DownloadFileAsync(
+                "https://example.com/BeatzOnKeys.exe", target, 400, null, CancellationToken.None);
+        }
+        catch (IOException)
+        {
+            // The transfer broke mid-stream, which is exactly what the test is about.
+        }
+        finally
+        {
+            UpdateService.DownloadClientOverride = previous;
+        }
+
+        AssertEx.True(File.Exists(target), "The partial file was not deleted on failure.");
+        // GitHub answers a range request, so the failed attempt appended its 100 bytes to the 120
+        // that were already there instead of throwing them away.
+        AssertEx.Equal(220L, new FileInfo(target).Length);
+    }
+
+    /// <summary>Sends a broken body so the read loop fails partway through.</summary>
+    private sealed class FailingStreamHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            // Honours Range the way a release asset host does, then drops the connection partway.
+            var from = request.Headers.Range?.Ranges.FirstOrDefault()?.From ?? 0;
+            var response = new HttpResponseMessage(
+                from > 0 ? HttpStatusCode.PartialContent : HttpStatusCode.OK)
+            {
+                Content = new StreamContent(new BrokenStream())
+            };
+            response.Content.Headers.ContentLength = 400 - from;
+            return Task.FromResult(response);
+        }
+    }
+
+    /// <summary>Yields a little and then throws, like a connection that drops.</summary>
+    private sealed class BrokenStream : Stream
+    {
+        private int _served;
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => _served; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_served >= 100) { throw new IOException("The connection dropped."); }
+            var chunk = Math.Min(buffer.Length, 100 - _served);
+            buffer.Span[..chunk].Fill(7);
+            _served += chunk;
+            return ValueTask.FromResult(chunk);
+        }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class RangeRecordingHandler(byte[] payload) : HttpMessageHandler
+    {
+        public string? RangeHeader { get; private set; }
+        public int Requests { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Requests++;
+            var range = request.Headers.Range;
+            // ToString() on the header gives the wire form, "bytes=200-".
+            RangeHeader = request.Headers.Range?.ToString();
+            if (range is not null && range.Ranges.First().From is { } from)
+            {
+                var rest = payload[(int)from..];
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.PartialContent)
+                {
+                    Content = new ByteArrayContent(rest)
+                });
+            }
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(payload)
+            });
+        }
     }
 }

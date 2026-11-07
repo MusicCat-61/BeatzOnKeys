@@ -854,8 +854,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             _friendlyNames.TryGetValue(playing.Id, out var friendly) ? friendly : playing.Name;
         NowPlayingText = playing is null ? string.Empty :
             Loc.F("L_NowPlayingFormat", playingName, FormatPosition(position), FormatPosition(duration));
-        PlayingTrackText = playing is null
-            ? Loc.T("L_NothingPlaying")
+        PlayingTrackText = playing is null ? Loc.T("L_NothingPlaying") : playingName;
+        PlayingSourceText = playing is null
+            ? Loc.T("L_NowPlayingCard")
             : Loc.F("L_NowPlayingCard", _youTubeTracks.Contains(playing.Id)
                 ? Loc.T("L_SourceYouTube")
                 : Loc.T("L_SourceLocal"));

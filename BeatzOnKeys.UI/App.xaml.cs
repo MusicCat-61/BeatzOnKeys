@@ -418,6 +418,15 @@ public partial class App : System.Windows.Application
                 return;
             }
 
+            if (_aboutWindow is { IsVisible: true })
+            {
+                // The About window already shows the update state and the download button, so a
+                // dialog on top of it only repeats itself and blocks what the user opened it for.
+                // It counts as announced too, otherwise it would pop up right after they close it.
+                _notifiedUpdateVersion = result.Latest.Display;
+                return;
+            }
+
             _notifiedUpdateVersion = result.Latest.Display;
             // A tray balloon is easy to miss, and it cannot carry the release notes. The window
             // itself shows the notice, and the About window is where the download happens.

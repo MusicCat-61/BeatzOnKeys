@@ -547,6 +547,16 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                     CheckVisualTree(window, label);
                     CheckMainLayout(window, label);
                 }
+                // The player card must name the track, not only the source: it once showed
+                // "Сейчас играет · локально" with the file name missing entirely.
+                var cardTexts = Descendants<TextBlock>(window).Where(text => text.IsVisible)
+                    .Select(text => text.Text ?? string.Empty).ToArray();
+                Check($"player.cardNamesTrack.{Theme.CurrentCode}.{language}",
+                    !string.IsNullOrWhiteSpace(vm.PlayingTrackText) &&
+                    vm.PlayingTrackText != vm.PlayingSourceText &&
+                    cardTexts.Contains(vm.PlayingSourceText) &&
+                    cardTexts.Contains(vm.PlayingTrackText),
+                    $"Source='{vm.PlayingSourceText}', track='{vm.PlayingTrackText}'.");
                 var filename = light ? $"preview-light-{language}.png" : $"preview-{language}.png";
                 SaveScreenshot(window, filename);
                 // Audio really is playing, so the progress moves on its own; the check is that it

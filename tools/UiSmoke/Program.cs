@@ -1175,8 +1175,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("youtube.dropIndicatorCleared", vm.YouTube.Downloaded.All(track => !track.IsDropTarget),
             "Clearing the target removes the indicator.");
 
-        var expected = Loc.F("L_YtCacheUsedFormat", ByteSizeFormatter.Format(vm.YouTube.CacheBytes, "КБ", "МБ", "ГБ"));
-        Check("youtube.cacheSize", vm.YouTube.CacheBytes > 0 && vm.YouTube.CacheSizeText == expected &&
+        var expected = Loc.F("L_YtCacheUsedFormat", ByteSizeFormatter.Format(vm.YouTube.KeptCacheBytes, "КБ", "МБ", "ГБ"));
+        Check("youtube.cacheSize", vm.YouTube.KeptCacheBytes > 0 && vm.YouTube.CacheSizeText == expected &&
             !vm.YouTube.CacheSizeText.Contains("L_YtCacheUsedFormat", StringComparison.Ordinal),
             $"Cache: bytes={vm.YouTube.CacheBytes}, text='{vm.YouTube.CacheSizeText}', expected '{expected}'.");
 

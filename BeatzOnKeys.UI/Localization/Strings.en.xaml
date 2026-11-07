@@ -58,9 +58,11 @@
     <sys:String x:Key="L_StereoPulseHint">Shifts the balance for 50 ms per key press, alternating sides.</sys:String>
     <sys:String x:Key="L_AdaptiveVolume">Adaptive threshold (fit the quiet level to the track)</sys:String>
     <sys:String x:Key="L_AdaptiveVolumeHint">Quiet track — 10%, loud — 30%, average — your value.</sys:String>
-    <sys:String x:Key="L_NowPlayingCard">Now playing</sys:String>
+    <sys:String x:Key="L_NowPlayingCard">Now playing · {0}</sys:String>
     <sys:String x:Key="L_NothingPlaying">Nothing playing</sys:String>
     <sys:String x:Key="L_TabSettings">Settings</sys:String>
+    <sys:String x:Key="L_SourceLocal">local</sys:String>
+    <sys:String x:Key="L_SourceYouTube">YouTube</sys:String>
     <sys:String x:Key="L_SelectedTrack">Selected track</sys:String>
     <sys:String x:Key="L_NoTrackSelected">Select an available track</sys:String>
     <sys:String x:Key="L_PlaybackProgress">Playback position</sys:String>
@@ -155,7 +157,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_TabYouTube">YouTube</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Track name or a YouTube link</sys:String>
     <sys:String x:Key="L_YtSearch">Search</sys:String>
-    <sys:String x:Key="L_YtDownloadLink">Download</sys:String>
+    <sys:String x:Key="L_YtDownloadLink">Add</sys:String>
     <sys:String x:Key="L_YtTabSearch">Search</sys:String>
     <sys:String x:Key="L_YtTabDownloaded">Downloaded tracks</sys:String>
     <sys:String x:Key="L_YtPreview">Listen</sys:String>
@@ -198,7 +200,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtCacheCleared">The cache is empty</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Open the music folder</sys:String>
     <sys:String x:Key="L_YtCacheEnabled">Cache tracks</sys:String>
-    <sys:String x:Key="L_YtCacheMovedFormat">Cache moved, {0} files</sys:String>
+    <sys:String x:Key="L_YtCacheMovedFormat">The cache moved to {0}. Files: {1}.</sys:String>
     <sys:String x:Key="L_YtQueryProgressFormat">Downloading: {0}%</sys:String>
     <sys:String x:Key="L_YtCacheFolderPick">Choose the cache folder</sys:String>
     <sys:String x:Key="L_YtChangeFolder">Change folder…</sys:String>
@@ -243,9 +245,9 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_YouTubeSearchT">Search and download</sys:String>
     <sys:String x:Key="Guide_YouTubeSearchX">The YouTube tab in the title bar. Type a name and press Search to get up to ten results; the Download button on a row saves that track. Paste a video link and Search or Download will fetch it directly, without searching.</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadT">Links and limits</sys:String>
-    <sys:String x:Key="Guide_YouTubeDownloadX">One link is handled at a time. Playlists and channel links are refused with an explanation, and live streams cannot be saved. At most two downloads run at once, and each is limited to ten minutes before the process is stopped.</sys:String>
+    <sys:String x:Key="Guide_YouTubeDownloadX">The Add button on a result row becomes active only once the track is cached, and then moves it into the downloaded list. Before that there is nothing to press: the file does not exist yet.</sys:String>
     <sys:String x:Key="Guide_YouTubeCacheT">Cache and folder</sys:String>
-    <sys:String x:Key="Guide_YouTubeCacheX">The cache switch decides whether played files stay on disk. Next to it you see how much the kept tracks and the search cache take, both clear buttons, the cache folder picker that moves the files, and the folder button.</sys:String>
+    <sys:String x:Key="Guide_YouTubeCacheX">The cache switch decides whether played files stay on disk. Kept tracks counts only added tracks, search cache only the previews. Next to it are both clear buttons, the folder picker (a Cache folder is created inside the one you choose) and the folder button.</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpT">yt-dlp</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpX">Downloads go through yt-dlp.exe. It is not fetched at startup: 22.5 MB arrive on the first action, with a progress bar. Download/Update yt-dlp repeats the download when it fails.</sys:String>
     <sys:String x:Key="Guide_YouTubeLimitsT">Failures and fallbacks</sys:String>

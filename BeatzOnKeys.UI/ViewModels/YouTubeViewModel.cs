@@ -60,7 +60,9 @@ public sealed partial class YouTubeViewModel : ObservableObject
         _cacheEnabled = cacheEnabled;
         _cookiesFolderPath = cookiesFolderPath ?? string.Empty;
         _proxyUrl = proxyUrl ?? string.Empty;
-        _cachePath = string.IsNullOrWhiteSpace(cachePath) ? AppPaths.MusicDirectory : cachePath;
+        // An unset preference means "whatever the service is already using", not a hardcoded
+        // folder: otherwise the constructor would override a directory the caller just configured.
+        _cachePath = string.IsNullOrWhiteSpace(cachePath) ? _service.Options.MusicDirectory : cachePath;
         ApplyCacheDirectory(_cachePath);
         // Empty means "nothing to report", so the line does not repeat the hint under the field.
         _statusText = string.Empty;
@@ -188,6 +190,9 @@ public sealed partial class YouTubeViewModel : ObservableObject
     }
 
     public long CacheBytes => _cacheBytes;
+
+    /// <summary>Space the kept tracks take; the previews are reported separately.</summary>
+    public long KeptCacheBytes => Math.Max(0, _cacheBytes - _searchCacheBytes);
 
     public bool IsSearching
     {
@@ -427,6 +432,9 @@ public sealed partial class YouTubeViewModel : ObservableObject
 
     public async Task RefreshCacheSizeAsync()
     {
+        // The preview share is measured first: the kept-tracks line is the difference, so a
+        // stale preview number would make both lines wrong.
+        await MeasureSearchCacheAsync().ConfigureAwait(true);
         try
         {
             _cacheBytes = await _service.GetCacheSizeAsync(_lifetime.Token).ConfigureAwait(true);
@@ -438,8 +446,15 @@ public sealed partial class YouTubeViewModel : ObservableObject
             return;
         }
 
+        // "Занято треками" is the space the kept tracks take, not the whole folder: the previews
+        // have their own line right below, and counting them twice made both lines show the
+        // same number.
+        var keptBytes = KeptCacheBytes;
         CacheSizeText = Loc.F("L_YtCacheUsedFormat",
-            ByteSizeFormatter.Format(_cacheBytes, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")));
+            ByteSizeFormatter.Format(keptBytes, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")));
+        // Rows saved before the duration was stored have none; the file itself knows it, so the
+        // dash on the downloaded row goes away instead of staying forever.
+        foreach (var track in Downloaded) { track.ReadDurationFromFile(); }
     }
 
     private long _searchCacheBytes;
@@ -464,7 +479,16 @@ public sealed partial class YouTubeViewModel : ObservableObject
             .ToList();
     }
 
+    /// <summary>Measures the previews and publishes the result; used when only that line changed.</summary>
     private async Task RefreshSearchCacheSizeAsync()
+    {
+        if (!await MeasureSearchCacheAsync().ConfigureAwait(true)) { return; }
+        OnPropertyChanged(nameof(SearchCacheSizeText));
+        ClearSearchCacheCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Recomputes the preview size without touching the kept-tracks line.</summary>
+    private async Task<bool> MeasureSearchCacheAsync()
     {
         try
         {
@@ -474,15 +498,14 @@ public sealed partial class YouTubeViewModel : ObservableObject
                 try { return new FileInfo(path).Length; } catch (IOException) { return 0L; }
             }), _lifetime.Token).ConfigureAwait(true);
         }
-        catch (OperationCanceledException) { return; }
+        catch (OperationCanceledException) { return false; }
         catch (Exception exception)
         {
             AppLogger.Warning("youtube", $"Could not measure the preview cache: {exception.Message}");
-            return;
+            return false;
         }
 
-        OnPropertyChanged(nameof(SearchCacheSizeText));
-        ClearSearchCacheCommand.NotifyCanExecuteChanged();
+        return true;
     }
 
     /// <summary>Removes only the preview files; kept tracks and their rows stay untouched.</summary>

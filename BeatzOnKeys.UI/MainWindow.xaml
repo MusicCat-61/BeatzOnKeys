@@ -459,7 +459,7 @@
                                                Foreground="{DynamicResource AccentBrush}"/>
                                 </Border>
                                 <StackPanel Grid.Column="1" Margin="3,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource L_NowPlayingCard}" FontSize="13.5"
+                                    <TextBlock Text="{Binding PlayingSourceText}" FontSize="13.5"
                                                Foreground="{DynamicResource TextTertiaryBrush}"/>
                                     <TextBlock Text="{Binding PlayingTrackText}" FontSize="15.5" FontWeight="SemiBold"
                                                Foreground="{DynamicResource TextPrimaryBrush}"
@@ -1058,9 +1058,12 @@
                                         <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="12.5"
                                                    VerticalAlignment="Center" Margin="0,0,10,0"
                                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                        <!-- Adding waits for the preview: the row must not start a
+                                             second download behind the user's back. -->
                                         <Button Grid.Column="3" Content="{DynamicResource L_YtDownloadLink}"
                                                 VerticalAlignment="Center" MinWidth="104"
                                                 Style="{StaticResource SubtleButtonStyle}"
+                                                IsEnabled="{Binding CanDownload}"
                                                 CommandParameter="{Binding}"
                                                 Command="{Binding DataContext.YouTube.DownloadCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
                                     </Grid>

@@ -58,9 +58,11 @@
     <sys:String x:Key="L_StereoPulseHint">На 50 мс сдвигает баланс при каждом нажатии, чередуя стороны.</sys:String>
     <sys:String x:Key="L_AdaptiveVolume">Адаптивный порог (подстраивать минимальную громкость под трек)</sys:String>
     <sys:String x:Key="L_AdaptiveVolumeHint">Тихий трек — 10%, громкий — 30%, средний — ваше значение.</sys:String>
-    <sys:String x:Key="L_NowPlayingCard">Сейчас играет</sys:String>
+    <sys:String x:Key="L_NowPlayingCard">Сейчас играет · {0}</sys:String>
     <sys:String x:Key="L_NothingPlaying">Ничего не играет</sys:String>
     <sys:String x:Key="L_TabSettings">Настройки</sys:String>
+    <sys:String x:Key="L_SourceLocal">локально</sys:String>
+    <sys:String x:Key="L_SourceYouTube">YouTube</sys:String>
     <sys:String x:Key="L_SelectedTrack">Выбранный трек</sys:String>
     <sys:String x:Key="L_NoTrackSelected">Выберите доступный трек</sys:String>
     <sys:String x:Key="L_PlaybackProgress">Позиция воспроизведения</sys:String>
@@ -155,7 +157,7 @@
     <sys:String x:Key="L_TabYouTube">YouTube</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Название трека или ссылка YouTube</sys:String>
     <sys:String x:Key="L_YtSearch">Найти</sys:String>
-    <sys:String x:Key="L_YtDownloadLink">Скачать</sys:String>
+    <sys:String x:Key="L_YtDownloadLink">Добавить</sys:String>
     <sys:String x:Key="L_YtTabSearch">Поиск</sys:String>
     <sys:String x:Key="L_YtTabDownloaded">Скачанные треки</sys:String>
     <sys:String x:Key="L_YtPreview">Слушать</sys:String>
@@ -198,7 +200,7 @@
     <sys:String x:Key="L_YtCacheCleared">Кеш очищен</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Открыть папку с музыкой</sys:String>
     <sys:String x:Key="L_YtCacheEnabled">Кешировать треки</sys:String>
-    <sys:String x:Key="L_YtCacheMovedFormat">Кеш перенесён, файлов: {0}</sys:String>
+    <sys:String x:Key="L_YtCacheMovedFormat">Кеш перенесён в {0}. Файлов: {1}.</sys:String>
     <sys:String x:Key="L_YtQueryProgressFormat">Скачивание: {0}%</sys:String>
     <sys:String x:Key="L_YtCacheFolderPick">Выберите папку для кеша</sys:String>
     <sys:String x:Key="L_YtChangeFolder">Изменить папку…</sys:String>
@@ -243,9 +245,9 @@
     <sys:String x:Key="Guide_YouTubeSearchT">Поиск и скачивание</sys:String>
     <sys:String x:Key="Guide_YouTubeSearchX">Вкладка «YouTube» в заголовке окна. Введите название и нажмите «Найти» — появится до 10 результатов. Кнопка «Скачать» рядом со строкой сохраняет трек. Если вставить ссылку на видео, «Найти» и «Скачать» скачают её сразу, без поиска.</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadT">Прямые ссылки и ограничения</sys:String>
-    <sys:String x:Key="Guide_YouTubeDownloadX">За раз обрабатывается одна ссылка. Плейлисты и ссылки на каналы отклоняются с пояснением, прямые эфиры сохранить нельзя. Одновременно идут не больше двух скачиваний, а на каждое отводится 10 минут — по истечении процесс завершается принудительно.</sys:String>
+    <sys:String x:Key="Guide_YouTubeDownloadX">Кнопка «Добавить» на строке результата становится активной только после того, как трек закеширован, и переносит его в список скачанных. До этого момента нажимать нечего: файла ещё нет.</sys:String>
     <sys:String x:Key="Guide_YouTubeCacheT">Кеш и папка</sys:String>
-    <sys:String x:Key="Guide_YouTubeCacheX">Галочка «Кешировать треки» решает, остаются ли прослушанные файлы на диске. Рядом видно, сколько занимают сохранённые треки и кеш поиска, там же обе кнопки очистки, выбор папки кеша с переносом файлов и кнопка «Открыть папку с музыкой».</sys:String>
+    <sys:String x:Key="Guide_YouTubeCacheX">Галочка «Кешировать треки» решает, остаются ли прослушанные файлы на диске. «Занято треками» считает только добавленные треки, «Кеш поиска» — только предпросмотры. Рядом обе кнопки очистки, выбор папки кеша (внутри выбранной папки создаётся Cache) и кнопка «Открыть папку с музыкой».</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpT">yt-dlp</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpX">Скачивание идёт через yt-dlp.exe. Приложение не качает его при запуске: 22.5 МБ загружаются при первом действии, с прогресс-баром. Кнопка «Скачать/Обновить yt-dlp» повторяет загрузку, если она не удалась.</sys:String>
     <sys:String x:Key="Guide_YouTubeLimitsT">Ошибки и фолбэк</sys:String>

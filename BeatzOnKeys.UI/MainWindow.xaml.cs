@@ -74,7 +74,10 @@ public partial class MainWindow : Window
         const double chrome = 56 + 58 + 12;
         var workArea = SystemParameters.WorkArea;
         var wanted = Math.Clamp(neededContent + chrome, MinHeight, Math.Max(MinHeight, workArea.Height * 0.92));
-        if (Math.Abs(wanted - Height) < 1) { return; }
+
+        // Only ever grow: opening the panel must not shrink a window the user already sized, and
+        // the panel scrolls on its own when the window is shorter than its content.
+        if (wanted <= Height + 1) { return; }
         Height = Math.Round(wanted);
         AppLogger.Info("ui", $"Window fitted to content: settings need {neededContent:F0} px, height set to {Height:F0} px.");
     }

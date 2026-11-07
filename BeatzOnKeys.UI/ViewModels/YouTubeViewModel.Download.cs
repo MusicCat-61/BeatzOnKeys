@@ -88,7 +88,9 @@ public sealed partial class YouTubeViewModel
         };
         if (dialog.ShowDialog() != true) { return; }
 
-        var target = dialog.FolderName;
+        // The chosen folder is a home for the cache, not the cache itself: a Cache subfolder keeps
+        // it apart from whatever else the user keeps there.
+        var target = Path.Combine(dialog.FolderName, "Cache");
         if (string.Equals(target, _cachePath, StringComparison.OrdinalIgnoreCase)) { return; }
 
         var moved = CacheMigrator.Move(_cachePath, target, _lifetime.Token);
@@ -99,7 +101,9 @@ public sealed partial class YouTubeViewModel
         OnPropertyChanged(nameof(CachePathText));
         _requestSave();
         await RefreshCacheSizeAsync().ConfigureAwait(true);
-        StatusText = Loc.F("L_YtCacheMovedFormat", moved.Count);
+        // A dialog rather than a status line: the move is a one-off result the user should see and
+        // dismiss, not a sentence that quietly fades after a few seconds.
+        _userMessage(Loc.F("L_YtCacheMovedFormat", target, moved.Count));
     }
 
     /// <summary>Keeps the service pointed at the chosen folder; every download reads it from there.</summary>
@@ -248,7 +252,9 @@ public sealed partial class YouTubeViewModel
         foreach (var item in Results.ToList())
         {
             if (cancellationToken.IsCancellationRequested) { return; }
-            if (item.CanPlay || !item.CanDownload) { continue; }
+            // Only live streams are skipped here: CanDownload waits for the cache, so testing it
+            // in the loop that creates the cache would skip every row forever.
+            if (item.CanPlay || item.IsLive) { continue; }
             try
             {
                 item.IsDownloading = true;

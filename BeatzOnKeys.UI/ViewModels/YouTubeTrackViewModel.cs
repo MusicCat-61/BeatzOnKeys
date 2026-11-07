@@ -17,8 +17,11 @@ public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result) : Obs
     public string DurationText { get; } = result.DurationText;
     public bool IsLive { get; } = result.IsLive;
 
-    /// <summary>Live streams cannot be cached, so the row explains it instead of offering a download.</summary>
-    public bool CanDownload => !IsLive;
+    /// <summary>
+    /// Adding is offered only once the preview exists: before that the row would fetch the
+    /// track a second time, and the user has already waited for the cache.
+    /// </summary>
+    public bool CanDownload => !IsLive && CanPlay;
 
     public string LiveBadgeText => Loc.T("L_YtLive");
 
@@ -63,6 +66,8 @@ public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result) : Obs
             OnPropertyChanged(nameof(CanPlay));
             OnPropertyChanged(nameof(IsCaching));
             OnPropertyChanged(nameof(CacheStateText));
+            // The add button follows the file, so it lights up the moment the cache lands.
+            OnPropertyChanged(nameof(CanDownload));
         }
     }
 
@@ -88,6 +93,7 @@ public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result) : Obs
             _cacheFailed = value;
             OnPropertyChanged(nameof(IsCaching));
             OnPropertyChanged(nameof(CacheStateText));
+            OnPropertyChanged(nameof(CanDownload));
         }
     }
 
@@ -175,6 +181,19 @@ public sealed class YouTubeTrackViewModel : ObservableObject
     {
         if (duration <= TimeSpan.Zero || _state.Duration == duration) { return; }
         _state.Duration = duration;
+        OnPropertyChanged(nameof(DurationText));
+    }
+
+    /// <summary>
+    /// Reads the length from the cached file. Tracks saved before the duration was stored would
+    /// otherwise show a dash forever, even though the search row knew the length all along.
+    /// </summary>
+    public void ReadDurationFromFile()
+    {
+        if (_state.Duration > TimeSpan.Zero || string.IsNullOrEmpty(_state.CachedPath)) { return; }
+        if (!BeatzOnKeys.Core.Audio.AudioTrackLoader.TryLoad(_state.CachedPath, out var track, out _)) { return; }
+        if (track is null || track.Duration <= TimeSpan.Zero) { return; }
+        _state.Duration = track.Duration;
         OnPropertyChanged(nameof(DurationText));
     }
 

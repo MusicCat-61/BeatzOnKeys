@@ -23,7 +23,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly TypingPlaybackService _typingPlayback;
     private readonly YouTubeTrackService _youTube;
     private readonly Dictionary<Guid, string> _friendlyNames = [];
+    // Which tracks came from the YouTube cache, so the player card can name the source instead of
+    // leaving the user guessing where the sound came from.
+    private readonly HashSet<Guid> _youTubeTracks = [];
     private string _playingTrackText = string.Empty;
+    private string _playingSourceText = string.Empty;
     private bool _isYouTubePage;
     private bool _isSettingsOpen;
     private readonly DispatcherTimer _saveTimer;
@@ -476,6 +480,13 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         private set => SetProperty(ref _playingTrackText, value);
     }
 
+    /// <summary>The card's heading, naming where the sound comes from: local files or YouTube.</summary>
+    public string PlayingSourceText
+    {
+        get => _playingSourceText;
+        private set => SetProperty(ref _playingSourceText, value);
+    }
+
     /// <summary>
     /// Set once when a settings save fails, so startup can tell the user that preferences will
     /// not survive a restart instead of losing them silently.
@@ -843,7 +854,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             _friendlyNames.TryGetValue(playing.Id, out var friendly) ? friendly : playing.Name;
         NowPlayingText = playing is null ? string.Empty :
             Loc.F("L_NowPlayingFormat", playingName, FormatPosition(position), FormatPosition(duration));
-        PlayingTrackText = playing is null ? Loc.T("L_NothingPlaying") : playingName;
+        PlayingTrackText = playing is null
+            ? Loc.T("L_NothingPlaying")
+            : Loc.F("L_NowPlayingCard", _youTubeTracks.Contains(playing.Id)
+                ? Loc.T("L_SourceYouTube")
+                : Loc.T("L_SourceLocal"));
         if (IsRunning)
         {
             // A paused run is not an ended one: the position stays short of the duration.
@@ -917,6 +932,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         {
             var playback = AudioTrackLoader.Load(Guid.NewGuid(), path);
             _friendlyNames[playback.Id] = string.IsNullOrWhiteSpace(title) ? playback.Name : title;
+            _youTubeTracks.Add(playback.Id);
             // The controller holds the playback order; a YouTube file joins it for this run only,
             // and Reorder keeps it at the end when the local playlist changes.
             _playbackController.UpsertTrack(playback);

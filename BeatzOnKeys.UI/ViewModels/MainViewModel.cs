@@ -118,6 +118,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             track => CanEditPlaylist && CanMove(track, -1));
         MoveTrackDownCommand = new RelayCommand<TrackViewModel>(track => MoveTrack(track, 1),
             track => CanEditPlaylist && CanMove(track, 1));
+
         SetLanguageCommand = new RelayCommand<string>(code => Loc.SetLanguage(Loc.Parse(code)));
         ToggleThemeCommand = new RelayCommand(Theme.Toggle);
         OpenLogsCommand = new RelayCommand(OpenLogs);
@@ -127,6 +128,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         YouTube = new YouTubeViewModel(_youTube, settings.YouTubeTracks, settings.YouTubeCacheEnabled,
             settings.CookiesFolderPath, settings.ProxyUrl, QueueSave, message => UserMessageRequested?.Invoke(message));
         YouTube.PlayRequested += OnYouTubePlayRequested;
+        YouTube.PropertyChanged += OnYouTubePropertyChanged;
         YouTube.OpenMusicFolderRequested += OpenMusicFolder;
         Loc.LanguageChanged += OnLanguageChanged;
         Theme.Changed += OnThemeChanged;
@@ -146,6 +148,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         {
             if (!SetProperty(ref _isYouTubePage, value)) { return; }
             OnPropertyChanged(nameof(IsPlaylistPage));
+            OnPropertyChanged(nameof(SelectedTrackText));
+            RefreshCommands();
         }
     }
 
@@ -162,6 +166,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand<TrackViewModel> RemoveTrackCommand { get; }
     public RelayCommand<TrackViewModel> MoveTrackUpCommand { get; }
     public RelayCommand<TrackViewModel> MoveTrackDownCommand { get; }
+
     public RelayCommand<string> SetLanguageCommand { get; }
     public RelayCommand ToggleThemeCommand { get; }
     public RelayCommand OpenLogsCommand { get; }
@@ -199,7 +204,13 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    public string SelectedTrackText => SelectedTrack?.FileName ?? Loc.T("L_NoTrackSelected");
+    /// <summary>
+    /// The player card follows the active page: it names the local file on "Локально" and the
+    /// cached YouTube track on "YouTube", because those are what "Старт" would play.
+    /// </summary>
+    public string SelectedTrackText => IsYouTubePage
+        ? (YouTube.SelectedTrack?.Title ?? Loc.T("L_NoTrackSelected"))
+        : (SelectedTrack?.FileName ?? Loc.T("L_NoTrackSelected"));
     public double MaxVolume
     {
         get => _maxVolume;
@@ -534,10 +545,24 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    private bool CanStartPlayback() => CanEditPlaylist && !IsRunning && Tracks.Any(track => track.IsAvailable);
+    /// <summary>"Старт" is enabled when the active page has something to play.</summary>
+    private bool CanStartPlayback() => CanEditPlaylist && !IsRunning &&
+        (IsYouTubePage ? YouTube.Downloaded.Any(track => track.CanPlay) : Tracks.Any(track => track.IsAvailable));
 
     private async Task StartPlaybackAsync()
     {
+        // The button starts the list the user is looking at, not always the local one.
+        if (IsYouTubePage)
+        {
+            var cached = YouTube.SelectedTrack is { CanPlay: true } chosen
+                ? chosen
+                : YouTube.Downloaded.FirstOrDefault(item => item.CanPlay);
+            if (cached is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
+            YouTube.SelectTrack(cached);
+            await PlayYouTubeAsync(cached.CachedPath, cached.Title).ConfigureAwait(true);
+            return;
+        }
+
         var track = SelectedTrack is { IsAvailable: true } ? SelectedTrack : Tracks.FirstOrDefault(item => item.IsAvailable);
         if (track is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
         _changingPlayback = true;
@@ -933,6 +958,15 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         RemoveTrackCommand.NotifyCanExecuteChanged();
         MoveTrackUpCommand.NotifyCanExecuteChanged();
         MoveTrackDownCommand.NotifyCanExecuteChanged();
+
+    }
+
+    private void OnYouTubePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName is not (nameof(YouTubeViewModel.SelectedTrack) or nameof(YouTubeViewModel.TrackCount)))
+        { return; }
+        OnPropertyChanged(nameof(SelectedTrackText));
+        RefreshCommands();
     }
 
     public async ValueTask DisposeAsync()
@@ -953,6 +987,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _playbackController.CurrentTrackChanged -= OnPlaybackTrackChanged;
         _typingPlayback.PlaybackFailed -= OnPlaybackFailed;
         YouTube.PlayRequested -= OnYouTubePlayRequested;
+        YouTube.PropertyChanged -= OnYouTubePropertyChanged;
         YouTube.OpenMusicFolderRequested -= OpenMusicFolder;
         YouTube.Dispose();
         await _typingPlayback.DisposeAsync().ConfigureAwait(true);

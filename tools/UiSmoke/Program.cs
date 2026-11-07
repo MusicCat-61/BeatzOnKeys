@@ -1042,6 +1042,20 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         vm.YouTube.ShowSearchTabCommand.Execute(null);
         await SettleAsync();
 
+        // The downloaded tab carries the same counter as the local list and a chip per row.
+        Check("youtube.downloadedCounter", vm.YouTube.TrackCount == 2 && vm.YouTube.TrackCountNumber == "2",
+            $"TrackCount={vm.YouTube.TrackCount}, text='{vm.YouTube.TrackCountNumber}'.");
+        Check("youtube.statusChips", vm.YouTube.Downloaded.All(track => track.IsChipReady) &&
+            vm.YouTube.Downloaded.All(track => !track.IsChipFailed) &&
+            vm.YouTube.Downloaded[0].StatusChipText == Loc.T("L_YtStatusReady"),
+            $"Chip text: '{vm.YouTube.Downloaded[0].StatusChipText}'.");
+
+        // Selecting a row is the whole selection model: there is no play button anywhere.
+        vm.YouTube.SelectTrack(vm.YouTube.Downloaded[1]);
+        await SettleAsync();
+        Check("youtube.rowSelection", ReferenceEquals(vm.YouTube.SelectedTrack, vm.YouTube.Downloaded[1]) &&
+            vm.YouTube.Downloaded[1].IsSelected && !vm.YouTube.Downloaded[0].IsSelected,
+            $"Selected='{vm.YouTube.SelectedTrackTitle}'.");
         var firstRow = vm.YouTube.Downloaded[0];
         var secondRow = vm.YouTube.Downloaded[1];
         Check("youtube.arrowEdges", !vm.YouTube.MoveTrackUpCommand.CanExecute(firstRow) &&
@@ -1080,6 +1094,16 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
 
         vm.YouTube.SearchQuery = "https://www.youtube.com/playlist?list=PL1234567890";
         vm.YouTube.DownloadFromQueryCommand.Execute(null);
+        // A pasted link swaps the single button to "Скачать", words swap it back to "Найти".
+        vm.YouTube.SearchQuery = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+        Check("youtube.queryIsLink", vm.YouTube.QueryIsLink,
+            $"QueryIsLink={vm.YouTube.QueryIsLink} for a watch link.");
+        vm.YouTube.SearchQuery = "rick astley";
+        Check("youtube.queryIsWords", !vm.YouTube.QueryIsLink,
+            $"QueryIsLink={vm.YouTube.QueryIsLink} for a search phrase.");
+        vm.YouTube.SearchQuery = string.Empty;
+        Check("youtube.queryEmpty", !vm.YouTube.QueryIsLink && !vm.YouTube.CanSearch,
+            $"QueryIsLink={vm.YouTube.QueryIsLink}, CanSearch={vm.YouTube.CanSearch}.");
         await UntilAsync(() => vm.YouTube.StatusText == Loc.T("L_YtFailurePlaylist"), 3000, "playlist refusal");
         Check("youtube.playlistRefused", vm.YouTube.StatusText == Loc.T("L_YtFailurePlaylist") &&
             vm.YouTube.Downloaded.Count == 2,
@@ -1104,6 +1128,29 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("youtube.pageSwitch", windowViewModel.IsYouTubePage && !windowViewModel.IsPlaylistPage && searchBoxes >= 1,
             $"IsYouTubePage={windowViewModel.IsYouTubePage}, visible text boxes={searchBoxes}.");
         SaveScreenshot(_window!, $"youtube-page-{Loc.CurrentCode}.png");
+
+        // The downloaded tab is captured with the real fixture files, so the counter and the
+        // status chips are visible in the picture instead of an empty list.
+        windowViewModel.YouTube.Downloaded.Add(new YouTubeTrackViewModel(new YouTubeTrackState
+        {
+            VideoId = "dQw4w9WgXcQ", Title = "Cached fixture", CachedPath = cached,
+            Status = YouTubeTrackStatus.Ready
+        }));
+        windowViewModel.YouTube.Downloaded.Add(new YouTubeTrackViewModel(new YouTubeTrackState
+        {
+            VideoId = "kJQP7kiw5Fk", Title = "Second fixture", CachedPath = cachedSecond,
+            Status = YouTubeTrackStatus.Ready
+        }));
+        windowViewModel.YouTube.ShowDownloadedTabCommand.Execute(null);
+        windowViewModel.YouTube.SelectTrack(windowViewModel.YouTube.Downloaded[0]);
+        await SettleAsync();
+        Check("youtube.downloadedScreenshot", windowViewModel.YouTube.TrackCount == 2 &&
+            windowViewModel.YouTube.IsDownloadedTab,
+            $"TrackCount={windowViewModel.YouTube.TrackCount}.");
+        SaveScreenshot(_window!, $"youtube-downloaded-{Loc.CurrentCode}.png");
+        windowViewModel.YouTube.Downloaded.Clear();
+        windowViewModel.YouTube.ShowSearchTabCommand.Execute(null);
+        await SettleAsync();
         windowViewModel.ShowPlaylistCommand.Execute(null);
         await SettleAsync();
         Check("youtube.pageSwitchBack", windowViewModel.IsPlaylistPage &&

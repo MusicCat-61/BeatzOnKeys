@@ -152,6 +152,10 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtDownloadLink">Download</sys:String>
     <sys:String x:Key="L_YtTabSearch">Search</sys:String>
     <sys:String x:Key="L_YtTabDownloaded">Downloaded tracks</sys:String>
+    <sys:String x:Key="L_YtPreview">Listen</sys:String>
+    <sys:String x:Key="L_YtPreviewingFormat">Playing: {0}</sys:String>
+    <sys:String x:Key="L_YtPrev">Previous track</sys:String>
+    <sys:String x:Key="L_YtNext">Next track</sys:String>
     <sys:String x:Key="L_YtSearchHint">Type a name and press Search, or paste a link and press Download</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Search results</sys:String>
     <sys:String x:Key="L_YtIdle">Type a query or paste a link</sys:String>

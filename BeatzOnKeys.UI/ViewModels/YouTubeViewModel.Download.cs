@@ -127,6 +127,7 @@ public sealed partial class YouTubeViewModel
         row.Status = YouTubeTrackStatus.Downloading;
         row.Progress = 0;
         row.ErrorMessage = null;
+        SelectTrack(row);
         StatusText = Loc.F("L_YtDownloadingFormat", row.Title);
         RefreshCommands();
 
@@ -137,22 +138,26 @@ public sealed partial class YouTubeViewModel
             row.Title = result.Title;
             row.MarkReady(result.CachedPath);
             StatusText = Loc.F("L_YtDownloadedFormat", row.Title);
+            NotifyCountChanged();
         }
         catch (OperationCanceledException)
         {
             row.MarkFailed(Loc.T("L_YtFailureCancelled"));
             StatusText = Loc.T("L_YtFailureCancelled");
+            NotifyCountChanged();
         }
         catch (YouTubeException exception)
         {
             row.MarkFailed(Loc.T(FailureKey(exception.Failure)));
             StatusText = Loc.T(FailureKey(exception.Failure));
+            NotifyCountChanged();
             AppLogger.Warning("youtube", $"The download of {videoId} failed: {exception.Message}");
         }
         catch (Exception exception)
         {
             row.MarkFailed(Loc.T("L_YtFailureUnknown"));
             StatusText = Loc.T("L_YtFailureUnknown");
+            NotifyCountChanged();
             AppLogger.Error("youtube", $"The download of {videoId} failed unexpectedly.", exception);
         }
         finally
@@ -165,6 +170,69 @@ public sealed partial class YouTubeViewModel
         }
     }
 
+    public RelayCommand<YouTubeSearchItemViewModel> PreviewCommand => _previewCommand ??= new RelayCommand<YouTubeSearchItemViewModel>(
+        item => { if (item is not null) { _ = PreviewAsync(item); } },
+        item => item is { CanDownload: true, IsDownloading: false } && CanStartAnotherDownload);
+
+    private RelayCommand<YouTubeSearchItemViewModel>? _previewCommand;
+
+    /// <summary>
+    /// Plays a search result: it is fetched first when it is not cached yet, then handed to the
+    /// player. That is the only way to hear what a result actually is before keeping it.
+    /// </summary>
+    private async Task PreviewAsync(YouTubeSearchItemViewModel item)
+    {
+        if (item.IsDownloading || IsInstalling) { return; }
+        if (!CanStartAnotherDownload)
+        {
+            StatusText = Loc.F("L_YtQueueFullFormat", YouTubeTrackService.MaxConcurrentDownloads);
+            return;
+        }
+
+        var existing = Downloaded.FirstOrDefault(track => track.VideoId == item.VideoId);
+        if (existing is { CanPlay: true })
+        {
+            SelectTrack(existing);
+            PlayRequested?.Invoke(existing.CachedPath, existing.Title);
+            return;
+        }
+
+        item.IsDownloading = true;
+        item.Progress = 0;
+        StatusText = Loc.F("L_YtDownloadingFormat", item.Title);
+        RefreshCommands();
+        try
+        {
+            var progress = new Progress<double>(value => item.Progress = value);
+            var result = await _service.DownloadAsync(item.VideoId, progress, _lifetime.Token).ConfigureAwait(true);
+            // Listening does not keep the track: it is only added to "Скачанные" when the user
+            // presses Download afterwards, which then reuses the file already in the cache.
+            await RefreshCacheSizeAsync().ConfigureAwait(true);
+            PlayRequested?.Invoke(result.CachedPath, result.Title);
+            StatusText = Loc.F("L_YtPreviewingFormat", result.Title);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = Loc.T("L_YtFailureCancelled");
+        }
+        catch (YouTubeException exception)
+        {
+            StatusText = Loc.T(FailureKey(exception.Failure));
+            AppLogger.Warning("youtube", $"The preview of {item.VideoId} failed: {exception.Message}");
+        }
+        catch (Exception exception)
+        {
+            StatusText = Loc.T("L_YtFailureUnknown");
+            AppLogger.Error("youtube", $"The preview of {item.VideoId} failed unexpectedly.", exception);
+        }
+        finally
+        {
+            item.IsDownloading = false;
+            item.Progress = 0;
+            RefreshBinaryState();
+            RefreshCommands();
+        }
+    }
     private async Task InstallYtDlpAsync()
     {
         if (IsInstalling) { return; }

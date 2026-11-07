@@ -33,6 +33,30 @@ internal static class YouTubeTests
             $"Arguments were: {string.Join(' ', runner.Requests[0].Arguments)}");
     }
 
+    /// <summary>
+    /// Regression for the retry bug: asking for the same video twice used to leave the first
+    /// failure on screen. A cached file must also be reused instead of downloaded again.
+    /// </summary>
+    public static async Task ASecondRequestReusesTheCachedFile()
+    {
+        var runner = new ScriptedRunner();
+        using var folder = new TemporaryDirectory();
+        var videoId = "dQw4w9WgXcQ";
+        var cached = Path.Combine(folder.Path, videoId + ".m4a");
+        await File.WriteAllBytesAsync(cached, [1, 2, 3, 4]);
+
+        using var service = new ServiceContext(runner, options: new YouTubeOptions
+        {
+            MusicDirectory = folder.Path,
+            DownloadDirectory = folder.Path
+        });
+        var state = await service.Service.DownloadAsync(videoId, null, CancellationToken.None);
+
+        AssertEx.Equal(YouTubeTrackStatus.Ready, state.Status);
+        AssertEx.Equal(cached, state.CachedPath);
+        // Nothing was started: the file was already there.
+        AssertEx.Equal(0, runner.Requests.Count);
+    }
     public static async Task MissingBinaryIsReportedBeforeAnyProcess()
     {
         var runner = new ScriptedRunner();
@@ -276,10 +300,10 @@ internal static class YouTubeTests
 
     private sealed class ServiceContext : IDisposable
     {
-        public ServiceContext(ScriptedRunner runner, string? ytDlp = "yt-dlp.exe")
+        public ServiceContext(ScriptedRunner runner, string? ytDlp = "yt-dlp.exe", YouTubeOptions? options = null)
         {
             Binaries = new StubBinaries(ytDlp, ffmpeg: null);
-            Service = new YouTubeTrackService(Binaries, runner, new YouTubeOptions());
+            Service = new YouTubeTrackService(Binaries, runner, options ?? new YouTubeOptions());
         }
 
         public StubBinaries Binaries { get; }

@@ -49,6 +49,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
         _proxyUrl = proxyUrl ?? string.Empty;
         // Empty means "nothing to report", so the line does not repeat the hint under the field.
         _statusText = string.Empty;
+        Downloaded.CollectionChanged += OnDownloadedChanged;
 
         foreach (var state in savedTracks)
         {
@@ -134,11 +135,19 @@ public sealed partial class YouTubeViewModel : ObservableObject
         {
             if (!SetProperty(ref _searchQuery, value)) { return; }
             SearchCommand.NotifyCanExecuteChanged();
+            DownloadFromQueryCommand.NotifyCanExecuteChanged();
             OnPropertyChanged(nameof(CanSearch));
+            OnPropertyChanged(nameof(QueryIsLink));
         }
     }
 
     public bool CanSearch => !IsBusy && !string.IsNullOrWhiteSpace(SearchQuery);
+
+    /// <summary>
+    /// A pasted link turns the single button into "Скачать": searching for a URL is never what the
+    /// user meant, and two buttons side by side only made them choose every time.
+    /// </summary>
+    public bool QueryIsLink => YouTubeUrls.LooksLikeLink(SearchQuery);
 
     public string StatusText
     {
@@ -306,6 +315,9 @@ public sealed partial class YouTubeViewModel : ObservableObject
         }
 
         Downloaded.Clear();
+        SelectedTrack = null;
+        NotifyCountChanged();
+        _requestSave();
         RefreshPositions();
         Results.Clear();
         _requestSave();
@@ -329,6 +341,10 @@ public sealed partial class YouTubeViewModel : ObservableObject
         }
 
         Downloaded.Remove(track);
+        if (ReferenceEquals(SelectedTrack, track)) { SelectedTrack = null; }
+        NotifyCountChanged();
+        RefreshPositions();
+        _requestSave();
         RefreshPositions();
         _requestSave();
         _ = RefreshCacheSizeAsync();
@@ -336,6 +352,78 @@ public sealed partial class YouTubeViewModel : ObservableObject
         OnPropertyChanged(nameof(HasDownloaded));
     }
 
+    private YouTubeTrackViewModel? _selected;
+    private YouTubeSearchItemViewModel? _selectedResult;
+
+    /// <summary>
+    /// The row the transport controls act on. Clicking a row selects it, which is how the local
+    /// playlist already works; there are no per-row play buttons anywhere.
+    /// </summary>
+    public YouTubeTrackViewModel? SelectedTrack
+    {
+        get => _selected;
+        set
+        {
+            if (ReferenceEquals(_selected, value)) { return; }
+            if (_selected is not null) { _selected.IsSelected = false; }
+            _selected = value;
+            if (_selected is not null) { _selected.IsSelected = true; }
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedTrackTitle));
+            OnPropertyChanged(nameof(HasSelection));
+            RefreshCommands();
+        }
+    }
+
+    public string SelectedTrackTitle => SelectedTrack?.Title ?? string.Empty;
+    public bool HasSelection => SelectedTrack is not null;
+
+    public int TrackCount => Downloaded.Count;
+    public string TrackCountNumber => Downloaded.Count.ToString(System.Globalization.CultureInfo.CurrentUICulture);
+
+    /// <summary>Picks a downloaded row as the current one, used by playback and by a download start.</summary>
+    public void SelectTrack(YouTubeTrackViewModel? track)
+    {
+        if (track is null) { return; }
+        SelectedTrack = track;
+    }
+
+    /// <summary>
+    /// The counter follows the collection itself, so any add or remove updates the badge
+    /// without the caller having to remember to raise anything.
+    /// </summary>
+    private void OnDownloadedChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs args)
+    {
+        OnPropertyChanged(nameof(TrackCount));
+        OnPropertyChanged(nameof(TrackCountNumber));
+        OnPropertyChanged(nameof(HasDownloaded));
+    }
+
+    /// <summary>Refreshes the badge next to the heading after any add or remove.</summary>
+    public void NotifyCountChanged()
+    {
+        OnPropertyChanged(nameof(TrackCount));
+        OnPropertyChanged(nameof(TrackCountNumber));
+        OnPropertyChanged(nameof(HasDownloaded));
+        RefreshCommands();
+    }
+
+    /// <summary>The search result the user is previewing; "Старт" plays it once downloaded.</summary>
+    public YouTubeSearchItemViewModel? SelectedResult
+    {
+        get => _selectedResult;
+        set
+        {
+            if (ReferenceEquals(_selectedResult, value)) { return; }
+            _selectedResult = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(SelectedResultTitle));
+            OnPropertyChanged(nameof(CanPreview));
+        }
+    }
+
+    public string SelectedResultTitle => SelectedResult?.Title ?? string.Empty;
+    public bool CanPreview => SelectedResult is { CanDownload: true };
     private bool CanMove(YouTubeTrackViewModel? track, int offset)
     {
         if (track is null) { return false; }
@@ -409,6 +497,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
         SearchCommand.NotifyCanExecuteChanged();
         DownloadCommand.NotifyCanExecuteChanged();
         InstallYtDlpCommand.NotifyCanExecuteChanged();
+        PreviewCommand.NotifyCanExecuteChanged();
         PlayCommand.NotifyCanExecuteChanged();
         ClearCacheCommand.NotifyCanExecuteChanged();
     }

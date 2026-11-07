@@ -19,8 +19,24 @@ public sealed partial class YouTubeTrackService
         }
 
         videoId = videoId.Trim();
-        var executable = RequireYtDlp();
         var options = Options;
+
+        // A cached file is reused as is: asking twice must not fail, and must not re-download.
+        var alreadyCached = FindCachedFile(videoId, options);
+        if (alreadyCached is not null)
+        {
+            AppLogger.Info("youtube", $"{videoId} is already cached at {alreadyCached}; skipping the download.");
+            progress?.Report(1d);
+            return new YouTubeTrackState
+            {
+                VideoId = videoId,
+                Title = Path.GetFileNameWithoutExtension(alreadyCached),
+                CachedPath = alreadyCached,
+                Status = YouTubeTrackStatus.Ready
+            };
+        }
+
+        var executable = RequireYtDlp();
 
         // Two slots only: more parallel requests is what gets a client rate limited.
         await _slots.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -54,6 +70,18 @@ public sealed partial class YouTubeTrackService
         }
     }
 
+    /// <summary>The cached file for a video, whatever extension it ended up with.</summary>
+    internal static string? FindCachedFile(string videoId, YouTubeOptions options)
+    {
+        if (!Directory.Exists(options.MusicDirectory)) { return null; }
+        foreach (var extension in new[] { ".m4a", ".mp3", ".wav", ".opus", ".webm" })
+        {
+            var candidate = Path.Combine(options.MusicDirectory, videoId + extension);
+            if (File.Exists(candidate) && new FileInfo(candidate).Length > 0) { return candidate; }
+        }
+
+        return null;
+    }
     private async Task<(string Title, bool IsLive)> ResolveAsync(
         string executable,
         string videoId,

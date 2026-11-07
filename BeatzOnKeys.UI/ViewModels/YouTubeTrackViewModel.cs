@@ -6,8 +6,11 @@ using BeatzOnKeys.UI.Localization;
 namespace BeatzOnKeys.UI.ViewModels;
 
 /// <summary>One row of the search results; "Скачать" is a plain command on the row.</summary>
-public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result)
+public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result) : ObservableObject
 {
+    private double _progress;
+    private bool _isDownloading;
+
     public string VideoId { get; } = result.VideoId;
     public string Title { get; } = result.Title;
     public string Author { get; } = result.Author;
@@ -18,6 +21,34 @@ public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result)
     public bool CanDownload => !IsLive;
 
     public string LiveBadgeText => Loc.T("L_YtLive");
+
+    /// <summary>
+    /// Set while this result is being fetched for a preview, so the row itself shows the progress
+    /// instead of leaving the user guessing what the player is doing.
+    /// </summary>
+    public bool IsDownloading
+    {
+        get => _isDownloading;
+        set
+        {
+            if (!SetProperty(ref _isDownloading, value)) { return; }
+            OnPropertyChanged(nameof(ProgressText));
+            OnPropertyChanged(nameof(ShowProgress));
+        }
+    }
+
+    public double Progress
+    {
+        get => _progress;
+        set
+        {
+            if (!SetProperty(ref _progress, value)) { return; }
+            OnPropertyChanged(nameof(ProgressText));
+        }
+    }
+
+    public bool ShowProgress => IsDownloading;
+    public string ProgressText => $"{Math.Round(Progress * 100)}%";
 }
 
 /// <summary>A cached YouTube track, with its own status and download progress.</summary>
@@ -38,6 +69,7 @@ public sealed class YouTubeTrackViewModel : ObservableObject
     private bool _isLast = true;
     private bool _isDropTarget;
     private bool _isDropTargetAbove = true;
+    private bool _isSelected;
 
     public YouTubeTrackState State => _state;
 
@@ -97,9 +129,14 @@ public sealed class YouTubeTrackViewModel : ObservableObject
             _state.Status = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(StatusText));
+            OnPropertyChanged(nameof(SubtitleText));
             OnPropertyChanged(nameof(IsReady));
             OnPropertyChanged(nameof(IsFailed));
             OnPropertyChanged(nameof(CanPlay));
+            OnPropertyChanged(nameof(StatusChipText));
+            OnPropertyChanged(nameof(IsChipReady));
+            OnPropertyChanged(nameof(IsChipFailed));
+            OnPropertyChanged(nameof(IsChipBusy));
         }
     }
 
@@ -111,13 +148,14 @@ public sealed class YouTubeTrackViewModel : ObservableObject
             _state.ErrorMessage = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(TooltipText));
+            OnPropertyChanged(nameof(SubtitleText));
         }
     }
 
     public double Progress
     {
         get => _progress;
-        set { if (!SetProperty(ref _progress, value)) { return; } OnPropertyChanged(nameof(ProgressText)); }
+        set { if (!SetProperty(ref _progress, value)) { return; } OnPropertyChanged(nameof(ProgressText)); OnPropertyChanged(nameof(StatusChipText)); }
     }
 
     public bool IsDownloading
@@ -127,7 +165,10 @@ public sealed class YouTubeTrackViewModel : ObservableObject
         {
             if (!SetProperty(ref _isDownloading, value)) { return; }
             OnPropertyChanged(nameof(StatusText));
+            OnPropertyChanged(nameof(SubtitleText));
             OnPropertyChanged(nameof(IsPending));
+            OnPropertyChanged(nameof(StatusChipText));
+            OnPropertyChanged(nameof(IsChipBusy));
         }
     }
 
@@ -140,6 +181,41 @@ public sealed class YouTubeTrackViewModel : ObservableObject
 
     public string ProgressText => $"{Math.Round(Progress * 100)}%";
 
+    /// <summary>Selected row, so the list can highlight it the way the local playlist does.</summary>
+    public bool IsSelected
+    {
+        get => _isSelected;
+        internal set { if (_isSelected != value) { _isSelected = value; OnPropertyChanged(); } }
+    }
+
+    /// <summary>Chip colour key: the row shows "Готово", "43%" or "Ошибка" without opening anything.</summary>
+    public string StatusChipText => IsDownloading ? ProgressText : Loc.T(Status switch
+    {
+        YouTubeTrackStatus.Ready => "L_YtStatusReady",
+        YouTubeTrackStatus.Failed => "L_YtStatusFailed",
+        YouTubeTrackStatus.Downloading => "L_YtStatusDownloading",
+        _ => "L_YtStatusPending"
+    });
+
+    public bool IsChipReady => !IsDownloading && Status == YouTubeTrackStatus.Ready;
+    public bool IsChipFailed => !IsDownloading && Status == YouTubeTrackStatus.Failed;
+    public bool IsChipBusy => IsDownloading || Status == YouTubeTrackStatus.Downloading;
+
+    /// <summary>
+    /// Clears everything a previous attempt left behind. Without this a retry of the same video
+    /// keeps the old failure text and the row still reads "Ошибка" while it downloads again.
+    /// </summary>
+    public void ResetForRetry()
+    {
+        ErrorMessage = null;
+        Progress = 0;
+        Status = YouTubeTrackStatus.Pending;
+        OnPropertyChanged(nameof(StatusChipText));
+        OnPropertyChanged(nameof(IsChipReady));
+        OnPropertyChanged(nameof(IsChipFailed));
+        OnPropertyChanged(nameof(IsChipBusy));
+    }
+
     public string StatusText => IsDownloading ? Loc.T("L_YtStatusDownloading") : Loc.T(Status switch
     {
         YouTubeTrackStatus.Ready => "L_YtStatusReady",
@@ -148,6 +224,8 @@ public sealed class YouTubeTrackViewModel : ObservableObject
         _ => "L_YtStatusPending"
     });
 
+    /// <summary>The one line under the title: a failure explains itself instead of saying "Ошибка".</summary>
+    public string SubtitleText => IsFailed && !string.IsNullOrEmpty(ErrorMessage) ? ErrorMessage! : StatusText;
     public string TooltipText => ErrorMessage ?? CachedPath ?? VideoId;
 
     /// <summary>Marks a finished download; the row becomes playable and remembers its file.</summary>

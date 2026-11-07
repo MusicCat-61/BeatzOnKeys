@@ -152,6 +152,10 @@
     <sys:String x:Key="L_YtDownloadLink">Скачать</sys:String>
     <sys:String x:Key="L_YtTabSearch">Поиск</sys:String>
     <sys:String x:Key="L_YtTabDownloaded">Скачанные треки</sys:String>
+    <sys:String x:Key="L_YtPreview">Слушать</sys:String>
+    <sys:String x:Key="L_YtPreviewingFormat">Слушаем: {0}</sys:String>
+    <sys:String x:Key="L_YtPrev">Предыдущий трек</sys:String>
+    <sys:String x:Key="L_YtNext">Следующий трек</sys:String>
     <sys:String x:Key="L_YtSearchHint">Введите название и нажмите «Найти», или вставьте ссылку и нажмите «Скачать»</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Результаты поиска</sys:String>
     <sys:String x:Key="L_YtIdle">Введите запрос или вставьте ссылку</sys:String>

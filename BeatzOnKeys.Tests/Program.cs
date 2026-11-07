@@ -64,6 +64,8 @@ internal static class Program
         ("UpdateService.RepositoryAssetUrlsRejectSpoofing", UpdateServiceTests.RepositoryAssetUrlsRejectSpoofing),
         ("UpdateService.TagLocationValidation", UpdateServiceTests.TagLocationValidation),
         ("UpdateService.DownloadedExecutableIsValidatedBeforeTheSwap", UpdateServiceTests.DownloadedExecutableIsValidatedBeforeTheSwap),
+        ("UpdateService.ReleaseNotesPickTheInterfaceLanguage", UpdateServiceTests.ReleaseNotesPickTheInterfaceLanguage),
+        ("UpdateService.ReleaseNotesRenderMarkdownInsteadOfPrintingIt", UpdateServiceTests.ReleaseNotesRenderMarkdownInsteadOfPrintingIt),
         ("Settings.DefaultsAndNormalization", SettingsTests.DefaultsAndNormalization),
         ("Settings.RoundTripAllFieldsAndDelete", SettingsTests.RoundTripAllFieldsAndDelete),
         ("Settings.LegacyVolumeMigratesAndNewFieldsTakePrecedence", SettingsTests.LegacyVolumeMigratesAndNewFieldsTakePrecedence),

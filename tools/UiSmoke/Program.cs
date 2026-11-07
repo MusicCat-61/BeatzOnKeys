@@ -719,12 +719,65 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         var update = UpdateService.LastResult;
         _info["aboutUpdate." + Theme.CurrentCode] = new { current = update?.Current.Display, latest = update?.Latest?.Display,
             status = update?.Status.ToString(), text = texts.FirstOrDefault(t => t.Name == "UpdateStatusText")?.Text };
-        SaveScreenshot(about, light ? "about-light-ru.png" : "about-ru.png");
+        // The update notice renders the release notes: headings, bullets and bold must be real
+        // formatting, and only the section for the active language may appear.
+        await CaptureUpdateNoticeAsync();        SaveScreenshot(about, light ? "about-light-ru.png" : "about-ru.png");
         about.Close();
         await SettleAsync();
         Check(label + ".closed", GetField<AboutWindow>(app, "_aboutWindow") is null && !about.IsVisible, "Real App About Closed clears its private window slot.");
     }
 
+
+    /// <summary>
+    /// Captures the update notice with the same release body shape GitHub returns, so the Markdown
+    /// rendering and the language pick are both visible in one picture.
+    /// </summary>
+    private async Task CaptureUpdateNoticeAsync()
+    {
+        var notes = """
+            ## English
+
+            English prose that must not appear in the Russian interface.
+
+            ## Русский
+
+            ### Исправлен кеш
+
+            - **Прогресс** молчал: `--print` подразумевает `--quiet`.
+            - Обычная строка со [ссылкой](https://example.com) внутри.
+
+            | Файл | Размер |
+            |---|---|
+            """;
+        var dialog = MessageDialog.CreateAnnouncement(
+            "Доступна BeatzOnKeys 9.9.9",
+            "У вас 1.0.0, на GitHub уже 9.9.9. Открыть «О программе», чтобы скачать и установить?",
+            notes);
+        dialog.Owner = _window;
+        dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        dialog.Show();
+        await SettleAsync();
+
+        var texts = Descendants<TextBlock>(dialog).Where(text => text.IsVisible).Select(RenderedText).ToArray();
+        Check("update.noticeRendersHeadings",
+            texts.Contains("Исправлен кеш") && !texts.Any(text => text.StartsWith("###", StringComparison.Ordinal)),
+            $"Visible lines: {string.Join(" | ", texts.Take(8))}");
+        Check("update.noticeRendersBullets",
+            texts.Any(text => text.Contains("--print", StringComparison.Ordinal)) &&
+            !texts.Any(text => text.Contains("**", StringComparison.Ordinal)),
+            "Markdown markers are gone; the text itself is rendered.");
+        Check("update.noticeFollowsLanguage",
+            !texts.Any(text => text.Contains("must not appear", StringComparison.Ordinal)) &&
+            !texts.Any(text => text.Contains("English", StringComparison.Ordinal)),
+            "Only the section for the active interface language is shown.");
+        Check("update.noticeHidesAssetTable",
+            !texts.Any(text => text.Contains('|', StringComparison.Ordinal)),
+            "The asset table is not part of the notice.");
+
+        SaveScreenshot(dialog, $"update-notice-{Loc.CurrentCode}.png");
+        dialog.Close();
+        await SettleAsync();
+    }
     private void CheckResourceReferences(Window window, string label)
     {
         var missing = new HashSet<string>();
@@ -1422,6 +1475,13 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         var a = Lum(first); var b = Lum(second);
         return (Math.Max(a, b) + 0.05) / (Math.Min(a, b) + 0.05);
     }
+    /// <summary>
+    /// TextBlock.Text stays empty when the content is built from Inlines, so a rendered line has to
+    /// be read through its runs.
+    /// </summary>
+    private static string RenderedText(TextBlock block) =>
+        block.Inlines.Count == 0 ? block.Text : string.Concat(block.Inlines.OfType<System.Windows.Documents.Run>().Select(run => run.Text));
+
     private static IEnumerable<T> Descendants<T>(DependencyObject rootObject) where T : DependencyObject
     {
         for (var i = 0; i < VisualTreeHelper.GetChildrenCount(rootObject); i++)

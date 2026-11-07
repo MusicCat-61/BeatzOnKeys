@@ -35,8 +35,8 @@
                     BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                     CornerRadius="6" Padding="12,10" Visibility="Collapsed">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <TextBlock x:Name="NotesText" FontSize="13.5" TextWrapping="Wrap" LineHeight="19"
-                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <!-- Blocks are built in code so headings, bullets and bold keep their shape. -->
+                    <StackPanel x:Name="NotesPanel"/>
                 </ScrollViewer>
             </Border>
 

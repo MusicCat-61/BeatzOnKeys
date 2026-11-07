@@ -18,8 +18,8 @@ internal static class UpdateServiceTests
         AssertEx.Equal(1, assemblyVersion.Major);
         AssertEx.Equal(3, assemblyVersion.Minor);
         AssertEx.Equal(0, assemblyVersion.Build);
-        AssertEx.Equal(7, assemblyVersion.Revision);
-        AssertEx.Equal("1.3.0.7", UpdateService.CurrentVersion.Display);
+        AssertEx.Equal(8, assemblyVersion.Revision);
+        AssertEx.Equal("1.3.0.8", UpdateService.CurrentVersion.Display);
 
         var current = Version("1.1.1");
         var result = UpdateService.ParseRelease(ReleaseJson("v1.1.1"), current);
@@ -280,5 +280,53 @@ internal static class UpdateServiceTests
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(responseFactory(request));
         }
+    }
+
+    /// <summary>
+    /// The update dialog used to print raw Markdown: "## English" and literal **bold** looked like
+    /// a bug. The notes must also follow the interface language instead of stacking both halves.
+    /// </summary>
+    public static Task ReleaseNotesPickTheInterfaceLanguage()
+    {
+        var notes = """
+            ## English
+
+            English body line.
+
+            ## Русский
+
+            Русский текст заметок.
+            """;
+        AssertEx.Equal("Русский текст заметок.", ReleaseNotesFormatter.SelectSection(notes, "ru").Trim());
+        AssertEx.Equal("English body line.", ReleaseNotesFormatter.SelectSection(notes, "en").Trim());
+        AssertEx.Equal("Just a note.", ReleaseNotesFormatter.SelectSection("Just a note.", "ru").Trim());
+        return Task.CompletedTask;
+    }
+
+    public static Task ReleaseNotesRenderMarkdownInsteadOfPrintingIt()
+    {
+        var blocks = ReleaseNotesFormatter.Parse("""
+            ### Fixed the cache
+
+            - **Progress** was silent: `--print` implies `--quiet`.
+            - Plain line with [a link](https://example.com) in it.
+
+            | File | Size |
+            |---|---|
+            """);
+        AssertEx.Equal(3, blocks.Count);
+        AssertEx.Equal(NoteBlockKind.Subheading, blocks[0].Kind);
+        AssertEx.Equal("Fixed the cache", blocks[0].Text);
+        AssertEx.Equal(NoteBlockKind.Bullet, blocks[1].Kind);
+        AssertEx.True(!blocks[1].Text.Contains("**", StringComparison.Ordinal),
+            $"Markers must be gone: '{blocks[1].Text}'");
+        AssertEx.True(blocks[1].Runs.Any(run => run.Code && run.Text == "--print"),
+            "Code spans stay distinguishable.");
+        AssertEx.True(blocks[1].Runs.Any(run => run.Bold && run.Text == "Progress"),
+            "Bold text stays bold.");
+        AssertEx.True(blocks[2].Text.Contains("a link", StringComparison.Ordinal) &&
+            !blocks[2].Text.Contains("https://", StringComparison.Ordinal),
+            $"A link keeps its label only: '{blocks[2].Text}'");
+        return Task.CompletedTask;
     }
 }

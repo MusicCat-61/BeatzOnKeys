@@ -114,7 +114,7 @@
     <sys:String x:Key="About_Title">О программе BeatzOnKeys</sys:String>
     <sys:String x:Key="About_Version">Версия {0}</sys:String>
     <sys:String x:Key="About_Developer">BeatzOnKeys от MusicCat-61</sys:String>
-    <sys:String x:Key="About_Description">Клавиатурный плеер: музыка из локальных файлов и YouTube играет непрерывно, а набор управляет громкостью. Клавиши, кроме Shift, Ctrl и Alt, поднимают громкость к максимуму за 50 мс; после 150 мс без ввода она плавно опускается к минимуму за 200 мс. «Старт» играет активную вкладку с начала трека. Пауза при простое (по умолчанию 3 с) глушит звук и мгновенно возвращает его на той же позиции при следующем нажатии. Раздел YouTube ищет, слушает и кеширует треки через yt-dlp.</sys:String>
+    <sys:String x:Key="About_Description">Клавиатурный плеер: музыка из локальных файлов и YouTube играет непрерывно, а набор управляет громкостью. Каждое нажатие поднимает громкость к максимуму за 50 мс, а без ввода она плавно возвращается к минимуму. Максимальная и минимальная громкость, таймаут простоя, реакция на музыку и поведение списка настраиваются в панели справа. «Старт» играет активную вкладку с начала трека. Раздел YouTube ищет, слушает и кеширует треки через yt-dlp.</sys:String>
     <sys:String x:Key="About_ProjectLink">Репозиторий BeatzOnKeys</sys:String>
     <sys:String x:Key="About_LicenseLink">Лицензия MIT и сторонние уведомления</sys:String>
     <sys:String x:Key="About_Telegram">Telegram @music_cat1</sys:String>

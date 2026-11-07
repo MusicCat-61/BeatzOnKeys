@@ -1,5 +1,12 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Media;
+// WinForms is referenced for the tray, so System.Drawing is in scope and Brush is ambiguous.
+using Brush = System.Windows.Media.Brush;
+using FontFamily = System.Windows.Media.FontFamily;
+using BeatzOnKeys.Core.Updates;
 using BeatzOnKeys.UI.Localization;
 
 namespace BeatzOnKeys.UI;
@@ -51,37 +58,103 @@ public partial class MessageDialog : Window
     /// </summary>
     public static bool Announce(Window? owner, string title, string message, string notes)
     {
-        var dialog = new MessageDialog(message, title, showYesNo: true);
-        dialog.BtnYes.Content = Loc.T("L_UpdOpen");
-        dialog.BtnNo.Content = Loc.T("L_UpdLater");
-        if (!string.IsNullOrWhiteSpace(notes))
-        {
-            dialog.NotesText.Text = TrimNotes(notes);
-            dialog.NotesHost.Visibility = Visibility.Visible;
-        }
-
+        var dialog = CreateAnnouncement(title, message, notes);
         dialog.Run(owner);
         return dialog._result;
     }
 
     /// <summary>
-    /// The release body is Markdown with asset tables; the dialog shows the prose only, because a
-    /// table of download links reads badly in a small window.
+    /// Builds the update notice without showing it, so a test can inspect and capture it. The
+    /// notes are rendered here, which is also where the language is picked.
     /// </summary>
-    private static string TrimNotes(string notes)
+    public static MessageDialog CreateAnnouncement(string title, string message, string notes)
     {
-        var kept = new List<string>();
-        foreach (var raw in notes.Replace("\r\n", "\n").Split('\n'))
+        var dialog = new MessageDialog(message, title, showYesNo: true);
+        dialog.BtnYes.Content = Loc.T("L_UpdOpen");
+        dialog.BtnNo.Content = Loc.T("L_UpdLater");
+        var blocks = ReleaseNotesFormatter.Parse(
+            ReleaseNotesFormatter.SelectSection(notes, Loc.CurrentCode));
+        if (blocks.Count > 0)
         {
-            var line = raw.TrimEnd();
-            if (line.TrimStart().StartsWith('|')) { continue; }
-            if (line.StartsWith("```", StringComparison.Ordinal)) { continue; }
-            kept.Add(line.Replace("**", string.Empty).Replace("`", string.Empty));
+            foreach (var block in blocks) { dialog.NotesPanel.Children.Add(dialog.CreateBlock(block)); }
+            dialog.NotesHost.Visibility = Visibility.Visible;
         }
 
-        var text = string.Join('\n', kept).Trim();
-        return text.Length > 2000 ? text[..2000] + "…" : text;
+        return dialog;
     }
+
+    /// <summary>
+    /// One element per block. Markdown is rendered instead of printed: the dialog used to show
+    /// "## English" and "**bold**" literally, which reads like a bug rather than a note.
+    /// </summary>
+    private FrameworkElement CreateBlock(NoteBlock block)
+    {
+        var text = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            LineHeight = 19,
+            FontSize = block.Kind is NoteBlockKind.Heading or NoteBlockKind.Subheading ? 14 : 13.5
+        };
+
+        switch (block.Kind)
+        {
+            case NoteBlockKind.Heading:
+                text.FontWeight = FontWeights.SemiBold;
+                text.Foreground = (Brush)FindResource("TextPrimaryBrush");
+                text.Margin = new Thickness(0, 12, 0, 3);
+                break;
+            case NoteBlockKind.Subheading:
+                text.FontWeight = FontWeights.SemiBold;
+                text.Foreground = (Brush)FindResource("TextPrimaryBrush");
+                text.Margin = new Thickness(0, 9, 0, 2);
+                break;
+            case NoteBlockKind.Bullet:
+                text.Foreground = (Brush)FindResource("TextSecondaryBrush");
+                text.Margin = new Thickness(0, 0, 0, 0);
+                break;
+            default:
+                text.Foreground = (Brush)FindResource("TextSecondaryBrush");
+                text.Margin = new Thickness(0, 7, 0, 0);
+                break;
+        }
+
+        foreach (var run in block.Runs) { text.Inlines.Add(CreateRun(run)); }
+
+        if (block.Kind != NoteBlockKind.Bullet) { return text; }
+
+        // A bullet gets a marker of its own so the wrapped lines stay aligned with the text.
+        var row = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
+        var marker = new TextBlock
+        {
+            Text = "•",
+            FontSize = 13.5,
+            Margin = new Thickness(2, 0, 8, 0),
+            Foreground = (Brush)FindResource("AccentBrush")
+        };
+        DockPanel.SetDock(marker, Dock.Left);
+        row.Children.Add(marker);
+        row.Children.Add(text);
+        return row;
+    }
+
+    private Run CreateRun(NoteRun run)
+    {
+        var element = new Run(run.Text);
+        if (run.Bold)
+        {
+            element.FontWeight = FontWeights.SemiBold;
+            element.Foreground = (Brush)FindResource("TextPrimaryBrush");
+        }
+
+        if (run.Code)
+        {
+            element.FontFamily = new FontFamily("Consolas, Cascadia Mono, Segoe UI");
+            element.Foreground = (Brush)FindResource("AccentBrush");
+        }
+
+        return element;
+    }
+
 
     private void Run(Window? owner)
     {

@@ -486,3 +486,6 @@ Build_Output/
 .build-cache/
 .dsh-acl-recovery/
 *.staging-*/
+
+# Local tool settings are per-machine, not project files.
+.claude/

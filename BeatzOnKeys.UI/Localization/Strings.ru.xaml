@@ -188,7 +188,7 @@
     <sys:String x:Key="L_YtPlay">Слушать</sys:String>
     <sys:String x:Key="L_YtRemove">Убрать</sys:String>
     <sys:String x:Key="L_YtCacheTitle">Кеш YouTube</sys:String>
-    <sys:String x:Key="L_YtCacheUsedFormat">Занято на диске: {0}</sys:String>
+    <sys:String x:Key="L_YtCacheUsedFormat">Занято всего: {0}</sys:String>
     <sys:String x:Key="L_YtClearCache">Очистить кеш YouTube</sys:String>
     <sys:String x:Key="L_YtClearCacheConfirm">Удалить все скачанные треки YouTube? Локальный плейлист не пострадает.</sys:String>
     <sys:String x:Key="L_YtClearCacheTitle">Очистить кеш</sys:String>

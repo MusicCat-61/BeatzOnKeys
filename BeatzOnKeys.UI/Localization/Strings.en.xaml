@@ -188,7 +188,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtPlay">Listen</sys:String>
     <sys:String x:Key="L_YtRemove">Remove</sys:String>
     <sys:String x:Key="L_YtCacheTitle">YouTube cache</sys:String>
-    <sys:String x:Key="L_YtCacheUsedFormat">Used on disk: {0}</sys:String>
+    <sys:String x:Key="L_YtCacheUsedFormat">Total: {0}</sys:String>
     <sys:String x:Key="L_YtClearCache">Clear the YouTube cache</sys:String>
     <sys:String x:Key="L_YtClearCacheConfirm">Delete every downloaded YouTube track? The local playlist is not affected.</sys:String>
     <sys:String x:Key="L_YtClearCacheTitle">Clear the cache</sys:String>

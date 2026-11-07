@@ -848,16 +848,6 @@
                             </DockPanel>
                             <TextBlock Text="{DynamicResource L_YtSearchHint}" FontSize="14" TextWrapping="Wrap"
                                        Margin="0,10,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <!-- The previews this tab made are a separate cache from the kept tracks. -->
-                            <DockPanel Margin="0,10,0,0">
-                                <Button DockPanel.Dock="Right" Content="{DynamicResource L_YtClearSearchCache}"
-                                        Command="{Binding YouTube.ClearSearchCacheCommand}"
-                                        Style="{StaticResource SubtleButtonStyle}" Padding="8,4"
-                                        VerticalAlignment="Center"/>
-                                <TextBlock Text="{Binding YouTube.SearchCacheSizeText}" FontSize="13"
-                                           VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextTertiaryBrush}"/>
-                            </DockPanel>
                             <ProgressBar Value="{Binding YouTube.InstallProgress, Mode=OneWay}" Maximum="1"
                                          Height="4" Margin="0,10,0,0">
                                 <ProgressBar.Style>
@@ -998,7 +988,7 @@
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <DockPanel Grid.Row="0" Margin="2,0,0,8">
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="2,0,0,8">
                             <TextBlock Text="{DynamicResource L_YtDownloadedTitle}" FontSize="15"
                                        FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"
                                        VerticalAlignment="Center"/>
@@ -1010,13 +1000,7 @@
                                            FontWeight="SemiBold" HorizontalAlignment="Center"
                                            VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                             </Border>
-                            <!-- Last child of a DockPanel fills the rest of the row unless it opts out,
-                                 so the button is anchored right and keeps its own width. -->
-                            <Button DockPanel.Dock="Right" Content="{DynamicResource L_YtClearDownloaded}"
-                                    Click="YouTubeClearCacheClick"
-                                    Style="{StaticResource DangerButtonStyle}" Padding="8,4"
-                                    HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                        </DockPanel>
+                        </StackPanel>
                         <ListBox Grid.Row="1" ItemsSource="{Binding YouTube.Downloaded}" Background="Transparent"
                                  SelectedItem="{Binding YouTube.SelectedTrack, Mode=TwoWay}"
                                  BorderThickness="0" Padding="0"
@@ -1214,14 +1198,24 @@
                         <StackPanel>
                             <TextBlock Text="{DynamicResource L_YtCacheTitle}" FontSize="15" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <!-- One place for both caches: the total, the previews and the two clear actions. -->
                             <TextBlock Text="{Binding YouTube.CacheSizeText}" FontSize="14.5" Margin="0,8,0,0"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <TextBlock Text="{Binding YouTube.SearchCacheSizeText}" FontSize="13" Margin="0,4,0,0"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"/>
                             <CheckBox IsChecked="{Binding YouTube.CacheEnabled}" Margin="0,10,0,0">
                                 <TextBlock Text="{DynamicResource L_YtCacheEnabled}" TextWrapping="Wrap"/>
                             </CheckBox>
                             <TextBlock Text="{DynamicResource L_YtCacheHint}" FontSize="12.5" TextWrapping="Wrap"
                                        Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
-                            <!-- The two clear actions live on their own tabs: previews are not kept tracks. -->
+                            <WrapPanel Margin="0,10,0,0">
+                                <Button Content="{DynamicResource L_YtClearSearchCache}"
+                                        Command="{Binding YouTube.ClearSearchCacheCommand}"
+                                        Style="{StaticResource DangerButtonStyle}" Padding="8,4" Margin="0,0,8,0"/>
+                                <Button Content="{DynamicResource L_YtClearDownloaded}"
+                                        Click="YouTubeClearCacheClick"
+                                        Style="{StaticResource DangerButtonStyle}" Padding="8,4"/>
+                            </WrapPanel>
                             <Button Content="{DynamicResource L_YtOpenFolder}"
                                     Command="{Binding YouTube.OpenMusicFolderCommand}"
                                     Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,8,0,0"

@@ -311,8 +311,29 @@ public partial class MainWindow : Window
 
     private void YouTubeList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
     {
+        var candidate = _youTubeDragCandidate;
+        var dragged = _youTubeDragging;
         _youTubeDragCandidate = null;
         _youTubeDragging = false;
+
+        // A click that did not turn into a drag plays the row, exactly like the local playlist.
+        // Buttons inside the row handle their own clicks, so the arrows and the bin are unaffected.
+        if (dragged || candidate is null || candidate is { CanPlay: false }) { return; }
+        if (eventArgs.OriginalSource is DependencyObject source && IsInsideButton(source)) { return; }
+        ViewModel.YouTube.SelectTrack(candidate);
+        ViewModel.YouTube.PlayCommand.Execute(candidate);
+    }
+
+    /// <summary>True when the click came from a button, so it must not also select and play.</summary>
+    private static bool IsInsideButton(DependencyObject? element)
+    {
+        while (element is not null)
+        {
+            if (element is System.Windows.Controls.Primitives.ButtonBase) { return true; }
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return false;
     }
 
     private void YouTubeList_DragOver(object sender, DragEventArgs eventArgs)

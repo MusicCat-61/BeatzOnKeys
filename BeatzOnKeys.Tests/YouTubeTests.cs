@@ -300,6 +300,48 @@ internal static class YouTubeTests
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Regression: the download used --print without --progress. --print implies --quiet, and
+    /// --quiet silences the progress bar, so the template never fired and every row sat at 0%.
+    /// </summary>
+    public static async Task DownloadKeepsProgressOutputAlive()
+    {
+        var runner = new ScriptedRunner();
+        using var folder = new TemporaryDirectory();
+        var videoId = "dQw4w9WgXcQ";
+        var produced = Path.Combine(folder.Path, videoId + ".m4a");
+        runner.Results.Enqueue(new YouTubeProcessResult(0,
+            """{"id":"dQw4w9WgXcQ","title":"A title","is_live":false}""", string.Empty, false));
+        runner.Results.Enqueue(new YouTubeProcessResult(0, produced, string.Empty, false));
+        await File.WriteAllBytesAsync(produced, [1, 2, 3, 4]);
+
+        using var service = new ServiceContext(runner, options: new YouTubeOptions
+        {
+            MusicDirectory = Path.Combine(folder.Path, "music"),
+            DownloadDirectory = Path.Combine(folder.Path, "downloads")
+        });
+        var reported = new List<double>();
+        try
+        {
+            await service.Service.DownloadAsync(videoId, new Progress<double>(reported.Add), CancellationToken.None);
+        }
+        catch (Exception)
+        {
+            // The fake file cannot be decoded, so the WAV fallback is attempted and the stub has no
+            // ffmpeg. The arguments of the download request are already recorded, which is what
+            // this test is about.
+        }
+
+        var download = runner.Requests[1].Arguments;
+        AssertEx.True(download.Contains("--progress"),
+            "--print implies --quiet, so --progress must be passed explicitly or no progress is ever printed.");
+        AssertEx.True(download.Contains("--progress-template"),
+            "The progress template is what turns progress into parseable lines.");
+        AssertEx.True(!download.Contains("--quiet") && !download.Contains("-q"),
+            "Quiet mode would silence the progress template.");
+        AssertEx.True(reported.Count > 0,
+            $"The caller must see progress; it saw {reported.Count} reports.");
+    }
     // ---- helpers ---------------------------------------------------------------------------
 
     private static async Task<YouTubeFailure> Failure(Func<Task> action)

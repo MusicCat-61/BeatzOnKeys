@@ -89,7 +89,8 @@ internal static class Program
         ("YouTube.ProgressTemplateIsParsed", YouTubeTests.ProgressTemplateIsParsed),
         ("YouTube.ASecondRequestReusesTheCachedFile", YouTubeTests.ASecondRequestReusesTheCachedFile),
         ("YouTube.YtDlpVersionsCompareByDate", YouTubeTests.YtDlpVersionsCompareByDate),
-        ("YouTube.LatestReleaseTagIsParsed", YouTubeTests.LatestReleaseTagIsParsed)
+        ("YouTube.LatestReleaseTagIsParsed", YouTubeTests.LatestReleaseTagIsParsed),
+        ("YouTube.DownloadKeepsProgressOutputAlive", YouTubeTests.DownloadKeepsProgressOutputAlive)
     ];
 
     private static async Task<int> Main()

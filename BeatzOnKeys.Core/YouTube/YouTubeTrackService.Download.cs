@@ -8,6 +8,11 @@ namespace BeatzOnKeys.Core.YouTube;
 /// <summary>The download half of the YouTube service: resolve, fetch, verify, cache.</summary>
 public sealed partial class YouTubeTrackService
 {
+    /// <summary>
+    /// Reported while the metadata is fetched, before any byte moves. Deliberately small: the row
+    /// must show that work started without pretending the download is under way.
+    /// </summary>
+    internal const double ResolveProgress = 0.01;
     public async Task<YouTubeTrackState> DownloadAsync(
         string videoId,
         IProgress<double>? progress = null,
@@ -46,6 +51,8 @@ public sealed partial class YouTubeTrackService
         try
         {
             Directory.CreateDirectory(workDirectory);
+            // Resolving takes seconds on its own; without this the row sits at 0% and looks stuck.
+            progress?.Report(ResolveProgress);
             var metadata = await ResolveAsync(executable, videoId, options, cancellationToken).ConfigureAwait(false);
             if (metadata.IsLive)
             {
@@ -180,6 +187,10 @@ public sealed partial class YouTubeTrackService
             "-f", "bestaudio[ext=m4a]/bestaudio/best",
             "--no-part",
             "--newline",
+            // --print implies --quiet, and --quiet silences the progress bar, so the template below
+            // would never fire. --progress turns it back on explicitly.
+            "--progress",
+            "--no-simulate",
             "--progress-template", ProgressTemplate,
             "--print", "after_move:filepath",
             "-o", Path.Combine(workDirectory, $"{videoId}.%(ext)s"),

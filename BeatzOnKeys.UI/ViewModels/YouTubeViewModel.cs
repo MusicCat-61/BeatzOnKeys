@@ -76,8 +76,15 @@ public sealed partial class YouTubeViewModel : ObservableObject
             track => { if (track is not null) { PlayRequested?.Invoke(track.CachedPath, track.Title); } },
             track => track is { CanPlay: true });
         RemoveCachedCommand = new RelayCommand<YouTubeTrackViewModel>(RemoveCached, track => track is not null);
-        ClearCacheCommand = new RelayCommand(() => _ = ClearCacheAsync(), () => !IsBusy && Downloaded.Count > 0);
+                // Preview caching fills the folder without adding rows, so the button must look at the
+        // measured size too; otherwise a cache of search results could never be cleared.
+        ClearCacheCommand = new RelayCommand(() => _ = ClearCacheAsync(),
+            () => !IsBusy && (Downloaded.Count > 0 || _cacheBytes > 0));
         RefreshCacheCommand = new RelayCommand(() => _ = RefreshCacheSizeAsync());
+        // Two different caches live in one folder: previews made by the search, and the tracks the
+        // user chose to keep. Each tab clears only its own share.
+        ClearSearchCacheCommand = new RelayCommand(() => _ = ClearSearchCacheAsync(),
+            () => !IsBusy && _searchCacheBytes > 0);
         OpenMusicFolderCommand = new RelayCommand(() => OpenMusicFolderRequested?.Invoke());
         // Exactly the playlist's management model: arrows for one step, drag for any distance.
         MoveTrackUpCommand = new RelayCommand<YouTubeTrackViewModel>(
@@ -133,6 +140,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
     public RelayCommand<YouTubeTrackViewModel> RemoveCachedCommand { get; }
     public RelayCommand ClearCacheCommand { get; }
     public RelayCommand RefreshCacheCommand { get; }
+    public RelayCommand ClearSearchCacheCommand { get; }
     public RelayCommand OpenMusicFolderCommand { get; }
     public RelayCommand<YouTubeTrackViewModel> MoveTrackUpCommand { get; }
     public RelayCommand<YouTubeTrackViewModel> MoveTrackDownCommand { get; }
@@ -393,6 +401,70 @@ public sealed partial class YouTubeViewModel : ObservableObject
             ByteSizeFormatter.Format(_cacheBytes, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")));
     }
 
+    private long _searchCacheBytes;
+
+    /// <summary>Space taken by previews that are not kept in the downloaded list.</summary>
+    public string SearchCacheSizeText => Loc.F("L_YtSearchCacheLabel",
+        ByteSizeFormatter.Format(_searchCacheBytes, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")));
+
+    /// <summary>
+    /// A preview file is anything in the cache folder that no downloaded row points at. That is
+    /// exactly what the search tab created and what its clear button should remove.
+    /// </summary>
+    private List<string> OrphanedCacheFiles()
+    {
+        var kept = Downloaded
+            .Select(track => track.CachedPath)
+            .Where(path => !string.IsNullOrEmpty(path))
+            .Select(path => Path.GetFullPath(path!))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return _service.ListCachedFiles()
+            .Where(path => !kept.Contains(Path.GetFullPath(path)))
+            .ToList();
+    }
+
+    private async Task RefreshSearchCacheSizeAsync()
+    {
+        try
+        {
+            var files = OrphanedCacheFiles();
+            _searchCacheBytes = await Task.Run(() => files.Sum(path =>
+            {
+                try { return new FileInfo(path).Length; } catch (IOException) { return 0L; }
+            }), _lifetime.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception exception)
+        {
+            AppLogger.Warning("youtube", $"Could not measure the preview cache: {exception.Message}");
+            return;
+        }
+
+        OnPropertyChanged(nameof(SearchCacheSizeText));
+        ClearSearchCacheCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>Removes only the preview files; kept tracks and their rows stay untouched.</summary>
+    public async Task ClearSearchCacheAsync()
+    {
+        try
+        {
+            await _service.DeleteFilesAsync(OrphanedCacheFiles(), _lifetime.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception exception)
+        {
+            AppLogger.Error("youtube", "Could not clear the preview cache.", exception);
+            _userMessage(Loc.F("L_YtErrorDetailsFormat", exception.Message));
+            return;
+        }
+
+        foreach (var item in Results) { item.CachedPath = null; }
+        StatusText = Loc.T("L_YtSearchCacheCleared");
+        await RefreshCacheSizeAsync().ConfigureAwait(true);
+        await RefreshSearchCacheSizeAsync().ConfigureAwait(true);
+        RefreshCommands();
+    }
     /// <summary>Deletes the cached files and forgets the rows; the local playlist is untouched.</summary>
     public async Task ClearCacheAsync()
     {
@@ -584,6 +656,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
         // Every derived label is recomputed on a language switch, not just the status line.
         NotifyBinaryState();
         foreach (var item in Results) { item.RefreshLocalization(); }
+        _ = RefreshSearchCacheSizeAsync();
         RefreshCommands();
     }
 

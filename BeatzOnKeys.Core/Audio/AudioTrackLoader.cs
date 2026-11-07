@@ -68,9 +68,11 @@ public static class AudioTrackLoader
             track = Load(Guid.NewGuid(), sourcePath);
             return true;
         }
-        catch (Exception exception) when (exception is IOException or NotSupportedException or
-            InvalidDataException or ArgumentException or UnauthorizedAccessException)
+        catch (Exception exception)
         {
+            // A corrupt or unsupported file can fail in ways NAudio does not wrap in IOException:
+            // Media Foundation throws its own type for an M4A it cannot open. This method is a
+            // probe by contract, so every failure must become "no" instead of escaping.
             error = exception.Message;
             return false;
         }

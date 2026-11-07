@@ -199,6 +199,8 @@ public sealed partial class YouTubeViewModel
                 var result = await _service.DownloadAsync(item.VideoId, progress, cancellationToken).ConfigureAwait(true);
                 item.CachedPath = result.CachedPath;
                 item.CacheFailed = false;
+                // The occupied space is shown while the list fills, not only at the very end.
+                await RefreshCacheSizeAsync().ConfigureAwait(true);
             }
             catch (OperationCanceledException) { return; }
             catch (Exception exception)
@@ -215,6 +217,8 @@ public sealed partial class YouTubeViewModel
         }
 
         await RefreshCacheSizeAsync().ConfigureAwait(true);
+        // The preview bytes are counted separately from the kept tracks.
+        await RefreshSearchCacheSizeAsync().ConfigureAwait(true);
         RefreshBinaryState();
     }
 

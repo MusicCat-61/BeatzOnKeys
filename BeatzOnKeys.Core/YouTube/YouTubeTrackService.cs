@@ -190,6 +190,42 @@ public sealed partial class YouTubeTrackService
         return await SearchAsync(query, count, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Every file in the cache folder, so the UI can tell kept tracks from previews.</summary>
+    public IReadOnlyList<string> ListCachedFiles()
+    {
+        var directory = Options.MusicDirectory;
+        if (!Directory.Exists(directory)) { return []; }
+        try
+        {
+            return Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly).ToList();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            AppLogger.Warning("youtube", $"Could not list the cache: {exception.Message}");
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Deletes exactly the given files. Used to clear the preview cache without touching the
+    /// tracks the user chose to keep, which is why a blanket folder wipe would be wrong here.
+    /// </summary>
+    public Task DeleteFilesAsync(IEnumerable<string> paths, CancellationToken cancellationToken = default)
+    {
+        var targets = paths.ToList();
+        return Task.Run(() =>
+        {
+            foreach (var path in targets)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try { if (File.Exists(path)) { File.Delete(path); } }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    AppLogger.Warning("youtube", $"Could not delete {path}: {exception.Message}");
+                }
+            }
+        }, cancellationToken);
+    }
     /// <summary>Bytes currently used by the cache folder; the UI formats this into KB, MB or GB.</summary>
     public Task<long> GetCacheSizeAsync(CancellationToken cancellationToken = default)
     {

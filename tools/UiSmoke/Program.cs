@@ -284,9 +284,15 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         if (!File.Exists(ffmpeg)) throw new FileNotFoundException("ffmpeg is required for genuine MP3 fixtures.", ffmpeg);
         var fixtureDirectory = Path.Combine(ArtifactDirectory, "fixtures");
         Directory.CreateDirectory(fixtureDirectory);
-        _fixtures = new[] { "Afterglow - generated fixture.mp3", "Neon Steps - generated fixture.mp3",
-            "Quiet Skyline - generated fixture.mp3", "Transition - short generated fixture.mp3" }
-            .Select(name => Path.Combine(fixtureDirectory, name)).ToArray();
+        // The paths are shown in the screenshots, so they read like a real music folder instead of
+        // exposing the build tree.
+        var displayDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Music", "BeatzOnKeys");
+        Directory.CreateDirectory(displayDirectory);
+        _fixtures = new[] { "Afterglow.mp3", "Neon Steps.mp3",
+            "Quiet Skyline.mp3", "Transition.mp3" }
+            .Select(name => Path.Combine(displayDirectory, name)).ToArray();
+        SmokeYouTubeRunner.FixturePath = _fixtures[0];
         var durations = new[] { 142.0, 196.0, 221.0, 0.36 };
         var frequencies = new[] { 440, 554, 659, 330 };
         for (var i = 0; i < _fixtures.Length; i++)
@@ -1143,7 +1149,13 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("youtube.searchFillsResults", vm.YouTube.Results.Count == 2,
             $"Results={vm.YouTube.Results.Count}.");
         await UntilAsync(() => vm.YouTube.Results.All(item => item.CanPlay), 8000, "cached results");
+
         var firstResult = vm.YouTube.Results[0];
+        foreach (var diag in vm.YouTube.Results)
+        {
+            Console.WriteLine($"DIAG result {diag.VideoId}: path='{diag.CachedPath}', exists={(diag.CachedPath is null ? "n/a" : File.Exists(diag.CachedPath).ToString())}, downloading={diag.IsDownloading}, failed={diag.CacheFailed}");
+        }
+
         Check("youtube.previewEnabledWithCache",
             firstResult.CanPlay && vm.YouTube.PreviewCommand.CanExecute(firstResult),
             $"CanPlay={firstResult.CanPlay}, state='{firstResult.CacheStateText}'.");
@@ -1153,7 +1165,19 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             vm.IsRunning && player.IsPlaying && vm.NowPlayingText.Contains(firstResult.Title, StringComparison.Ordinal),
             $"Running={vm.IsRunning}, playing={player.IsPlaying}, now='{vm.NowPlayingText}'.");
         await StopAsync(vm);
-        vm.YouTube.SearchQuery = string.Empty;
+         // Previews occupy space and can be cleared without touching the kept tracks.
+        await UntilAsync(() => vm.YouTube.ClearSearchCacheCommand.CanExecute(null), 5000, "preview cache measured");
+        Check("youtube.searchCacheMeasured", vm.YouTube.ClearSearchCacheCommand.CanExecute(null),
+            $"Search cache text='{vm.YouTube.SearchCacheSizeText}'.");
+        var downloadedBefore = vm.YouTube.Downloaded.Count;
+        await vm.YouTube.ClearSearchCacheAsync();
+        Check("youtube.searchCacheCleared",
+            vm.YouTube.Results.All(item => !item.CanPlay) && vm.YouTube.Downloaded.Count == downloadedBefore,
+            $"Results playable={vm.YouTube.Results.Count(item => item.CanPlay)}, downloaded={vm.YouTube.Downloaded.Count}.");
+        Check("youtube.keptTracksSurviveSearchClear",
+            vm.YouTube.Downloaded.All(track => track.CanPlay),
+            $"Kept tracks playable={vm.YouTube.Downloaded.Count(track => track.CanPlay)} of {vm.YouTube.Downloaded.Count}.");
+       vm.YouTube.SearchQuery = string.Empty;
         vm.YouTube.Results.Clear();
         SmokeYouTubeBinaries.YtDlpPresent = false;
         vm.YouTube.RefreshBinaryState();
@@ -1175,7 +1199,6 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         var searchBoxes = Descendants<TextBox>(_window!).Count(box => box.IsVisible);
         Check("youtube.pageSwitch", windowViewModel.IsYouTubePage && !windowViewModel.IsPlaylistPage && searchBoxes >= 1,
             $"IsYouTubePage={windowViewModel.IsYouTubePage}, visible text boxes={searchBoxes}.");
-        SaveScreenshot(_window!, $"youtube-page-{Loc.CurrentCode}.png");
 
         // The search tab is captured with real rows, so the listen button and the cache state show.
         SmokeYouTubeBinaries.YtDlpPresent = true;
@@ -1185,8 +1208,9 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         await UntilAsync(() => windowViewModel.YouTube.Results.Count == 2, 8000, "screenshot results");
         await UntilAsync(() => windowViewModel.YouTube.Results.All(item => item.CanPlay), 8000, "screenshot cache");
         await SettleAsync();
-        Check("youtube.searchScreenshot", windowViewModel.YouTube.Results.Count == 2,
-            $"Results={windowViewModel.YouTube.Results.Count}.");
+        Check("youtube.searchScreenshot",
+            windowViewModel.YouTube.Results.Count == 2 && windowViewModel.YouTube.Results.All(item => item.CanPlay),
+            $"Results={windowViewModel.YouTube.Results.Count}, playable={windowViewModel.YouTube.Results.Count(item => item.CanPlay)}.");
         SaveScreenshot(_window!, $"youtube-search-{Loc.CurrentCode}.png");
         windowViewModel.YouTube.Results.Clear();
         SmokeYouTubeBinaries.YtDlpPresent = false;
@@ -1434,6 +1458,9 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     /// </summary>
     private sealed class SmokeYouTubeRunner : IYouTubeProcessRunner
     {
+        /// <summary>A real MP3 the fake download copies, so the cache holds decodable audio.</summary>
+        public static string? FixturePath { get; set; }
+
         public Task<YouTubeProcessResult> RunAsync(
             YouTubeProcessRequest request, CancellationToken cancellationToken = default)
         {
@@ -1445,9 +1472,26 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             if (request.Arguments.Any(argument => argument.StartsWith("ytsearch", StringComparison.Ordinal)))
             {
                 var payload =
-                    """{"id":"dQw4w9WgXcQ","title":"Never Gonna Give You Up","uploader":"Rick Astley","duration":213}""" + "\n" +
-                    """{"id":"kJQP7kiw5Fk","title":"Despacito","uploader":"Luis Fonsi","duration":282}""";
+                    """{"id":"previewAAAA","title":"Never Gonna Give You Up","uploader":"Rick Astley","duration":213}""" + "\n" +
+                    """{"id":"previewBBBB","title":"Despacito","uploader":"Luis Fonsi","duration":282}""";
                 return Task.FromResult(new YouTubeProcessResult(0, payload, string.Empty, false));
+            }
+
+            // A resolve call asks for metadata only.
+            if (request.Arguments.Contains("--dump-single-json"))
+            {
+                return Task.FromResult(new YouTubeProcessResult(0,
+                    """{"id":"previewAAAA","title":"Never Gonna Give You Up","is_live":false}""", string.Empty, false));
+            }
+
+            // Otherwise it is a download: place a real file where -o points and print its path.
+            var template = request.Arguments.SkipWhile(a => a != "-o").Skip(1).FirstOrDefault();
+            if (template is not null && FixturePath is not null)
+            {
+                var target = template.Replace("%(ext)s", "mp3");
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.Copy(FixturePath, target, overwrite: true);
+                return Task.FromResult(new YouTubeProcessResult(0, target, string.Empty, false));
             }
 
             throw new InvalidOperationException($"The smoke never starts yt-dlp for: {string.Join(' ', request.Arguments)}");

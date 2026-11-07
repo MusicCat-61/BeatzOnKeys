@@ -45,6 +45,44 @@ public partial class MessageDialog : Window
         dialog.Run(owner);
     }
 
+    /// <summary>
+    /// An update notice with the release notes inside it. Returns true when the user wants the
+    /// About window opened, which is where the download and install buttons live.
+    /// </summary>
+    public static bool Announce(Window? owner, string title, string message, string notes)
+    {
+        var dialog = new MessageDialog(message, title, showYesNo: true);
+        dialog.BtnYes.Content = Loc.T("L_UpdOpen");
+        dialog.BtnNo.Content = Loc.T("L_UpdLater");
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            dialog.NotesText.Text = TrimNotes(notes);
+            dialog.NotesHost.Visibility = Visibility.Visible;
+        }
+
+        dialog.Run(owner);
+        return dialog._result;
+    }
+
+    /// <summary>
+    /// The release body is Markdown with asset tables; the dialog shows the prose only, because a
+    /// table of download links reads badly in a small window.
+    /// </summary>
+    private static string TrimNotes(string notes)
+    {
+        var kept = new List<string>();
+        foreach (var raw in notes.Replace("\r\n", "\n").Split('\n'))
+        {
+            var line = raw.TrimEnd();
+            if (line.TrimStart().StartsWith('|')) { continue; }
+            if (line.StartsWith("```", StringComparison.Ordinal)) { continue; }
+            kept.Add(line.Replace("**", string.Empty).Replace("`", string.Empty));
+        }
+
+        var text = string.Join('\n', kept).Trim();
+        return text.Length > 2000 ? text[..2000] + "…" : text;
+    }
+
     private void Run(Window? owner)
     {
         // Only attach an owner that is really visible; otherwise centring would be off-screen.

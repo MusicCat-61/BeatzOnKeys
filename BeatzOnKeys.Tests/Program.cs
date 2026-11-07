@@ -87,7 +87,9 @@ internal static class Program
         ("YouTube.YouTubeTracksNeverEnterTheLocalPlaylist", YouTubeTests.YouTubeTracksNeverEnterTheLocalPlaylist),
         ("YouTube.CookiesAreOnlyTakenFromANetscapeJar", YouTubeTests.CookiesAreOnlyTakenFromANetscapeJar),
         ("YouTube.ProgressTemplateIsParsed", YouTubeTests.ProgressTemplateIsParsed),
-        ("YouTube.ASecondRequestReusesTheCachedFile", YouTubeTests.ASecondRequestReusesTheCachedFile)
+        ("YouTube.ASecondRequestReusesTheCachedFile", YouTubeTests.ASecondRequestReusesTheCachedFile),
+        ("YouTube.YtDlpVersionsCompareByDate", YouTubeTests.YtDlpVersionsCompareByDate),
+        ("YouTube.LatestReleaseTagIsParsed", YouTubeTests.LatestReleaseTagIsParsed)
     ];
 
     private static async Task<int> Main()

@@ -139,7 +139,10 @@ Details: {1}</sys:String>
     <sys:String x:Key="Upd_Applying">Closing BeatzOnKeys to install the verified update…</sys:String>
     <sys:String x:Key="Upd_RestartFailed">The update installer could not start. {0}</sys:String>
     <sys:String x:Key="Upd_NothingStaged">No verified update is ready to install.</sys:String>
-    <sys:String x:Key="Upd_TrayAvailable">BeatzOnKeys {0} is available. Open About to install it.</sys:String>
+    <sys:String x:Key="Upd_NoticeTitle">BeatzOnKeys {0} is available</sys:String>
+    <sys:String x:Key="Upd_AvailableBody">You have {0}; GitHub already has {1}. Open About to download and install it?</sys:String>
+    <sys:String x:Key="L_UpdOpen">Open About</sys:String>
+    <sys:String x:Key="L_UpdLater">Later</sys:String>
     <sys:String x:Key="Upd_PreviousFailed">The previous update could not be installed. Open About and try again.</sys:String>
     <sys:String x:Key="Upd_NoReleaseYet">The repository has no published release yet.</sys:String>
     <sys:String x:Key="L_CloseDialog">Close</sys:String>
@@ -156,6 +159,14 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtPreviewingFormat">Playing: {0}</sys:String>
     <sys:String x:Key="L_YtPrev">Previous track</sys:String>
     <sys:String x:Key="L_YtNext">Next track</sys:String>
+    <sys:String x:Key="L_YtCaching">Caching…</sys:String>
+    <sys:String x:Key="L_YtCacheFailed">Could not prepare</sys:String>
+    <sys:String x:Key="L_YtInstalled">yt-dlp installed</sys:String>
+    <sys:String x:Key="L_YtInstalledVersionFormat">yt-dlp {0}</sys:String>
+    <sys:String x:Key="L_YtBroken">yt-dlp is damaged — repair needed</sys:String>
+    <sys:String x:Key="L_YtDownload">Download yt-dlp</sys:String>
+    <sys:String x:Key="L_YtRepair">Repair yt-dlp</sys:String>
+    <sys:String x:Key="L_YtUpdate">Update yt-dlp</sys:String>
     <sys:String x:Key="L_YtSearchHint">Type a name and press Search, or paste a link and press Download</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Search results</sys:String>
     <sys:String x:Key="L_YtIdle">Type a query or paste a link</sys:String>

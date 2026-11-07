@@ -39,6 +39,9 @@ public sealed record UpdateCheckResult
 
     public string? Error { get; init; }
 
+    /// <summary>The release notes, shown in the update dialog instead of a tray balloon.</summary>
+    public string? Notes { get; init; }
+
     public bool HasUpdate => Status == UpdateStatus.UpdateAvailable;
 }
 
@@ -218,11 +221,13 @@ public static class UpdateService
         }
 
         var releaseUrl = $"https://github.com/{Repository}/releases/tag/{Uri.EscapeDataString(tag!)}";
+        var notes = release.TryGetProperty("body", out var bodyValue) ? bodyValue.GetString() : null;
         if (latest <= current)
         {
             return new UpdateCheckResult
             {
-                Status = UpdateStatus.UpToDate, Current = current, Latest = latest, Tag = tag, ReleaseUrl = releaseUrl
+                Status = UpdateStatus.UpToDate, Current = current, Latest = latest, Tag = tag,
+                ReleaseUrl = releaseUrl, Notes = notes
             };
         }
 
@@ -251,7 +256,7 @@ public static class UpdateService
         return new UpdateCheckResult
         {
             Status = downloadable ? UpdateStatus.UpdateAvailable : UpdateStatus.NoDownload,
-            Current = current, Latest = latest, Tag = tag, ReleaseUrl = releaseUrl,
+            Current = current, Latest = latest, Tag = tag, ReleaseUrl = releaseUrl, Notes = notes,
             DownloadUrl = downloadUrl, ChecksumUrl = checksumUrl, AssetSize = assetSize,
             Error = downloadable ? null : $"Release {tag} must contain {AssetFileName} and {ChecksumFileName}."
         };

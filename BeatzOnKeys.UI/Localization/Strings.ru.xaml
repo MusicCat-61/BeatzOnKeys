@@ -139,7 +139,10 @@
     <sys:String x:Key="Upd_Applying">BeatzOnKeys закрывается для установки проверенного обновления…</sys:String>
     <sys:String x:Key="Upd_RestartFailed">Не удалось запустить установщик обновления. {0}</sys:String>
     <sys:String x:Key="Upd_NothingStaged">Нет проверенного обновления, готового к установке.</sys:String>
-    <sys:String x:Key="Upd_TrayAvailable">Доступна BeatzOnKeys {0}. Откройте «О программе» для установки.</sys:String>
+    <sys:String x:Key="Upd_NoticeTitle">Доступна BeatzOnKeys {0}</sys:String>
+    <sys:String x:Key="Upd_AvailableBody">У вас {0}, на GitHub уже {1}. Открыть «О программе», чтобы скачать и установить?</sys:String>
+    <sys:String x:Key="L_UpdOpen">Открыть «О программе»</sys:String>
+    <sys:String x:Key="L_UpdLater">Позже</sys:String>
     <sys:String x:Key="Upd_PreviousFailed">Предыдущее обновление установить не удалось. Откройте «О программе» и повторите попытку.</sys:String>
     <sys:String x:Key="Upd_NoReleaseYet">В репозитории пока нет опубликованных релизов.</sys:String>
     <sys:String x:Key="L_CloseDialog">Закрыть</sys:String>
@@ -156,6 +159,14 @@
     <sys:String x:Key="L_YtPreviewingFormat">Слушаем: {0}</sys:String>
     <sys:String x:Key="L_YtPrev">Предыдущий трек</sys:String>
     <sys:String x:Key="L_YtNext">Следующий трек</sys:String>
+    <sys:String x:Key="L_YtCaching">Кешируется…</sys:String>
+    <sys:String x:Key="L_YtCacheFailed">Не удалось подготовить</sys:String>
+    <sys:String x:Key="L_YtInstalled">yt-dlp установлен</sys:String>
+    <sys:String x:Key="L_YtInstalledVersionFormat">yt-dlp {0}</sys:String>
+    <sys:String x:Key="L_YtBroken">yt-dlp повреждён — нужен ремонт</sys:String>
+    <sys:String x:Key="L_YtDownload">Скачать yt-dlp</sys:String>
+    <sys:String x:Key="L_YtRepair">Починить yt-dlp</sys:String>
+    <sys:String x:Key="L_YtUpdate">Обновить yt-dlp</sys:String>
     <sys:String x:Key="L_YtSearchHint">Введите название и нажмите «Найти», или вставьте ссылку и нажмите «Скачать»</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Результаты поиска</sys:String>
     <sys:String x:Key="L_YtIdle">Введите запрос или вставьте ссылку</sys:String>

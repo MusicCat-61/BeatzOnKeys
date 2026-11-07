@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.IO;
@@ -13,6 +14,14 @@ namespace BeatzOnKeys.UI.ViewModels;
 /// The YouTube section. It owns its own list, its own cache and its own settings, and it never
 /// writes into the local playlist: the two collections only meet in the audio player.
 /// </summary>
+/// <summary>What the yt-dlp card offers: nothing to do, a download, a repair or an update.</summary>
+public enum YtDlpState
+{
+    NotInstalled,
+    Broken,
+    UpToDate,
+    UpdateAvailable
+}
 public sealed partial class YouTubeViewModel : ObservableObject
 {
     private readonly YouTubeTrackService _service;
@@ -240,11 +249,50 @@ public sealed partial class YouTubeViewModel : ObservableObject
 
     public bool YtDlpInstalled { get; private set; }
 
-    public string YtDlpStatusText => YtDlpInstalled
-        ? Loc.F("L_YtInstalledFormat", YtDlpPath ?? string.Empty)
-        : Loc.T("L_YtNotInstalled");
-
     public string? YtDlpPath { get; private set; }
+
+    /// <summary>What the card says in one line: the version, a missing binary, or a damaged one.</summary>
+    public string YtDlpStatusText => _ytDlpState switch
+    {
+        YtDlpState.Broken => Loc.T("L_YtBroken"),
+        YtDlpState.UpToDate or YtDlpState.UpdateAvailable =>
+            string.IsNullOrWhiteSpace(_ytDlpVersion)
+                ? Loc.T("L_YtInstalled")
+                : Loc.F("L_YtInstalledVersionFormat", _ytDlpVersion!),
+        _ => Loc.T("L_YtNotInstalled")
+    };
+
+    /// <summary>
+    /// The single action button. Its label follows the state, and the button disappears when there
+    /// is nothing to do: an up-to-date binary needs no button at all.
+    /// </summary>
+    public string YtDlpActionText => _ytDlpState switch
+    {
+        YtDlpState.Broken => Loc.T("L_YtRepair"),
+        YtDlpState.UpdateAvailable => Loc.T("L_YtUpdate"),
+        _ => Loc.T("L_YtDownload")
+    };
+
+    public bool YtDlpActionVisible => _ytDlpState != YtDlpState.UpToDate;
+
+    public YtDlpState YtDlpState => _ytDlpState;
+
+    /// <summary>The installed version, shown next to the state; null until it is read.</summary>
+    public string? YtDlpVersion => _ytDlpVersion;
+
+    private YtDlpState _ytDlpState = YtDlpState.NotInstalled;
+    private string? _ytDlpVersion;
+
+    /// <summary>
+    /// Asks GitHub for the newest yt-dlp release. Replaceable so tests and the smoke never touch
+    /// the network; a null answer means "unknown", which hides the update button.
+    /// </summary>
+    public static Func<CancellationToken, Task<string?>> LatestYtDlpReleaseFactory { get; set; } = DefaultLatestRelease;
+
+    private static readonly HttpClient ReleaseClient = new() { Timeout = TimeSpan.FromSeconds(20) };
+
+    private static Task<string?> DefaultLatestRelease(CancellationToken cancellationToken) =>
+        YtDlpBinaryManager.FetchLatestReleaseAsync(ReleaseClient, cancellationToken);
 
     public async Task InitializeAsync()
     {
@@ -277,9 +325,54 @@ public sealed partial class YouTubeViewModel : ObservableObject
     {
         YtDlpPath = _service.InstalledYtDlp;
         YtDlpInstalled = YtDlpPath is not null;
+        // A file that sits in the bin folder but is not a usable executable is a repair, not a
+        // download: the user had it before and expects it to still work.
+        _ytDlpState = YtDlpInstalled
+            ? YtDlpState.UpToDate
+            : _service.YtDlpLooksBroken ? YtDlpState.Broken : YtDlpState.NotInstalled;
+        NotifyBinaryState();
+    }
+
+    /// <summary>
+    /// Reads the local version and asks GitHub for the newest one. The button only offers an
+    /// update when a newer release really exists.
+    /// </summary>
+    public async Task RefreshBinaryVersionAsync(CancellationToken cancellationToken = default)
+    {
+        if (!YtDlpInstalled)
+        {
+            NotifyBinaryState();
+            return;
+        }
+
+        try
+        {
+            _ytDlpVersion = await _service.ReadYtDlpVersionAsync(cancellationToken).ConfigureAwait(true);
+            NotifyBinaryState();
+            var latest = await LatestYtDlpReleaseFactory(cancellationToken).ConfigureAwait(true);
+            _ytDlpState = YtDlpBinaryManager.IsNewerRelease(latest, _ytDlpVersion)
+                ? YtDlpState.UpdateAvailable
+                : YtDlpState.UpToDate;
+            NotifyBinaryState();
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception exception)
+        {
+            AppLogger.Warning("youtube", $"Could not compare the yt-dlp versions: {exception.Message}");
+            _ytDlpState = YtDlpState.UpToDate;
+            NotifyBinaryState();
+        }
+    }
+
+    private void NotifyBinaryState()
+    {
         OnPropertyChanged(nameof(YtDlpInstalled));
         OnPropertyChanged(nameof(YtDlpStatusText));
         OnPropertyChanged(nameof(YtDlpPath));
+        OnPropertyChanged(nameof(YtDlpState));
+        OnPropertyChanged(nameof(YtDlpVersion));
+        OnPropertyChanged(nameof(YtDlpActionText));
+        OnPropertyChanged(nameof(YtDlpActionVisible));
     }
 
 
@@ -488,7 +581,9 @@ public sealed partial class YouTubeViewModel : ObservableObject
         StatusText = HasResults ? Loc.F("L_YtFoundFormat", Results.Count) : string.Empty;
         foreach (var track in Downloaded) { track.RefreshLocalization(); }
         _ = RefreshCacheSizeAsync();
-        OnPropertyChanged(nameof(YtDlpStatusText));
+        // Every derived label is recomputed on a language switch, not just the status line.
+        NotifyBinaryState();
+        foreach (var item in Results) { item.RefreshLocalization(); }
         RefreshCommands();
     }
 

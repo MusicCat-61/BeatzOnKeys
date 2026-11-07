@@ -419,7 +419,15 @@ public partial class App : System.Windows.Application
             }
 
             _notifiedUpdateVersion = result.Latest.Display;
-            ShowTrayNotice(Loc.F("Upd_TrayAvailable", result.Latest.Display));
+            // A tray balloon is easy to miss, and it cannot carry the release notes. The window
+            // itself shows the notice, and the About window is where the download happens.
+            var notes = result.Notes ?? string.Empty;
+            var wantsUpdate = MessageDialog.Announce(
+                MainWindow,
+                Loc.F("Upd_NoticeTitle", result.Latest.Display),
+                Loc.F("Upd_AvailableBody", UpdateService.CurrentVersion.Display, result.Latest.Display),
+                notes);
+            if (wantsUpdate) { ShowAboutWindow(); }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

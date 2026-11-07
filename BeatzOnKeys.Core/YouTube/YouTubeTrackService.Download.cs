@@ -27,10 +27,12 @@ public sealed partial class YouTubeTrackService
         {
             AppLogger.Info("youtube", $"{videoId} is already cached at {alreadyCached}; skipping the download.");
             progress?.Report(1d);
+            // The cached file is named after the video id, so its file name is not a title.
+            // Leaving it empty tells the caller to keep the name it already knows.
             return new YouTubeTrackState
             {
                 VideoId = videoId,
-                Title = Path.GetFileNameWithoutExtension(alreadyCached),
+                Title = string.Empty,
                 CachedPath = alreadyCached,
                 Status = YouTubeTrackStatus.Ready
             };

@@ -79,7 +79,38 @@ public sealed partial class YouTubeTrackService
     /// <summary>Where yt-dlp was found, or null when it still has to be downloaded.</summary>
     public string? InstalledYtDlp => _binaries.FindYtDlp();
 
+    /// <summary>
+    /// The version the installed binary reports. Used to tell "installed and current" from
+    /// "installed but old", so the card does not offer an update that does not exist.
+    /// </summary>
+    public async Task<string?> ReadYtDlpVersionAsync(CancellationToken cancellationToken = default)
+    {
+        var executable = _binaries.FindYtDlp();
+        if (executable is null) { return null; }
+        try
+        {
+            var result = await _runner.RunAsync(new YouTubeProcessRequest
+            {
+                Executable = executable,
+                Arguments = ["--version"],
+                Timeout = TimeSpan.FromSeconds(20)
+            }, cancellationToken).ConfigureAwait(false);
+            if (!result.Succeeded) { return null; }
+            var version = result.StandardOutput.Trim();
+            return version.Length is > 0 and < 40 ? version : null;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception exception)
+        {
+            AppLogger.Warning("youtube", $"Could not read the yt-dlp version: {exception.Message}");
+            return null;
+        }
+    }
+
     public string? InstalledFfmpeg => _binaries.FindFfmpeg();
+
+    /// <summary>True when the binary exists but cannot run: the card offers a repair then.</summary>
+    public bool YtDlpLooksBroken => _binaries.YtDlpLooksBroken;
     /// <summary>Slots still free; the UI shows this and the tests assert the cap.</summary>
     public int FreeSlots => _slots.CurrentCount;
 
@@ -128,11 +159,11 @@ public sealed partial class YouTubeTrackService
     }
 
     /// <summary>Installs yt-dlp on demand; the first search or download is what triggers it.</summary>
-    public async Task InstallYtDlpAsync(IProgress<double>? progress, CancellationToken cancellationToken = default)
+    public async Task InstallYtDlpAsync(IProgress<double>? progress, CancellationToken cancellationToken = default, bool force = false)
     {
         try
         {
-            await _binaries.EnsureYtDlpAsync(progress, cancellationToken).ConfigureAwait(false);
+            await _binaries.EnsureYtDlpAsync(progress, cancellationToken, force).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

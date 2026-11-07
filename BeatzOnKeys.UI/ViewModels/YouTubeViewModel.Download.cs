@@ -49,6 +49,9 @@ public sealed partial class YouTubeViewModel
             RefreshBinaryState();
             foreach (var item in found) { Results.Add(new YouTubeSearchItemViewModel(item)); }
             StatusText = found.Count == 0 ? Loc.T("L_YtNotFound") : Loc.F("L_YtFoundFormat", found.Count);
+            // Results are fetched right away, so pressing play works at once and the user hears
+            // what the row actually is before deciding to keep it.
+            _ = CacheResultsAsync(_lifetime.Token);
         }
         catch (OperationCanceledException) { StatusText = string.Empty; }
         catch (YouTubeException exception)
@@ -135,7 +138,8 @@ public sealed partial class YouTubeViewModel
         {
             var progress = new Progress<double>(value => row.Progress = value);
             var result = await _service.DownloadAsync(videoId, progress, _lifetime.Token).ConfigureAwait(true);
-            row.Title = result.Title;
+            // A cached file comes back without a title; the row keeps the one it already had.
+            if (!string.IsNullOrWhiteSpace(result.Title)) { row.Title = result.Title; }
             row.MarkReady(result.CachedPath);
             StatusText = Loc.F("L_YtDownloadedFormat", row.Title);
             NotifyCountChanged();
@@ -171,68 +175,60 @@ public sealed partial class YouTubeViewModel
     }
 
     public RelayCommand<YouTubeSearchItemViewModel> PreviewCommand => _previewCommand ??= new RelayCommand<YouTubeSearchItemViewModel>(
-        item => { if (item is not null) { _ = PreviewAsync(item); } },
-        item => item is { CanDownload: true, IsDownloading: false } && CanStartAnotherDownload);
+        item => { if (item is not null) { Preview(item); } },
+        item => item is { CanPlay: true });
 
     private RelayCommand<YouTubeSearchItemViewModel>? _previewCommand;
 
     /// <summary>
-    /// Plays a search result: it is fetched first when it is not cached yet, then handed to the
-    /// player. That is the only way to hear what a result actually is before keeping it.
+    /// Fetches every result into the cache in the background, one after another. Sequential on
+    /// purpose: the service already limits parallel work, and a burst of ten requests is exactly
+    /// what gets a client rate limited.
     /// </summary>
-    private async Task PreviewAsync(YouTubeSearchItemViewModel item)
+    private async Task CacheResultsAsync(CancellationToken cancellationToken)
     {
-        if (item.IsDownloading || IsInstalling) { return; }
-        if (!CanStartAnotherDownload)
+        foreach (var item in Results.ToList())
         {
-            StatusText = Loc.F("L_YtQueueFullFormat", YouTubeTrackService.MaxConcurrentDownloads);
-            return;
+            if (cancellationToken.IsCancellationRequested) { return; }
+            if (item.CanPlay || !item.CanDownload) { continue; }
+            try
+            {
+                item.IsDownloading = true;
+                item.Progress = 0;
+                var progress = new Progress<double>(value => item.Progress = value);
+                var result = await _service.DownloadAsync(item.VideoId, progress, cancellationToken).ConfigureAwait(true);
+                item.CachedPath = result.CachedPath;
+                item.CacheFailed = false;
+            }
+            catch (OperationCanceledException) { return; }
+            catch (Exception exception)
+            {
+                item.CacheFailed = true;
+                AppLogger.Warning("youtube", $"Could not cache the search result {item.VideoId}: {exception.Message}");
+            }
+            finally
+            {
+                item.IsDownloading = false;
+                item.Progress = 0;
+                PreviewCommand.NotifyCanExecuteChanged();
+            }
         }
 
-        var existing = Downloaded.FirstOrDefault(track => track.VideoId == item.VideoId);
-        if (existing is { CanPlay: true })
-        {
-            SelectTrack(existing);
-            PlayRequested?.Invoke(existing.CachedPath, existing.Title);
-            return;
-        }
-
-        item.IsDownloading = true;
-        item.Progress = 0;
-        StatusText = Loc.F("L_YtDownloadingFormat", item.Title);
-        RefreshCommands();
-        try
-        {
-            var progress = new Progress<double>(value => item.Progress = value);
-            var result = await _service.DownloadAsync(item.VideoId, progress, _lifetime.Token).ConfigureAwait(true);
-            // Listening does not keep the track: it is only added to "Скачанные" when the user
-            // presses Download afterwards, which then reuses the file already in the cache.
-            await RefreshCacheSizeAsync().ConfigureAwait(true);
-            PlayRequested?.Invoke(result.CachedPath, result.Title);
-            StatusText = Loc.F("L_YtPreviewingFormat", result.Title);
-        }
-        catch (OperationCanceledException)
-        {
-            StatusText = Loc.T("L_YtFailureCancelled");
-        }
-        catch (YouTubeException exception)
-        {
-            StatusText = Loc.T(FailureKey(exception.Failure));
-            AppLogger.Warning("youtube", $"The preview of {item.VideoId} failed: {exception.Message}");
-        }
-        catch (Exception exception)
-        {
-            StatusText = Loc.T("L_YtFailureUnknown");
-            AppLogger.Error("youtube", $"The preview of {item.VideoId} failed unexpectedly.", exception);
-        }
-        finally
-        {
-            item.IsDownloading = false;
-            item.Progress = 0;
-            RefreshBinaryState();
-            RefreshCommands();
-        }
+        await RefreshCacheSizeAsync().ConfigureAwait(true);
+        RefreshBinaryState();
     }
+
+    /// <summary>
+    /// Plays a result that is already cached. Nothing is downloaded here: if the file is not on
+    /// disk yet the button stays disabled, so listening never waits on the network.
+    /// </summary>
+    private void Preview(YouTubeSearchItemViewModel item)
+    {
+        if (!item.CanPlay) { return; }
+        PlayRequested?.Invoke(item.CachedPath!, item.Title);
+        StatusText = Loc.F("L_YtPreviewingFormat", item.Title);
+    }
+
     private async Task InstallYtDlpAsync()
     {
         if (IsInstalling) { return; }
@@ -246,9 +242,12 @@ public sealed partial class YouTubeViewModel
                 InstallProgress = value;
                 StatusText = Loc.F("L_YtInstallingFormat", Math.Round(value * 100));
             });
-            await _service.InstallYtDlpAsync(progress, _lifetime.Token).ConfigureAwait(true);
+            // Repair and update replace the file; a plain download only fills a gap.
+            var force = _ytDlpState is YtDlpState.Broken or YtDlpState.UpdateAvailable;
+            await _service.InstallYtDlpAsync(progress, _lifetime.Token, force).ConfigureAwait(true);
             RefreshBinaryState();
             StatusText = Loc.T("L_YtInstallDone");
+            await RefreshBinaryVersionAsync(_lifetime.Token).ConfigureAwait(true);
         }
         catch (OperationCanceledException) { StatusText = string.Empty; }
         catch (Exception exception)

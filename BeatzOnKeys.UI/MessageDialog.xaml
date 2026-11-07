@@ -17,6 +17,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <Border Grid.Row="0" Padding="18,14" Background="Transparent"
@@ -28,8 +29,19 @@
             <TextBlock Grid.Row="1" x:Name="MessageText" Margin="18,0,18,18"
                        FontSize="16.5" TextWrapping="Wrap" LineHeight="23"
                        Foreground="{DynamicResource TextSecondaryBrush}"/>
+            <!-- The release notes get their own scrollable block; they can be long. -->
+            <Border Grid.Row="2" x:Name="NotesHost" Margin="18,0,18,16" MaxHeight="260"
+                    Background="{DynamicResource ControlBackgroundBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                    CornerRadius="6" Padding="12,10" Visibility="Collapsed">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock x:Name="NotesText" FontSize="13.5" TextWrapping="Wrap" LineHeight="19"
+                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </ScrollViewer>
+            </Border>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
                         Margin="18,0,18,16">
                 <Button x:Name="BtnNo" Style="{StaticResource SubtleButtonStyle}" FontSize="16"
                         MinWidth="96" Margin="0,0,8,0" Click="BtnNo_Click"/>

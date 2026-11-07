@@ -41,6 +41,13 @@ public sealed class YtDlpBinaryManager : IYtDlpBinaryProvider, IDisposable
     public string? FindYtDlp() => Find(YtDlpFileName);
     public string? FindFfmpeg() => Find(FfmpegFileName);
 
+    /// <summary>The expected location, so the UI can offer a repair when the file went bad.</summary>
+    public string? ExpectedYtDlpPath => YtDlpPath;
+
+    /// <summary>A file exists but is not a healthy executable: truncated, empty or not a PE image.</summary>
+    public bool YtDlpLooksBroken =>
+        File.Exists(YtDlpPath) && !LooksLikeExecutable(YtDlpPath, out _);
+
     /// <summary>The well-known target path, whether or not the file exists yet.</summary>
     public string YtDlpPath => Path.Combine(_binDirectory, YtDlpFileName);
 
@@ -75,8 +82,81 @@ public sealed class YtDlpBinaryManager : IYtDlpBinaryProvider, IDisposable
         return null;
     }
 
-    public Task<string> EnsureYtDlpAsync(IProgress<double>? progress, CancellationToken cancellationToken) =>
-        EnsureAsync(YtDlpFileName, YtDlpDownloadUrl, progress, cancellationToken);
+    /// <summary>
+    /// The newest published yt-dlp release. Returns null when the answer is unknown, so the card
+    /// hides the update button rather than offering an update it cannot confirm.
+    /// </summary>
+    public static async Task<string?> FetchLatestReleaseAsync(
+        HttpClient client, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, LatestReleaseApi);
+            request.Headers.Accept.ParseAdd("application/vnd.github+json");
+            using var response = await client.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) { return null; }
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            return ParseLatestTag(json);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception exception)
+        {
+            AppLogger.Warning("youtube", $"Could not read the latest yt-dlp release: {exception.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>Reads tag_name out of the GitHub release payload; anything else means "unknown".</summary>
+    public static string? ParseLatestTag(string json)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            if (!document.RootElement.TryGetProperty("tag_name", out var tag)) { return null; }
+            var value = tag.GetString()?.Trim();
+            return string.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
+
+    /// <summary>
+    /// yt-dlp versions are dates ("2025.01.15"), so they compare numerically part by part.
+    /// A nightly suffix is ignored: the date alone decides.
+    /// </summary>
+    public static bool IsNewerRelease(string? latest, string? current)
+    {
+        if (string.IsNullOrWhiteSpace(latest) || string.IsNullOrWhiteSpace(current)) { return false; }
+        var latestParts = NumericParts(latest);
+        var currentParts = NumericParts(current);
+        if (latestParts.Count == 0 || currentParts.Count == 0) { return false; }
+        for (var index = 0; index < Math.Max(latestParts.Count, currentParts.Count); index++)
+        {
+            var left = index < latestParts.Count ? latestParts[index] : 0;
+            var right = index < currentParts.Count ? currentParts[index] : 0;
+            if (left != right) { return left > right; }
+        }
+
+        return false;
+    }
+
+    private static List<int> NumericParts(string value)
+    {
+        var parts = new List<int>();
+        foreach (var chunk in value.Split(['.', '-', ' '], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var digits = new string(chunk.TakeWhile(char.IsDigit).ToArray());
+            if (digits.Length == 0) { continue; }
+            parts.Add(int.TryParse(digits, out var number) ? number : 0);
+        }
+
+        return parts;
+    }
+
+    public static string LatestReleaseApi => "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest";
+    public Task<string> EnsureYtDlpAsync(
+        IProgress<double>? progress, CancellationToken cancellationToken, bool force = false) =>
+        EnsureAsync(YtDlpFileName, YtDlpDownloadUrl, progress, cancellationToken, force);
 
     /// <summary>
     /// ffmpeg is optional and never downloaded. The only tiny build that performs the WAV
@@ -98,11 +178,16 @@ public sealed class YtDlpBinaryManager : IYtDlpBinaryProvider, IDisposable
         string fileName,
         string url,
         IProgress<double>? progress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool force = false)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        var existing = Find(fileName);
-        if (existing is not null) { return existing; }
+        // A healthy file is reused; a repair or an update replaces it on purpose.
+        if (!force)
+        {
+            var existing = Find(fileName);
+            if (existing is not null) { return existing; }
+        }
 
         AppPaths.EnsureYouTubeCreated();
         var target = Path.Combine(_binDirectory, fileName);

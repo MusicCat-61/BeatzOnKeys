@@ -826,6 +826,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
 
     private async Task AutoAdvanceAsync()
     {
+        // No network in the smoke: the yt-dlp card compares against a fixed upstream version.
+        YouTubeViewModel.LatestYtDlpReleaseFactory = _ => Task.FromResult<string?>("2025.01.15");
         var hook = new FakeKeyboardHook();
         var player = new ContinuousAudioPlayer();
         var vm = Own(new MainViewModel(new AppSettings { MinVolume = 0.2, MaxVolume = 1, IdleTimeout = 3, PauseOnIdle = true, AutoAdvance = true, Loop = false },
@@ -990,6 +992,12 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         File.Copy(_fixtures[0], cached, overwrite: true);
         var cachedSecond = Path.Combine(music, "kJQP7kiw5Fk.mp3");
         File.Copy(_fixtures[1], cachedSecond, overwrite: true);
+        // The window's own view model uses the harness service; the same fixtures go there so a
+        // screenshot can show cached search rows without a download.
+        var harnessMusic = Path.Combine(session, "youtube", "Music");
+        Directory.CreateDirectory(harnessMusic);
+        File.Copy(_fixtures[0], Path.Combine(harnessMusic, "dQw4w9WgXcQ.mp3"), overwrite: true);
+        File.Copy(_fixtures[1], Path.Combine(harnessMusic, "kJQP7kiw5Fk.mp3"), overwrite: true);
         MainViewModel.YouTubeServiceFactory = () => new YouTubeTrackService(
             new SmokeYouTubeBinaries(), new SmokeYouTubeRunner(),
             new YouTubeOptions
@@ -998,6 +1006,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 DownloadDirectory = Path.Combine(root, "downloads")
             });
 
+        // No network in the smoke: the yt-dlp card compares against a fixed upstream version.
+        YouTubeViewModel.LatestYtDlpReleaseFactory = _ => Task.FromResult<string?>("2025.01.15");
         var hook = new FakeKeyboardHook();
         var player = new ContinuousAudioPlayer();
         var vm = Own(new MainViewModel(
@@ -1084,8 +1094,14 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             $"Cache: bytes={vm.YouTube.CacheBytes}, text='{vm.YouTube.CacheSizeText}', expected '{expected}'.");
 
         Check("youtube.binaryNotInstalled", !vm.YouTube.YtDlpInstalled &&
-            vm.YouTube.YtDlpStatusText == Loc.T("L_YtNotInstalled"),
-            $"yt-dlp: installed={vm.YouTube.YtDlpInstalled}, text='{vm.YouTube.YtDlpStatusText}'.");
+            vm.YouTube.YtDlpStatusText == Loc.T("L_YtNotInstalled") &&
+            vm.YouTube.YtDlpState == YtDlpState.NotInstalled &&
+            vm.YouTube.YtDlpActionVisible && vm.YouTube.YtDlpActionText == Loc.T("L_YtDownload"),
+            $"yt-dlp: installed={vm.YouTube.YtDlpInstalled}, state={vm.YouTube.YtDlpState}, text='{vm.YouTube.YtDlpStatusText}'.");
+        // The card must not offer an update it cannot confirm, and never show a button when the
+        // binary is current: that is the whole point of the state-driven button.
+        Check("youtube.binaryUpToDateHidesButton", !vm.YouTube.YtDlpActionVisible == (vm.YouTube.YtDlpState == YtDlpState.UpToDate),
+            $"state={vm.YouTube.YtDlpState}, visible={vm.YouTube.YtDlpActionVisible}.");
 
         Check("youtube.searchNeedsQuery", !vm.YouTube.SearchCommand.CanExecute(null), "An empty query cannot search.");
         vm.YouTube.SearchQuery = "linkin park numb";
@@ -1109,7 +1125,39 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             vm.YouTube.Downloaded.Count == 2,
             $"Status='{vm.YouTube.StatusText}', rows={vm.YouTube.Downloaded.Count}.");
 
+        // A result without a cached file cannot be listened to; the command must refuse it.
+        var uncached = new YouTubeSearchItemViewModel(new YouTubeSearchResult
+        {
+            VideoId = "notcached01", Title = "Not cached yet", Author = "Nobody", Duration = TimeSpan.FromSeconds(60)
+        });
+        Check("youtube.previewDisabledWithoutCache",
+            !uncached.CanPlay && !vm.YouTube.PreviewCommand.CanExecute(uncached),
+            $"CanPlay={uncached.CanPlay}, canExecute={vm.YouTube.PreviewCommand.CanExecute(uncached)}.");
+
+        // A search fills the list and caches every row, so listening works without a second request.
+        SmokeYouTubeBinaries.YtDlpPresent = true;
+        vm.YouTube.RefreshBinaryState();
+        vm.YouTube.SearchQuery = "rick astley";
+        vm.YouTube.SearchCommand.Execute(null);
+        await UntilAsync(() => vm.YouTube.Results.Count == 2, 8000, "search results");
+        Check("youtube.searchFillsResults", vm.YouTube.Results.Count == 2,
+            $"Results={vm.YouTube.Results.Count}.");
+        await UntilAsync(() => vm.YouTube.Results.All(item => item.CanPlay), 8000, "cached results");
+        var firstResult = vm.YouTube.Results[0];
+        Check("youtube.previewEnabledWithCache",
+            firstResult.CanPlay && vm.YouTube.PreviewCommand.CanExecute(firstResult),
+            $"CanPlay={firstResult.CanPlay}, state='{firstResult.CacheStateText}'.");
+        vm.YouTube.PreviewCommand.Execute(firstResult);
+        await UntilAsync(() => vm.IsRunning && player.IsPlaying, 5000, "preview playback");
+        Check("youtube.previewPlaysCachedFile",
+            vm.IsRunning && player.IsPlaying && vm.NowPlayingText.Contains(firstResult.Title, StringComparison.Ordinal),
+            $"Running={vm.IsRunning}, playing={player.IsPlaying}, now='{vm.NowPlayingText}'.");
+        await StopAsync(vm);
         vm.YouTube.SearchQuery = string.Empty;
+        vm.YouTube.Results.Clear();
+        SmokeYouTubeBinaries.YtDlpPresent = false;
+        vm.YouTube.RefreshBinaryState();
+
         var row = vm.YouTube.Downloaded[0];
         Check("youtube.playAvailable", vm.YouTube.PlayCommand.CanExecute(row), "A cached, existing file can be played.");
         vm.YouTube.PlayCommand.Execute(row);
@@ -1128,6 +1176,21 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("youtube.pageSwitch", windowViewModel.IsYouTubePage && !windowViewModel.IsPlaylistPage && searchBoxes >= 1,
             $"IsYouTubePage={windowViewModel.IsYouTubePage}, visible text boxes={searchBoxes}.");
         SaveScreenshot(_window!, $"youtube-page-{Loc.CurrentCode}.png");
+
+        // The search tab is captured with real rows, so the listen button and the cache state show.
+        SmokeYouTubeBinaries.YtDlpPresent = true;
+        windowViewModel.YouTube.RefreshBinaryState();
+        windowViewModel.YouTube.SearchQuery = "rick astley";
+        windowViewModel.YouTube.SearchCommand.Execute(null);
+        await UntilAsync(() => windowViewModel.YouTube.Results.Count == 2, 8000, "screenshot results");
+        await UntilAsync(() => windowViewModel.YouTube.Results.All(item => item.CanPlay), 8000, "screenshot cache");
+        await SettleAsync();
+        Check("youtube.searchScreenshot", windowViewModel.YouTube.Results.Count == 2,
+            $"Results={windowViewModel.YouTube.Results.Count}.");
+        SaveScreenshot(_window!, $"youtube-search-{Loc.CurrentCode}.png");
+        windowViewModel.YouTube.Results.Clear();
+        SmokeYouTubeBinaries.YtDlpPresent = false;
+        windowViewModel.YouTube.RefreshBinaryState();
 
         // The downloaded tab is captured with the real fixture files, so the counter and the
         // status chips are visible in the picture instead of an empty list.
@@ -1353,18 +1416,42 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
 
     private sealed class SmokeYouTubeBinaries : IYtDlpBinaryProvider
     {
-        public string? FindYtDlp() => null;
+        /// <summary>Flipped by the search scenario so a search can run without a real binary.</summary>
+        public static bool YtDlpPresent { get; set; }
+
+        public string? FindYtDlp() => YtDlpPresent ? "yt-dlp.exe" : null;
         public string? FindFfmpeg() => null;
-        public Task<string> EnsureYtDlpAsync(IProgress<double>? progress, CancellationToken cancellationToken) =>
+        public Task<string> EnsureYtDlpAsync(
+            IProgress<double>? progress, CancellationToken cancellationToken, bool force = false) =>
             throw new InvalidOperationException("The smoke never downloads yt-dlp.");
         public Task<string> EnsureFfmpegAsync(IProgress<double>? progress, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("The smoke never downloads ffmpeg.");
     }
 
+    /// <summary>
+    /// Answers the two calls the search tab makes without a binary: the version probe and the
+    /// search itself. A download request still throws, so nothing can silently hit the network.
+    /// </summary>
     private sealed class SmokeYouTubeRunner : IYouTubeProcessRunner
     {
-        public Task<YouTubeProcessResult> RunAsync(YouTubeProcessRequest request, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("The smoke never starts yt-dlp.");
+        public Task<YouTubeProcessResult> RunAsync(
+            YouTubeProcessRequest request, CancellationToken cancellationToken = default)
+        {
+            if (request.Arguments.Contains("--version"))
+            {
+                return Task.FromResult(new YouTubeProcessResult(0, "2025.01.15\n", string.Empty, false));
+            }
+
+            if (request.Arguments.Any(argument => argument.StartsWith("ytsearch", StringComparison.Ordinal)))
+            {
+                var payload =
+                    """{"id":"dQw4w9WgXcQ","title":"Never Gonna Give You Up","uploader":"Rick Astley","duration":213}""" + "\n" +
+                    """{"id":"kJQP7kiw5Fk","title":"Despacito","uploader":"Luis Fonsi","duration":282}""";
+                return Task.FromResult(new YouTubeProcessResult(0, payload, string.Empty, false));
+            }
+
+            throw new InvalidOperationException($"The smoke never starts yt-dlp for: {string.Join(' ', request.Arguments)}");
+        }
     }
     private static void SetField(object instance, string name, object? value) => typeof(App)
         .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(instance, value);

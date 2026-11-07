@@ -34,6 +34,36 @@ internal static class YouTubeTests
     }
 
     /// <summary>
+    /// The yt-dlp card offers an update only when the upstream release is really newer. Versions
+    /// are dates, so a plain string comparison would get "2025.1.5" vs "2025.12.1" wrong.
+    /// </summary>
+    public static Task YtDlpVersionsCompareByDate()
+    {
+        AssertEx.True(YtDlpBinaryManager.IsNewerRelease("2025.12.01", "2025.01.15"),
+            "A December release is newer than a January one.");
+        AssertEx.True(YtDlpBinaryManager.IsNewerRelease("2025.01.16", "2025.01.15"),
+            "A later day is newer.");
+        AssertEx.True(!YtDlpBinaryManager.IsNewerRelease("2025.01.15", "2025.01.15"),
+            "The same release is not an update.");
+        AssertEx.True(!YtDlpBinaryManager.IsNewerRelease("2024.12.31", "2025.01.15"),
+            "An older release is not an update.");
+        AssertEx.True(!YtDlpBinaryManager.IsNewerRelease(null, "2025.01.15"),
+            "An unknown upstream version never offers an update.");
+        AssertEx.True(!YtDlpBinaryManager.IsNewerRelease("2025.01.15", null),
+            "An unknown local version never offers an update.");
+        AssertEx.True(!YtDlpBinaryManager.IsNewerRelease("nightly", "2025.01.15"),
+            "A non-numeric tag cannot be compared and must not claim an update.");
+        return Task.CompletedTask;
+    }
+
+    public static Task LatestReleaseTagIsParsed()
+    {
+        AssertEx.Equal("2025.11.12", YtDlpBinaryManager.ParseLatestTag("""{"tag_name":"2025.11.12"}"""));
+        AssertEx.Equal(null, YtDlpBinaryManager.ParseLatestTag("""{"no_tag":true}"""));
+        AssertEx.Equal(null, YtDlpBinaryManager.ParseLatestTag("not json at all"));
+        return Task.CompletedTask;
+    }
+    /// <summary>
     /// Regression for the retry bug: asking for the same video twice used to leave the first
     /// failure on screen. A cached file must also be reused instead of downloaded again.
     /// </summary>
@@ -317,7 +347,8 @@ internal sealed class StubBinaries(string? ytDlp, string? ffmpeg) : IYtDlpBinary
     public string? FindYtDlp() => ytDlp;
     public string? FindFfmpeg() => ffmpeg;
 
-    public Task<string> EnsureYtDlpAsync(IProgress<double>? progress, CancellationToken cancellationToken) =>
+    public Task<string> EnsureYtDlpAsync(
+        IProgress<double>? progress, CancellationToken cancellationToken, bool force = false) =>
         ytDlp is null
             ? throw new InvalidOperationException("no network in tests")
             : Task.FromResult(ytDlp);

@@ -1,6 +1,6 @@
 using System.IO;
-using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.UI.Infrastructure;
+using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.UI.Localization;
 
 namespace BeatzOnKeys.UI.ViewModels;
@@ -49,6 +49,56 @@ public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result) : Obs
 
     public bool ShowProgress => IsDownloading;
     public string ProgressText => $"{Math.Round(Progress * 100)}%";
+
+    /// <summary>
+    /// Results are cached in the background right after a search, so the listen button can work
+    /// without a second network round trip. Listening is offered only once the file exists.
+    /// </summary>
+    public string? CachedPath
+    {
+        get => _cachedPath;
+        set
+        {
+            if (!SetProperty(ref _cachedPath, value)) { return; }
+            OnPropertyChanged(nameof(CanPlay));
+            OnPropertyChanged(nameof(IsCaching));
+            OnPropertyChanged(nameof(CacheStateText));
+        }
+    }
+
+    private string? _cachedPath;
+
+    public bool CanPlay => !IsLive && !string.IsNullOrEmpty(CachedPath) && File.Exists(CachedPath);
+    /// <summary>Recomputes the localized line after a language switch.</summary>
+    public void RefreshLocalization()
+    {
+        OnPropertyChanged(nameof(CacheStateText));
+        OnPropertyChanged(nameof(LiveBadgeText));
+    }
+
+    /// <summary>True while this result is being fetched for listening, so the row shows a state.</summary>
+    public bool IsCaching => !CanPlay && !IsLive && !_cacheFailed;
+
+    public bool CacheFailed
+    {
+        get => _cacheFailed;
+        set
+        {
+            if (_cacheFailed == value) { return; }
+            _cacheFailed = value;
+            OnPropertyChanged(nameof(IsCaching));
+            OnPropertyChanged(nameof(CacheStateText));
+        }
+    }
+
+    private bool _cacheFailed;
+
+    /// <summary>The line under the title: the author while caching, a hint when it cannot play.</summary>
+    public string CacheStateText => IsLive
+        ? LiveBadgeText
+        : CanPlay ? Author
+        : _cacheFailed ? Loc.T("L_YtCacheFailed")
+        : Loc.T("L_YtCaching");
 }
 
 /// <summary>A cached YouTube track, with its own status and download progress.</summary>

@@ -58,6 +58,9 @@
     <sys:String x:Key="L_StereoPulseHint">На 50 мс сдвигает баланс при каждом нажатии, чередуя стороны.</sys:String>
     <sys:String x:Key="L_AdaptiveVolume">Адаптивный порог (подстраивать минимальную громкость под трек)</sys:String>
     <sys:String x:Key="L_AdaptiveVolumeHint">Тихий трек — 10%, громкий — 30%, средний — ваше значение.</sys:String>
+    <sys:String x:Key="L_NowPlayingCard">Сейчас играет</sys:String>
+    <sys:String x:Key="L_NothingPlaying">Ничего не играет</sys:String>
+    <sys:String x:Key="L_TabSettings">Настройки</sys:String>
     <sys:String x:Key="L_SelectedTrack">Выбранный трек</sys:String>
     <sys:String x:Key="L_NoTrackSelected">Выберите доступный трек</sys:String>
     <sys:String x:Key="L_PlaybackProgress">Позиция воспроизведения</sys:String>
@@ -171,7 +174,7 @@
     <sys:String x:Key="L_YtSearchCacheLabel">Кеш поиска: {0}</sys:String>
     <sys:String x:Key="L_YtClearSearchCache">Очистить кеш поиска</sys:String>
     <sys:String x:Key="L_YtClearDownloaded">Очистить скачанные</sys:String>
-    <sys:String x:Key="L_YtCacheTotal">Занято всего: {0}</sys:String>
+    <sys:String x:Key="L_YtCacheTotal">Занято треками: {0}</sys:String>
     <sys:String x:Key="L_YtSearchHint">Введите название и нажмите «Найти», или вставьте ссылку и нажмите «Скачать»</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Результаты поиска</sys:String>
     <sys:String x:Key="L_YtIdle">Введите запрос или вставьте ссылку</sys:String>
@@ -188,13 +191,18 @@
     <sys:String x:Key="L_YtPlay">Слушать</sys:String>
     <sys:String x:Key="L_YtRemove">Убрать</sys:String>
     <sys:String x:Key="L_YtCacheTitle">Кеш YouTube</sys:String>
-    <sys:String x:Key="L_YtCacheUsedFormat">Занято всего: {0}</sys:String>
+    <sys:String x:Key="L_YtCacheUsedFormat">Занято треками: {0}</sys:String>
     <sys:String x:Key="L_YtClearCache">Очистить кеш YouTube</sys:String>
     <sys:String x:Key="L_YtClearCacheConfirm">Удалить все скачанные треки YouTube? Локальный плейлист не пострадает.</sys:String>
     <sys:String x:Key="L_YtClearCacheTitle">Очистить кеш</sys:String>
     <sys:String x:Key="L_YtCacheCleared">Кеш очищен</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Открыть папку с музыкой</sys:String>
     <sys:String x:Key="L_YtCacheEnabled">Кешировать треки</sys:String>
+    <sys:String x:Key="L_YtCacheMovedFormat">Кеш перенесён, файлов: {0}</sys:String>
+    <sys:String x:Key="L_YtQueryProgressFormat">Скачивание: {0}%</sys:String>
+    <sys:String x:Key="L_YtCacheFolderPick">Выберите папку для кеша</sys:String>
+    <sys:String x:Key="L_YtChangeFolder">Изменить папку…</sys:String>
+    <sys:String x:Key="L_YtCacheFolderFormat">Папка кеша: {0}</sys:String>
     <sys:String x:Key="L_YtCacheHint">Файлы лежат в %LOCALAPPDATA%\BeatzOnKeys\Music и переживают переустановку.</sys:String>
     <sys:String x:Key="L_YtSettingsTitle">yt-dlp</sys:String>
     <sys:String x:Key="L_YtInstall">Скачать/Обновить yt-dlp</sys:String>
@@ -237,7 +245,7 @@
     <sys:String x:Key="Guide_YouTubeDownloadT">Прямые ссылки и ограничения</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadX">За раз обрабатывается одна ссылка. Плейлисты и ссылки на каналы отклоняются с пояснением, прямые эфиры сохранить нельзя. Одновременно идут не больше двух скачиваний, а на каждое отводится 10 минут — по истечении процесс завершается принудительно.</sys:String>
     <sys:String x:Key="Guide_YouTubeCacheT">Кеш и папка</sys:String>
-    <sys:String x:Key="Guide_YouTubeCacheX">Скачанное лежит в %LOCALAPPDATA%\BeatzOnKeys\Music, поэтому переживает переустановку. Размер показан в КБ, МБ или ГБ. «Очистить кеш YouTube» удаляет файлы после подтверждения и не трогает локальный плейлист, «Открыть папку с музыкой» открывает Проводник, а флажок «Кешировать треки» отключает накопление.</sys:String>
+    <sys:String x:Key="Guide_YouTubeCacheX">Галочка «Кешировать треки» решает, остаются ли прослушанные файлы на диске. Рядом видно, сколько занимают сохранённые треки и кеш поиска, там же обе кнопки очистки, выбор папки кеша с переносом файлов и кнопка «Открыть папку с музыкой».</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpT">yt-dlp</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpX">Скачивание идёт через yt-dlp.exe. Приложение не качает его при запуске: 22.5 МБ загружаются при первом действии, с прогресс-баром. Кнопка «Скачать/Обновить yt-dlp» повторяет загрузку, если она не удалась.</sys:String>
     <sys:String x:Key="Guide_YouTubeLimitsT">Ошибки и фолбэк</sys:String>
@@ -322,7 +330,7 @@
     <sys:String x:Key="Guide_AdaptiveT">Адаптивный порог</sys:String>
     <sys:String x:Key="Guide_AdaptiveX">Тихий трек (RMS ниже 0,1) получает тихий уровень 10%, громкий (выше 0,5) — 30%, средний оставляет вашу минимальную громкость.</sys:String>
 
-    <sys:String x:Key="Guide_SecPanel">Панель настроек</sys:String>
+    <sys:String x:Key="Guide_SecPanel">Вкладка «Настройки»</sys:String>
     <sys:String x:Key="Guide_ChipsT">Чипы «Громкость / Реакция / Поведение»</sys:String>
     <sys:String x:Key="Guide_ChipsX">Три кнопки над настройками. Нажатие раскрывает нужный раздел и сворачивает остальные, поэтому панель всегда помещается без прокрутки. Активный чип подсвечен синим.</sys:String>
     <sys:String x:Key="Guide_CollapseT">Свёртывание раздела</sys:String>

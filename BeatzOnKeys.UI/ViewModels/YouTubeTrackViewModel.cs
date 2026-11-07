@@ -159,6 +159,39 @@ public sealed class YouTubeTrackViewModel : ObservableObject
     public string VideoId => _state.VideoId;
     public string CachedPath => _state.CachedPath;
 
+    /// <summary>Length of the track, shown on the row; a dash when it was never reported.</summary>
+    public string DurationText
+    {
+        get
+        {
+            if (_state.Duration <= TimeSpan.Zero) { return "—"; }
+            // The format string cannot live inside an interpolation hole, hence the local.
+            var clock = _state.Duration.ToString(@"mm\:ss");
+            return _state.Duration.TotalHours >= 1 ? $"{(int)_state.Duration.TotalHours}:{clock}" : clock;
+        }
+    }
+    /// <summary>Records the length once the download reports it.</summary>
+    public void SetDuration(TimeSpan duration)
+    {
+        if (duration <= TimeSpan.Zero || _state.Duration == duration) { return; }
+        _state.Duration = duration;
+        OnPropertyChanged(nameof(DurationText));
+    }
+
+    /// <summary>
+    /// Points the row at its file after the cache moved. A file that stayed behind keeps its old
+    /// path, because the migrator only reports what it actually moved.
+    /// </summary>
+    public void Relocate(IReadOnlyDictionary<string, string> moved)
+    {
+        if (string.IsNullOrEmpty(_state.CachedPath)) { return; }
+        if (!moved.TryGetValue(_state.CachedPath, out var destination)) { return; }
+        _state.CachedPath = destination;
+        OnPropertyChanged(nameof(CachedPath));
+        OnPropertyChanged(nameof(CanPlay));
+        OnPropertyChanged(nameof(TooltipText));
+    }
+
     public string Title
     {
         get => _state.Title;

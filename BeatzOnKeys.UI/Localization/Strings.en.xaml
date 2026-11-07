@@ -58,6 +58,9 @@
     <sys:String x:Key="L_StereoPulseHint">Shifts the balance for 50 ms per key press, alternating sides.</sys:String>
     <sys:String x:Key="L_AdaptiveVolume">Adaptive threshold (fit the quiet level to the track)</sys:String>
     <sys:String x:Key="L_AdaptiveVolumeHint">Quiet track — 10%, loud — 30%, average — your value.</sys:String>
+    <sys:String x:Key="L_NowPlayingCard">Now playing</sys:String>
+    <sys:String x:Key="L_NothingPlaying">Nothing playing</sys:String>
+    <sys:String x:Key="L_TabSettings">Settings</sys:String>
     <sys:String x:Key="L_SelectedTrack">Selected track</sys:String>
     <sys:String x:Key="L_NoTrackSelected">Select an available track</sys:String>
     <sys:String x:Key="L_PlaybackProgress">Playback position</sys:String>
@@ -171,7 +174,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtSearchCacheLabel">Search cache: {0}</sys:String>
     <sys:String x:Key="L_YtClearSearchCache">Clear search cache</sys:String>
     <sys:String x:Key="L_YtClearDownloaded">Clear downloaded</sys:String>
-    <sys:String x:Key="L_YtCacheTotal">Total: {0}</sys:String>
+    <sys:String x:Key="L_YtCacheTotal">Kept tracks: {0}</sys:String>
     <sys:String x:Key="L_YtSearchHint">Type a name and press Search, or paste a link and press Download</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Search results</sys:String>
     <sys:String x:Key="L_YtIdle">Type a query or paste a link</sys:String>
@@ -188,13 +191,18 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtPlay">Listen</sys:String>
     <sys:String x:Key="L_YtRemove">Remove</sys:String>
     <sys:String x:Key="L_YtCacheTitle">YouTube cache</sys:String>
-    <sys:String x:Key="L_YtCacheUsedFormat">Total: {0}</sys:String>
+    <sys:String x:Key="L_YtCacheUsedFormat">Kept tracks: {0}</sys:String>
     <sys:String x:Key="L_YtClearCache">Clear the YouTube cache</sys:String>
     <sys:String x:Key="L_YtClearCacheConfirm">Delete every downloaded YouTube track? The local playlist is not affected.</sys:String>
     <sys:String x:Key="L_YtClearCacheTitle">Clear the cache</sys:String>
     <sys:String x:Key="L_YtCacheCleared">The cache is empty</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Open the music folder</sys:String>
     <sys:String x:Key="L_YtCacheEnabled">Cache tracks</sys:String>
+    <sys:String x:Key="L_YtCacheMovedFormat">Cache moved, {0} files</sys:String>
+    <sys:String x:Key="L_YtQueryProgressFormat">Downloading: {0}%</sys:String>
+    <sys:String x:Key="L_YtCacheFolderPick">Choose the cache folder</sys:String>
+    <sys:String x:Key="L_YtChangeFolder">Change folder…</sys:String>
+    <sys:String x:Key="L_YtCacheFolderFormat">Cache folder: {0}</sys:String>
     <sys:String x:Key="L_YtCacheHint">Files live in %LOCALAPPDATA%\BeatzOnKeys\Music and survive a reinstall.</sys:String>
     <sys:String x:Key="L_YtSettingsTitle">yt-dlp</sys:String>
     <sys:String x:Key="L_YtInstall">Download/Update yt-dlp</sys:String>
@@ -237,7 +245,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadT">Links and limits</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadX">One link is handled at a time. Playlists and channel links are refused with an explanation, and live streams cannot be saved. At most two downloads run at once, and each is limited to ten minutes before the process is stopped.</sys:String>
     <sys:String x:Key="Guide_YouTubeCacheT">Cache and folder</sys:String>
-    <sys:String x:Key="Guide_YouTubeCacheX">Downloads live in %LOCALAPPDATA%\BeatzOnKeys\Music, so they survive a reinstall. The size is shown in KB, MB or GB. Clear the YouTube cache removes the files after a confirmation and never touches the local playlist, Open the music folder opens Explorer, and the Cache tracks checkbox turns accumulation off.</sys:String>
+    <sys:String x:Key="Guide_YouTubeCacheX">The cache switch decides whether played files stay on disk. Next to it you see how much the kept tracks and the search cache take, both clear buttons, the cache folder picker that moves the files, and the folder button.</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpT">yt-dlp</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpX">Downloads go through yt-dlp.exe. It is not fetched at startup: 22.5 MB arrive on the first action, with a progress bar. Download/Update yt-dlp repeats the download when it fails.</sys:String>
     <sys:String x:Key="Guide_YouTubeLimitsT">Failures and fallbacks</sys:String>
@@ -322,7 +330,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_AdaptiveT">Adaptive threshold</sys:String>
     <sys:String x:Key="Guide_AdaptiveX">A quiet track (RMS below 0.1) gets a 10% quiet level, a loud one (above 0.5) 30%, and an average track keeps your minimum volume.</sys:String>
 
-    <sys:String x:Key="Guide_SecPanel">Settings panel</sys:String>
+    <sys:String x:Key="Guide_SecPanel">The Settings tab</sys:String>
     <sys:String x:Key="Guide_ChipsT">The Volume / Reaction / Behaviour chips</sys:String>
     <sys:String x:Key="Guide_ChipsX">Three buttons above the settings. Pressing one opens that section and closes the others, so the panel always fits without scrolling. The active chip is tinted blue.</sys:String>
     <sys:String x:Key="Guide_CollapseT">Collapsing a section</sys:String>

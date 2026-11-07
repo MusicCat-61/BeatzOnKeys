@@ -68,6 +68,7 @@ public sealed partial class YouTubeTrackService
             {
                 VideoId = videoId,
                 Title = metadata.Title,
+                Duration = metadata.Duration,
                 CachedPath = cached,
                 Status = YouTubeTrackStatus.Ready
             };
@@ -91,7 +92,7 @@ public sealed partial class YouTubeTrackService
 
         return null;
     }
-    private async Task<(string Title, bool IsLive)> ResolveAsync(
+    private async Task<(string Title, bool IsLive, TimeSpan Duration)> ResolveAsync(
         string executable,
         string videoId,
         YouTubeOptions options,
@@ -125,7 +126,10 @@ public sealed partial class YouTubeTrackService
         var live = (root.TryGetProperty("is_live", out var liveElement) && liveElement.ValueKind == JsonValueKind.True) ||
                    (root.TryGetProperty("live_status", out var statusElement) &&
                     string.Equals(statusElement.GetString(), "is_live", StringComparison.OrdinalIgnoreCase));
-        return (title, live);
+        var seconds = root.TryGetProperty("duration", out var durationElement) && durationElement.ValueKind == JsonValueKind.Number
+            ? durationElement.GetDouble()
+            : 0;
+        return (title, live, seconds > 0 ? TimeSpan.FromSeconds(seconds) : TimeSpan.Zero);
     }
 
     private async Task<string> DownloadAudioAsync(

@@ -344,6 +344,9 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         vm.MinVolumePercentValue = 20;
         vm.MaxVolumePercentValue = 100;
         vm.IdleTimeout = 3;
+        // The volume sliders live on the settings page, so it has to be the active one.
+        vm.ShowSettingsCommand.Execute(null);
+        await SettleAsync();
         vm.PauseOnIdle = true;
         vm.AutoAdvance = false;
         vm.Loop = true;
@@ -569,6 +572,12 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         var window = _window!;
         vm.SetLanguageCommand.Execute("ru");
         await SettleAsync();
+        // The playback panel has its own page; every control this section drives lives there.
+        vm.ShowSettingsCommand.Execute(null);
+        await SettleAsync();
+        Check("sections.panelOverContent", vm.IsSettingsOpen && (vm.IsPlaylistPage || vm.IsYouTubePage),
+            $"IsSettingsOpen={vm.IsSettingsOpen}, IsPlaylistPage={vm.IsPlaylistPage}.");
+        CheckVisualTree(window, $"settings.{Theme.CurrentCode}.ru");
         var sections = new (string Key, string Summary, Func<bool> Expanded, int Count)[]
         {
             (MainViewModel.SectionVolume, nameof(MainViewModel.VolumeSummary), () => vm.IsVolumeExpanded, 4),
@@ -667,6 +676,13 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         if (guide is null) { return; }
 
         await UntilAsync(() => Descendants<TextBlock>(guide).Any(text => text.Text == Loc.T("Guide_SecQuick")), 4000, "guide content");
+        // The Zapret block lives inside the YouTube section now, not as a stray card at the end.
+        var guideButtons = Descendants<Button>(guide).Where(button => button.IsVisible)
+            .Select(button => button.Content?.ToString() ?? "").ToArray();
+        Check("guide.zapretInsideYouTube",
+            guideButtons.Contains(Loc.T("L_ZapretOpen")) &&
+            Descendants<TextBlock>(guide).Any(text => text.IsVisible && text.Text == Loc.T("L_YtZapretTitle")),
+            $"Visible guide buttons: {string.Join(" | ", guideButtons)}");
         var english = Descendants<TextBlock>(guide).Where(text => text.IsVisible).Select(text => text.Text ?? "").ToArray();
         var described = new[] { "Guide_StartT", "Guide_StopT", "Guide_ResetT", "Guide_MaxT", "Guide_MinT", "Guide_IdleT",
             "Guide_PauseT", "Guide_AutoT", "Guide_LoopT", "Guide_TrayMenuT", "Guide_StatusT", "Guide_NoSoundT",
@@ -685,6 +701,17 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("guide.followsLanguage", russian.Contains(Loc.T("Guide_SecQuick")) && russian.Contains(Loc.T("Guide_MaxT")) &&
             !russian.Contains("Quick start"), "The open guide re-renders its sections after the language switch.");
         SaveScreenshot(guide, $"guide-{Theme.CurrentCode}-ru.png");
+
+        // Scroll to the YouTube section so the Zapret block inside it is visible in the capture.
+        var scroller = Descendants<ScrollViewer>(guide).FirstOrDefault(view => view.IsVisible);
+        var zapretTitle = Descendants<TextBlock>(guide).FirstOrDefault(text => text.Text == Loc.T("L_YtZapretTitle"));
+        if (scroller is not null && zapretTitle is not null)
+        {
+            zapretTitle.BringIntoView();
+            await SettleAsync();
+            SaveScreenshot(guide, $"guide-youtube-{Theme.CurrentCode}-ru.png");
+            Check("guide.zapretVisible", zapretTitle.IsVisible, "The Zapret block is reachable by scrolling.");
+        }
         _vm.SetLanguageCommand.Execute("en");
         await SettleAsync();
 
@@ -852,7 +879,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check(label + ".accentContrast", accentCount > 0 && accentFailures.Count == 0 && contrast >= 4.5 && foreground.ToString() == expectedForeground,
             $"{accentCount} accent buttons; fg={foreground}, bg={background}, ratio={contrast:F2}; " + string.Join("; ", accentFailures));
         var sliders = Descendants<Slider>(window).ToArray();
-        if (window is MainWindow)
+        // The sliders live on the settings page now, so a page without them is not a failure.
+        if (window is MainWindow && sliders.Length > 0)
             Check(label + ".sliderLimits", sliders.Length == 4 && sliders.Any(s => Near(s.Minimum, 0) && Near(s.Maximum, 100)) &&
                 sliders.Any(s => Near(s.Minimum, 0) && Near(s.Maximum, 50)) && sliders.Any(s => Near(s.Minimum, 1) && Near(s.Maximum, 10)) &&
                 sliders.Any(s => Near(s.Minimum, 0) && Near(s.Maximum, 30)) &&

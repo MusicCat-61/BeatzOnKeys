@@ -1,4 +1,11 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
+// WinForms is referenced for the tray, so these names are ambiguous without aliases.
+using Brush = System.Windows.Media.Brush;
+using Button = System.Windows.Controls.Button;
+using Orientation = System.Windows.Controls.Orientation;
 using System.Windows.Input;
 using BeatzOnKeys.UI.Localization;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -19,7 +26,95 @@ public partial class GuideWindow : Window
         Rebuild();
     }
 
-    private void Rebuild() => SectionsHost.ItemsSource = BuildSections();
+    /// <summary>
+    /// Rebuilds the whole guide. The cards are assembled here rather than through a template,
+    /// because the Zapret block has to live inside the YouTube section and carry real buttons.
+    /// </summary>
+    private void Rebuild()
+    {
+        SectionsHost.Children.Clear();
+        foreach (var section in BuildSections())
+        {
+            var stack = new StackPanel();
+            stack.Children.Add(new TextBlock
+            {
+                Text = section.Title,
+                Style = (Style)FindResource("SectionLabelStyle"),
+                FontSize = 14.5,
+                Margin = new Thickness(0, 0, 0, 10)
+            });
+            foreach (var item in section.Items)
+            {
+                stack.Children.Add(CreateItem(item));
+            }
+
+            if (section.ShowsZapret)
+            {
+                stack.Children.Add(CreateZapretBlock());
+            }
+
+            SectionsHost.Children.Add(new Border
+            {
+                Style = (Style)FindResource("GuideSectionCard"),
+                Child = stack
+            });
+        }
+    }
+
+    private FrameworkElement CreateItem(GuideItem item)
+    {
+        var row = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var dot = new Ellipse
+        {
+            Width = 6,
+            Height = 6,
+            Fill = (Brush)FindResource("AccentBrush"),
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 7, 0, 0)
+        };
+        row.Children.Add(dot);
+
+        var text = new StackPanel();
+        text.Children.Add(new TextBlock { Text = item.Title, Style = (Style)FindResource("GuideItemTitleStyle") });
+        text.Children.Add(new TextBlock { Text = item.Text, Style = (Style)FindResource("GuideItemTextStyle") });
+        Grid.SetColumn(text, 1);
+        row.Children.Add(text);
+        return row;
+    }
+
+    /// <summary>
+    /// The network-troubleshooting entry needs a button of its own, which is why it is built here
+    /// and not stored as a plain localization string.
+    /// </summary>
+    private FrameworkElement CreateZapretBlock()
+    {
+        var stack = new StackPanel { Margin = new Thickness(0, 0, 0, 12) };
+        stack.Children.Add(new TextBlock
+        {
+            Text = Loc.T("L_YtZapretTitle"),
+            Style = (Style)FindResource("GuideItemTitleStyle")
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = Loc.T("L_YtZapretBody"),
+            Style = (Style)FindResource("GuideItemTextStyle")
+        });
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
+        var open = new Button
+        {
+            Content = Loc.T("L_ZapretOpen"),
+            Style = (Style)FindResource("AccentButtonStyle"),
+            Padding = new Thickness(10, 5, 10, 5)
+        };
+        open.Click += ZapretClick;
+        buttons.Children.Add(open);
+        stack.Children.Add(buttons);
+        return stack;
+    }
 
     private static IReadOnlyList<GuideSection> BuildSections() =>
     [
@@ -73,7 +168,7 @@ public partial class GuideWindow : Window
             ("Guide_StereoPulseT", "Guide_StereoPulseX"),
             ("Guide_AdaptiveT", "Guide_AdaptiveX")),
 
-        Section("Guide_SecYouTube",
+        Section("Guide_SecYouTube", showsZapret: true,
             ("Guide_YouTubeSearchT", "Guide_YouTubeSearchX"),
             ("Guide_YouTubeDownloadT", "Guide_YouTubeDownloadX"),
             ("Guide_YouTubeCacheT", "Guide_YouTubeCacheX"),
@@ -108,8 +203,12 @@ public partial class GuideWindow : Window
     ];
 
     private static GuideSection Section(string titleKey, params (string TitleKey, string TextKey)[] items) =>
+        Section(titleKey, false, items);
+
+    private static GuideSection Section(string titleKey, bool showsZapret, params (string TitleKey, string TextKey)[] items) =>
         new(Loc.T(titleKey),
-            items.Select(item => new GuideItem(Loc.T(item.TitleKey), Loc.T(item.TextKey))).ToArray());
+            items.Select(item => new GuideItem(Loc.T(item.TitleKey), Loc.T(item.TextKey))).ToArray(),
+            showsZapret);
 
     private void Close_Click(object sender, RoutedEventArgs eventArgs) => Close();
 
@@ -152,7 +251,7 @@ public partial class GuideWindow : Window
         base.OnClosed(eventArgs);
     }
 
-    private sealed record GuideSection(string Title, IReadOnlyList<GuideItem> Items);
+    private sealed record GuideSection(string Title, IReadOnlyList<GuideItem> Items, bool ShowsZapret = false);
 
     private sealed record GuideItem(string Title, string Text);
 }

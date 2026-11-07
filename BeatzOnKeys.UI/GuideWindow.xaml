@@ -57,24 +57,8 @@
             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           Focusable="False">
                 <StackPanel Margin="0,0,8,0">
-                    <ItemsControl x:Name="SectionsHost" Focusable="False"
-                                  ItemTemplate="{StaticResource GuideSectionTemplate}"/>
-
-                    <!-- The one troubleshooting entry that needs buttons of its own. -->
-                    <Border Style="{StaticResource CardStyle}" Padding="14" Margin="0,12,0,0">
-                        <StackPanel>
-                            <TextBlock Text="{DynamicResource L_YtZapretTitle}" FontSize="14.5"
-                                       FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="{DynamicResource L_YtZapretBody}" FontSize="12.5" TextWrapping="Wrap"
-                                       Margin="0,8,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                <Button Content="{DynamicResource L_ZapretOpen}" Click="ZapretClick"
-                                        Style="{StaticResource AccentButtonStyle}" Padding="10,5"/>
-                                <Button Content="{DynamicResource L_CloseDialog}" Click="Close_Click"
-                                        Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="8,0,0,0"/>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
+                    <!-- Built in code so the Zapret block can sit inside the YouTube section. -->
+                    <StackPanel x:Name="SectionsHost"/>
                 </StackPanel>
             </ScrollViewer>
 

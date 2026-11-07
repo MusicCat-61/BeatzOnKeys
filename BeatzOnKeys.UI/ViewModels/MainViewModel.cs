@@ -23,7 +23,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly TypingPlaybackService _typingPlayback;
     private readonly YouTubeTrackService _youTube;
     private readonly Dictionary<Guid, string> _friendlyNames = [];
+    private string _playingTrackText = string.Empty;
     private bool _isYouTubePage;
+    private bool _isSettingsOpen;
     private readonly DispatcherTimer _saveTimer;
     private readonly DispatcherTimer _playbackTimer;
     private readonly Guid? _savedSelectedTrackId;
@@ -126,7 +128,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         // The YouTube section keeps its own list; only the audio player is shared.
         _youTube = youTubeService ?? CreateDefaultYouTubeService();
         YouTube = new YouTubeViewModel(_youTube, settings.YouTubeTracks, settings.YouTubeCacheEnabled,
-            settings.CookiesFolderPath, settings.ProxyUrl, QueueSave, message => UserMessageRequested?.Invoke(message));
+            settings.CookiesFolderPath, settings.ProxyUrl, settings.YouTubeCachePath, QueueSave,
+            message => UserMessageRequested?.Invoke(message));
         YouTube.PlayRequested += OnYouTubePlayRequested;
         YouTube.PropertyChanged += OnYouTubePropertyChanged;
         YouTube.OpenMusicFolderRequested += OpenMusicFolder;
@@ -155,10 +158,41 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsPlaylistPage => !_isYouTubePage;
 
+    /// <summary>
+    /// The playback panel floats above whichever tab is active, so that tab keeps its content
+    /// visible behind the panel instead of being replaced by it.
+    /// </summary>
+    public bool IsSettingsOpen
+    {
+        get => _isSettingsOpen;
+        private set
+        {
+            if (!SetProperty(ref _isSettingsOpen, value)) { return; }
+            RefreshCommands();
+        }
+    }
+
     public RelayCommand ShowPlaylistCommand => _showPlaylist ??= new RelayCommand(() => IsYouTubePage = false);
     public RelayCommand ShowYouTubeCommand => _showYouTube ??= new RelayCommand(() => IsYouTubePage = true);
+    public RelayCommand ShowSettingsCommand => _showSettings ??= new RelayCommand(ToggleSettings);
+    public RelayCommand CloseSettingsCommand => _closeSettings ??= new RelayCommand(() => IsSettingsOpen = false);
     private RelayCommand? _showPlaylist;
     private RelayCommand? _showYouTube;
+    private RelayCommand? _showSettings;
+    private RelayCommand? _closeSettings;
+
+    /// <summary>The same button opens and closes the panel, so it never traps the user.</summary>
+    private void ToggleSettings()
+    {
+        // Opening twice must not close the panel: the tab is a way in, and the panel has its own
+        // close button, so a stray second click cannot hide it by surprise.
+        if (IsSettingsOpen) { return; }
+        IsSettingsOpen = true;
+        FitRequested?.Invoke();
+    }
+
+    /// <summary>Raised when the panel opens, so the window can size itself to its content.</summary>
+    public event Action? FitRequested;
     public RelayCommand AddFilesCommand { get; }
     public AsyncRelayCommand StartCommand { get; }
     public AsyncRelayCommand StopCommand { get; }
@@ -430,6 +464,17 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public bool IsLightTheme => Theme.IsLight;
     public string StatusText { get => _statusText; private set => SetProperty(ref _statusText, value); }
     public string NowPlayingText { get => _nowPlayingText; private set => SetProperty(ref _nowPlayingText, value); }
+
+    /// <summary>
+    /// What the shared player is actually playing, whichever page made it play. The card used to
+    /// name the track selected on the current page, so switching tabs made it claim a local file
+    /// was playing while a cached YouTube track really was.
+    /// </summary>
+    public string PlayingTrackText
+    {
+        get => _playingTrackText;
+        private set => SetProperty(ref _playingTrackText, value);
+    }
 
     /// <summary>
     /// Set once when a settings save fails, so startup can tell the user that preferences will
@@ -762,6 +807,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             Tracks = Tracks.Select(track => track.ToState()).ToList(),
             YouTubeTracks = YouTube.ToStates().ToList(),
             YouTubeCacheEnabled = YouTube.CacheEnabled,
+            YouTubeCachePath = YouTube.CachePath,
             CookiesFolderPath = YouTube.CookiesFolderPath,
             ProxyUrl = YouTube.ProxyUrl
         };
@@ -797,6 +843,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             _friendlyNames.TryGetValue(playing.Id, out var friendly) ? friendly : playing.Name;
         NowPlayingText = playing is null ? string.Empty :
             Loc.F("L_NowPlayingFormat", playingName, FormatPosition(position), FormatPosition(duration));
+        PlayingTrackText = playing is null ? Loc.T("L_NothingPlaying") : playingName;
         if (IsRunning)
         {
             // A paused run is not an ended one: the position stays short of the duration.

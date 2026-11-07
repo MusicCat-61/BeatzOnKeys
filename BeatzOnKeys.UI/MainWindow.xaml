@@ -82,6 +82,19 @@
                         </Style>
                     </Button.Style>
                 </Button>
+                <Button Command="{Binding ShowSettingsCommand}" Content="{DynamicResource L_TabSettings}"
+                        Margin="6,0,0,0">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource PageTabStyle}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSettingsOpen}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource OverlayBrush}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0"
@@ -430,13 +443,94 @@
                 </Border>
             </Grid>
 
-            <ScrollViewer Grid.Column="2" x:Name="SettingsScroller" VerticalScrollBarVisibility="Auto"
+            <ScrollViewer Grid.Column="2" x:Name="PlayerScroller" VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,0,4,0">
+
+                    <Border Style="{StaticResource CardStyle}" Padding="14" Margin="0,12,0,0">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="38"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Width="30" Height="30" CornerRadius="7" Background="{DynamicResource DropAreaBrush}">
+                                    <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="14"
+                                               Foreground="{DynamicResource AccentBrush}"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="3,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{DynamicResource L_NowPlayingCard}" FontSize="13.5"
+                                               Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                    <TextBlock Text="{Binding PlayingTrackText}" FontSize="15.5" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,13,0,11"/>
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding PlaybackPositionText}"
+                                           FontSize="13.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{DynamicResource L_PlaybackProgress}" FontSize="13.5"
+                                           Foreground="{DynamicResource TextTertiaryBrush}"/>
+                            </DockPanel>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding PlaybackProgress, Mode=OneWay}"
+                                         Height="5" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Padding="15" Margin="0,12,0,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE72E;" Style="{StaticResource SymbolIconStyle}" FontSize="16"
+                                           Foreground="{DynamicResource SuccessBrush}"/>
+                                <TextBlock Text="{DynamicResource L_PrivacyTitle}" FontSize="15.5" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center" Margin="9,0,0,0"/>
+                            </StackPanel>
+                            <TextBlock Text="{DynamicResource L_PrivacyText}" FontSize="13.5" TextWrapping="Wrap"
+                                       Margin="0,8,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+
+        <!-- The playback panel floats above the active tab, so that tab keeps its content
+             visible; the card itself is opaque so its text never mixes with what is behind. -->
+        <Grid Grid.Row="1" Panel.ZIndex="10" Margin="20,4,20,8">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsSettingsOpen}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+
+            <Border HorizontalAlignment="Right" Width="392" Background="{DynamicResource SettingsPanelBrush}"
+                    BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1" CornerRadius="9"
+                    Padding="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <DockPanel Margin="16,12,10,8">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
+                                Command="{Binding CloseSettingsCommand}" ToolTip="{DynamicResource L_CloseDialog}"
+                                AutomationProperties.Name="{DynamicResource L_CloseDialog}">
+                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12" Text="&#xE8BB;"/>
+                        </Button>
+                        <TextBlock Text="{DynamicResource L_Settings}" Style="{StaticResource SectionLabelStyle}"
+                                   VerticalAlignment="Center" Margin="0"/>
+                    </DockPanel>
+                    <ScrollViewer Grid.Row="1" x:Name="SettingsScroller" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled" Padding="16,0,10,14">
                     <Border Style="{StaticResource CardStyle}">
                         <StackPanel>
-                            <TextBlock Text="{DynamicResource L_Settings}" Style="{StaticResource SectionLabelStyle}"/>
-
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                                 <ToggleButton Style="{StaticResource SettingsChipStyle}"
                                               Content="{DynamicResource L_ChipVolume}"
@@ -709,54 +803,9 @@
                             </Border>
                         </StackPanel>
                     </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Padding="14" Margin="0,12,0,0">
-                        <StackPanel>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="38"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Border Width="30" Height="30" CornerRadius="7" Background="{DynamicResource DropAreaBrush}">
-                                    <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="14"
-                                               Foreground="{DynamicResource AccentBrush}"/>
-                                </Border>
-                                <StackPanel Grid.Column="1" Margin="3,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{DynamicResource L_SelectedTrack}" FontSize="13.5"
-                                               Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                    <TextBlock Text="{Binding SelectedTrackText}" FontSize="15.5" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
-                                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,13,0,11"/>
-                            <DockPanel>
-                                <TextBlock DockPanel.Dock="Right" Text="{Binding PlaybackPositionText}"
-                                           FontSize="13.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <TextBlock Text="{DynamicResource L_PlaybackProgress}" FontSize="13.5"
-                                           Foreground="{DynamicResource TextTertiaryBrush}"/>
-                            </DockPanel>
-                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding PlaybackProgress, Mode=OneWay}"
-                                         Height="5" Margin="0,8,0,0"/>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource CardStyle}" Padding="15" Margin="0,12,0,0">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE72E;" Style="{StaticResource SymbolIconStyle}" FontSize="16"
-                                           Foreground="{DynamicResource SuccessBrush}"/>
-                                <TextBlock Text="{DynamicResource L_PrivacyTitle}" FontSize="15.5" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           VerticalAlignment="Center" Margin="9,0,0,0"/>
-                            </StackPanel>
-                            <TextBlock Text="{DynamicResource L_PrivacyText}" FontSize="13.5" TextWrapping="Wrap"
-                                       Margin="0,8,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
             </ScrollViewer>
+                </Grid>
+            </Border>
         </Grid>
 
         <Grid Grid.Row="1" Margin="20,4,20,8">
@@ -861,6 +910,48 @@
                                     </Style>
                                 </ProgressBar.Style>
                             </ProgressBar>
+                            <!-- One row that covers both field actions: a spinner while words are
+                                 searched, a real percentage while a pasted link downloads. -->
+                            <StackPanel Margin="0,10,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding YouTube.ShowQueryActivity}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <ProgressBar Height="4" Maximum="1">
+                                    <ProgressBar.Style>
+                                        <Style TargetType="ProgressBar">
+                                            <Setter Property="IsIndeterminate" Value="True"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding YouTube.IsQueryDownloading}" Value="True">
+                                                    <Setter Property="IsIndeterminate" Value="False"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ProgressBar.Style>
+                                    <ProgressBar.Value>
+                                        <Binding Path="YouTube.QueryProgress" Mode="OneWay"/>
+                                    </ProgressBar.Value>
+                                </ProgressBar>
+                                <TextBlock FontSize="13" Margin="0,6,0,0"
+                                           Foreground="{DynamicResource AccentBrush}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="{DynamicResource L_YtSearching}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding YouTube.IsQueryDownloading}" Value="True">
+                                                    <Setter Property="Text" Value="{Binding YouTube.QueryProgressText}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 
@@ -1024,9 +1115,10 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <Border Grid.ColumnSpan="6" Height="2" CornerRadius="1"
+                                        <Border Grid.ColumnSpan="7" Height="2" CornerRadius="1"
                                                 VerticalAlignment="Top" Margin="-8,-6,-8,0"
                                                 Background="{DynamicResource AccentBrush}" IsHitTestVisible="False">
                                             <Border.Style>
@@ -1044,7 +1136,7 @@
                                                 </Style>
                                             </Border.Style>
                                         </Border>
-                                        <Border Grid.ColumnSpan="6" Height="2" CornerRadius="1"
+                                        <Border Grid.ColumnSpan="7" Height="2" CornerRadius="1"
                                                 VerticalAlignment="Bottom" Margin="-8,0,-8,-6"
                                                 Background="{DynamicResource AccentBrush}" IsHitTestVisible="False">
                                             <Border.Style>
@@ -1091,7 +1183,10 @@
                                             </ProgressBar>
                                         </StackPanel>
 
-                                        <Border Grid.Column="2" VerticalAlignment="Center" Margin="0,0,10,0"
+                                        <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="12.5"
+                                                   VerticalAlignment="Center" Margin="0,0,10,0"
+                                                   Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                        <Border Grid.Column="3" VerticalAlignment="Center" Margin="0,0,10,0"
                                                 CornerRadius="4" Padding="6,2" BorderThickness="1">
                                             <Border.Style>
                                                 <Style TargetType="Border">
@@ -1129,7 +1224,7 @@
                                                 </TextBlock.Style>
                                             </TextBlock>
                                         </Border>
-                                        <Button Grid.Column="3" Margin="0,0,2,0" CommandParameter="{Binding}"
+                                        <Button Grid.Column="4" Margin="0,0,2,0" CommandParameter="{Binding}"
                                                 Command="{Binding DataContext.YouTube.MoveTrackUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 ToolTip="{DynamicResource L_MoveUp}"
                                                 AutomationProperties.Name="{DynamicResource L_MoveUp}">
@@ -1146,7 +1241,7 @@
                                             </Button.Style>
                                             <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70E;"/>
                                         </Button>
-                                        <Button Grid.Column="4" Margin="0,0,6,0" CommandParameter="{Binding}"
+                                        <Button Grid.Column="5" Margin="0,0,6,0" CommandParameter="{Binding}"
                                                 Command="{Binding DataContext.YouTube.MoveTrackDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 ToolTip="{DynamicResource L_MoveDown}"
                                                 AutomationProperties.Name="{DynamicResource L_MoveDown}">
@@ -1163,7 +1258,7 @@
                                             </Button.Style>
                                             <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70D;"/>
                                         </Button>
-                                        <Button Grid.Column="5" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
+                                        <Button Grid.Column="6" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
                                                 CommandParameter="{Binding}"
                                                 Command="{Binding DataContext.YouTube.RemoveCachedCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 ToolTip="{DynamicResource L_Remove}">
@@ -1201,7 +1296,7 @@
                             <!-- One place for both caches: the total, the previews and the two clear actions. -->
                             <TextBlock Text="{Binding YouTube.CacheSizeText}" FontSize="14.5" Margin="0,8,0,0"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBlock Text="{Binding YouTube.SearchCacheSizeText}" FontSize="13" Margin="0,4,0,0"
+                            <TextBlock Text="{Binding YouTube.SearchCacheSizeText}" FontSize="14.5" Margin="0,4,0,0"
                                        TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"/>
                             <CheckBox IsChecked="{Binding YouTube.CacheEnabled}" Margin="0,10,0,0">
                                 <TextBlock Text="{DynamicResource L_YtCacheEnabled}" TextWrapping="Wrap"/>
@@ -1219,6 +1314,14 @@
                             <Button Content="{DynamicResource L_YtOpenFolder}"
                                     Command="{Binding YouTube.OpenMusicFolderCommand}"
                                     Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,8,0,0"
+                                    HorizontalAlignment="Left"/>
+                            <!-- Where the cache lives, and the one action that changes it. -->
+                            <TextBlock Text="{Binding YouTube.CachePathText}" FontSize="13" Margin="0,6,0,0"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"
+                                       ToolTip="{Binding YouTube.CachePath}"/>
+                            <Button Content="{DynamicResource L_YtChangeFolder}"
+                                    Command="{Binding YouTube.ChooseCacheFolderCommand}"
+                                    Style="{StaticResource SubtleButtonStyle}" Padding="8,4" Margin="0,6,0,0"
                                     HorizontalAlignment="Left"/>
                         </StackPanel>
                     </Border>
@@ -1257,6 +1360,20 @@
                                     </Style>
                                 </Button.Style>
                             </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Padding="14" Margin="0,12,0,0">
+                        <StackPanel>
+                            <!-- The same troubleshooting entry the guide carries, kept next to yt-dlp
+                                 because that is the card it explains. -->
+                            <TextBlock Text="{DynamicResource L_YtZapretTitle}" FontSize="14.5"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{DynamicResource L_YtZapretBody}" FontSize="14.5" TextWrapping="Wrap"
+                                       Margin="0,6,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                            <Button Content="{DynamicResource L_ZapretOpen}" Click="ZapretOpenClick"
+                                    Style="{StaticResource AccentButtonStyle}" Padding="10,5" Margin="0,10,0,0"
+                                    HorizontalAlignment="Left"/>
                         </StackPanel>
                     </Border>
 

@@ -36,6 +36,7 @@ public partial class MainWindow : Window
         viewModel.UserMessageRequested += ShowUserMessage;
         Theme.Changed += OnThemeChanged;
         Loaded += (_, _) => FitToContent();
+        viewModel.FitRequested += FitToContent;
     }
 
     /// <summary>
@@ -46,12 +47,26 @@ public partial class MainWindow : Window
     private void FitToContent()
     {
         if (WindowState != WindowState.Normal) { return; }
+        // A collapsed page measures to zero, so fitting only means something while it is shown;
+        // the XAML default height already covers the panel and the page scrolls beyond that.
+        if (ViewModel?.IsSettingsOpen != true) { return; }
         var content = SettingsScroller.Content as FrameworkElement;
         if (content is null) { return; }
 
         // Measure the settings card at the width it actually gets, without the scroll viewer.
+        // The settings page stays collapsed until the user opens it, so its scroll viewer has no
+        // width at startup; measuring with that NaN throws, hence the fallbacks below.
         var available = new Size(SettingsScroller.ActualWidth, double.PositiveInfinity);
-        if (available.Width <= 0) { available.Width = SettingsScroller.Width; }
+        if (double.IsNaN(available.Width) || double.IsInfinity(available.Width) || available.Width <= 0)
+        {
+            available.Width = SettingsScroller.Width;
+        }
+
+        if (double.IsNaN(available.Width) || double.IsInfinity(available.Width) || available.Width <= 0)
+        {
+            // The card caps itself at 560, so that is the honest fallback.
+            available.Width = 560;
+        }
         content.Measure(available);
         var neededContent = content.DesiredSize.Height;
 
@@ -434,6 +449,23 @@ public partial class MainWindow : Window
     }
 
     /// <summary>The cache is deleted only after the user confirms; the playlist is never touched.</summary>
+    /// <summary>Opens the recommended circumvention front-end; the app itself stays neutral.</summary>
+    private void ZapretOpenClick(object sender, RoutedEventArgs eventArgs)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "https://github.com/Asterlike/zapret2UI",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception exception)
+        {
+            BeatzOnKeys.Core.Services.AppLogger.Error("ui", "Could not open the Zapret2UI page.", exception);
+        }
+    }
+
     private async void YouTubeClearCacheClick(object sender, RoutedEventArgs eventArgs)
     {
         if (!ViewModel.YouTube.ClearCacheCommand.CanExecute(null)) { return; }

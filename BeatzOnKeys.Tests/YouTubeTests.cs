@@ -382,6 +382,56 @@ internal static class YouTubeTests
         public YouTubeTrackService Service { get; }
         public void Dispose() => Binaries.Dispose();
     }
+    /// <summary>
+    /// The cache is a flat set of files named after the video id, so switching folders is a rename
+    /// per file. Every moved file must come back mapped, or the rows would keep dead paths.
+    /// </summary>
+    public static Task CacheMovesToTheChosenFolder()
+    {
+        using var source = new TemporaryDirectory();
+        using var target = new TemporaryDirectory();
+        File.WriteAllBytes(Path.Combine(source.Path, "aaa.m4a"), [1, 2, 3]);
+        File.WriteAllBytes(Path.Combine(source.Path, "bbb.m4a"), [4, 5, 6]);
+
+        var moved = CacheMigrator.Move(source.Path, target.Path);
+
+        AssertEx.Equal(2, moved.Count);
+        AssertEx.True(File.Exists(Path.Combine(target.Path, "aaa.m4a")), "The first file moved.");
+        AssertEx.True(File.Exists(Path.Combine(target.Path, "bbb.m4a")), "The second file moved.");
+        AssertEx.True(!File.Exists(Path.Combine(source.Path, "aaa.m4a")), "The source is empty afterwards.");
+        AssertEx.True(moved.Values.All(File.Exists), "Every mapped path exists.");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>A file that is already at the destination is the same track, not a conflict.</summary>
+    public static Task CacheMoveKeepsExistingFiles()
+    {
+        using var source = new TemporaryDirectory();
+        using var target = new TemporaryDirectory();
+        File.WriteAllBytes(Path.Combine(source.Path, "aaa.m4a"), [1, 2, 3]);
+        File.WriteAllBytes(Path.Combine(target.Path, "aaa.m4a"), [9, 9, 9]);
+
+        var moved = CacheMigrator.Move(source.Path, target.Path);
+
+        AssertEx.Equal(1, moved.Count);
+        AssertEx.True(moved.ContainsKey(Path.Combine(source.Path, "aaa.m4a")),
+            "The old path is still mapped so the row can follow it.");
+        AssertEx.Equal((byte)9, File.ReadAllBytes(Path.Combine(target.Path, "aaa.m4a"))[0]);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Asking for the folder the cache is already in must not touch anything.</summary>
+    public static Task CacheMoveToTheSameFolderDoesNothing()
+    {
+        using var folder = new TemporaryDirectory();
+        File.WriteAllBytes(Path.Combine(folder.Path, "aaa.m4a"), [1, 2, 3]);
+
+        var moved = CacheMigrator.Move(folder.Path, folder.Path);
+
+        AssertEx.Equal(0, moved.Count);
+        AssertEx.True(File.Exists(Path.Combine(folder.Path, "aaa.m4a")), "The file stayed where it was.");
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class StubBinaries(string? ytDlp, string? ffmpeg) : IYtDlpBinaryProvider, IDisposable
@@ -432,4 +482,5 @@ internal sealed class BlockingRunner : IYouTubeProcessRunner
         await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
         return new YouTubeProcessResult(0, string.Empty, string.Empty, false);
     }
+
 }

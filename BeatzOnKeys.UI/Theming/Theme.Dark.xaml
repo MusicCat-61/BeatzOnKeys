@@ -5,6 +5,7 @@
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFFFF"/>
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B3FFFFFF"/>
     <SolidColorBrush x:Key="TextTertiaryBrush" Color="#7AFFFFFF"/>
+    <SolidColorBrush x:Key="SettingsPanelBrush" Color="#FF161616"/>
     <SolidColorBrush x:Key="CardBackgroundBrush" Color="#12FFFFFF"/>
     <SolidColorBrush x:Key="CardBorderBrush" Color="#1CFFFFFF"/>
     <SolidColorBrush x:Key="ControlBackgroundBrush" Color="#0DFFFFFF"/>

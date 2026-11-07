@@ -23,6 +23,9 @@ public sealed class YouTubeTrackState
     /// <summary>Absolute path of the cached audio file; empty until the download finishes.</summary>
     public string CachedPath { get; set; } = string.Empty;
 
+    /// <summary>How long the track is; zero when it was never known, which renders as a dash.</summary>
+    public TimeSpan Duration { get; set; }
+
     public YouTubeTrackStatus Status { get; set; } = YouTubeTrackStatus.Pending;
 
     /// <summary>Last failure reason, shown in the row and cleared on a successful retry.</summary>

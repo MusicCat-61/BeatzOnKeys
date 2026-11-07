@@ -1,3 +1,4 @@
+using System.IO;
 using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.Core.Services;
 using BeatzOnKeys.Core.YouTube;
@@ -74,6 +75,51 @@ public sealed partial class YouTubeViewModel
         }
     }
 
+    /// <summary>
+    /// Switches the cache folder and carries the existing files over. The rows are repointed at
+    /// their new paths, so a track that was kept stays playable instead of turning into a dead row.
+    /// </summary>
+    private async Task ChooseCacheFolderAsync()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = Loc.T("L_YtCacheFolderPick"),
+            InitialDirectory = Directory.Exists(_cachePath) ? _cachePath : AppPaths.RootDirectory
+        };
+        if (dialog.ShowDialog() != true) { return; }
+
+        var target = dialog.FolderName;
+        if (string.Equals(target, _cachePath, StringComparison.OrdinalIgnoreCase)) { return; }
+
+        var moved = CacheMigrator.Move(_cachePath, target, _lifetime.Token);
+        _cachePath = target;
+        ApplyCacheDirectory(target);
+        foreach (var track in Downloaded) { track.Relocate(moved); }
+        OnPropertyChanged(nameof(CachePath));
+        OnPropertyChanged(nameof(CachePathText));
+        _requestSave();
+        await RefreshCacheSizeAsync().ConfigureAwait(true);
+        StatusText = Loc.F("L_YtCacheMovedFormat", moved.Count);
+    }
+
+    /// <summary>Keeps the service pointed at the chosen folder; every download reads it from there.</summary>
+    private void ApplyCacheDirectory(string directory)
+    {
+        Directory.CreateDirectory(directory);
+        var current = _service.Options;
+        _service.Options = new YouTubeOptions
+        {
+            MusicDirectory = directory,
+            DownloadDirectory = current.DownloadDirectory,
+            CookiesFolder = current.CookiesFolder,
+            ProxyUrl = current.ProxyUrl,
+            CacheEnabled = current.CacheEnabled,
+            MaxConcurrentDownloads = current.MaxConcurrentDownloads,
+            DownloadTimeout = current.DownloadTimeout,
+            SearchTimeout = current.SearchTimeout,
+            Mirrors = current.Mirrors
+        };
+    }
     /// <summary>Downloads whatever link sits in the field, or explains why it cannot.</summary>
     private async Task DownloadFromQueryAsync()
     {
@@ -91,11 +137,22 @@ public sealed partial class YouTubeViewModel
             return;
         }
 
-        await DownloadAsync(videoId, text).ConfigureAwait(true);
+        // A link download happens right here, so the field itself has to show how far it is.
+        IsQueryDownloading = true;
+        QueryProgress = 0;
+        try
+        {
+            await DownloadAsync(videoId, text, value => QueryProgress = value).ConfigureAwait(true);
+        }
+        finally
+        {
+            IsQueryDownloading = false;
+            QueryProgress = 0;
+        }
     }
 
     /// <summary>Starts a download and drives one row of the cached list to its final state.</summary>
-    private async Task DownloadAsync(string videoId, string title)
+    private async Task DownloadAsync(string videoId, string title, Action<double>? progressReport = null)
     {
         if (IsInstalling) { return; }
         var row = Downloaded.FirstOrDefault(track => track.VideoId == videoId);
@@ -136,10 +193,11 @@ public sealed partial class YouTubeViewModel
 
         try
         {
-            var progress = new Progress<double>(value => row.Progress = value);
+            var progress = new Progress<double>(value => { row.Progress = value; progressReport?.Invoke(value); });
             var result = await _service.DownloadAsync(videoId, progress, _lifetime.Token).ConfigureAwait(true);
             // A cached file comes back without a title; the row keeps the one it already had.
             if (!string.IsNullOrWhiteSpace(result.Title)) { row.Title = result.Title; }
+            row.SetDuration(result.Duration);
             row.MarkReady(result.CachedPath);
             StatusText = Loc.F("L_YtDownloadedFormat", row.Title);
             NotifyCountChanged();

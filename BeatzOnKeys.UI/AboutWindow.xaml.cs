@@ -12,7 +12,9 @@ namespace BeatzOnKeys.UI;
 public partial class AboutWindow : Window
 {
     private const string ProjectUrl = "https://github.com/MusicCat-61/BeatzOnKeys";
-    private const string LicenseUrl = "https://github.com/MusicCat-61/BeatzOnKeys/blob/main/LICENSE";
+    // The button is labelled "license and third-party notices", so it opens the notices, which
+    // carry the full license texts and links to the LICENSE file.
+    private const string NoticesUrl = "https://github.com/MusicCat-61/BeatzOnKeys/blob/main/THIRD-PARTY-NOTICES.md";
     private const string TelegramUrl = "https://t.me/music_cat1";
     private const string DonateUrl = "https://dalink.to/musiccat61";
     private static readonly TimeSpan FreshResultAge = TimeSpan.FromMinutes(30);
@@ -54,7 +56,7 @@ public partial class AboutWindow : Window
                 return parsed.Display;
             }
 
-            return assembly.GetName().Version?.ToString(3) ?? "1.3.0.8";
+            return assembly.GetName().Version?.ToString(3) ?? "1.3.0.9";
         }
     }
 
@@ -294,7 +296,7 @@ public partial class AboutWindow : Window
 
     private void ProjectLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(ProjectUrl);
 
-    private void LicenseLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(LicenseUrl);
+    private void LicenseLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(NoticesUrl);
 
     private void TelegramLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(TelegramUrl);
 

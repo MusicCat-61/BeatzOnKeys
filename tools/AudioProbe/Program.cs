@@ -210,7 +210,7 @@ static async Task<int> RunProbeAsync(string sourcePath, string reportPath)
     var passed = checks.All(check => check.Passed);
     var report = new
     {
-        passed, utc = DateTimeOffset.UtcNow, version = "1.3.0.8", source = Path.GetFileName(sourcePath),
+        passed, utc = DateTimeOffset.UtcNow, version = "1.3.0.9", source = Path.GetFileName(sourcePath),
         durationSeconds = duration.TotalSeconds, processId = Environment.ProcessId,
         capture = "Windows process-specific loopback (only this diagnostic process tree)",
         defaults = new { MinVolume = 0.2, MaxVolume = 1.0, IdleTimeout = 3, PauseOnIdle = true },

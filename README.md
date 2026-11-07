@@ -4,7 +4,7 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.3.0.8-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Version](https://img.shields.io/badge/version-1.3.0.9-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#требования)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
@@ -94,7 +94,7 @@ BeatzOnKeys написана на C# с .NET 10 и WPF; NAudio отвечает 
 
 Одновременно может работать только одна копия: повторный запуск возвращает окно уже работающей.
 
-Установщик, права администратора и отдельный .NET Runtime не нужны. **Обновление с 1.0.x:** закройте старую программу, скачайте 1.3.0.8 вручную и замените старую папку, не используя старый встроенный установщик. Настройки перенесутся автоматически, как описано [выше](#настройки).
+Установщик, права администратора и отдельный .NET Runtime не нужны. **Обновление с 1.0.x:** закройте старую программу, скачайте 1.3.0.9 вручную и замените старую папку, не используя старый встроенный установщик. Настройки перенесутся автоматически, как описано [выше](#настройки).
 
 ### Требования
 
@@ -180,14 +180,14 @@ dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Создайте портативную самодостаточную папку **1.3.0.8** в Windows **cmd**:
+Создайте портативную самодостаточную папку **1.3.0.9** в Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.3.0.8
+set BOK_VERSION=1.3.0.9
 publish.bat
 ```
 
-Теперь скрипт по умолчанию использует `BOK_VERSION=1.3.0.8`; явное указание переменной делает целевую версию релиза однозначной.
+Теперь скрипт по умолчанию использует `BOK_VERSION=1.3.0.9`; явное указание переменной делает целевую версию релиза однозначной.
 
 Скрипт проверяет цель очистки `Build_Output`, публикует `BeatzOnKeys.UI` как self-contained `win-x64` и копирует оба README, примечания к релизу, скриншоты, лицензию и сторонние уведомления. Любая обязательная ошибка публикации/копирования останавливает сборку. Итоговый `Build_Output` — портативный продукт.
 

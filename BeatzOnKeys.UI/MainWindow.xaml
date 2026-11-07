@@ -1010,10 +1010,12 @@
                                            FontWeight="SemiBold" HorizontalAlignment="Center"
                                            VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                             </Border>
+                            <!-- Last child of a DockPanel fills the rest of the row unless it opts out,
+                                 so the button is anchored right and keeps its own width. -->
                             <Button DockPanel.Dock="Right" Content="{DynamicResource L_YtClearDownloaded}"
                                     Click="YouTubeClearCacheClick"
                                     Style="{StaticResource DangerButtonStyle}" Padding="8,4"
-                                    VerticalAlignment="Center"/>
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </DockPanel>
                         <ListBox Grid.Row="1" ItemsSource="{Binding YouTube.Downloaded}" Background="Transparent"
                                  SelectedItem="{Binding YouTube.SelectedTrack, Mode=TwoWay}"

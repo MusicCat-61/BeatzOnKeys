@@ -1351,6 +1351,63 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("youtube.keptTracksSurviveSearchClear",
             vm.YouTube.Downloaded.All(track => track.CanPlay),
             $"Kept tracks playable={vm.YouTube.Downloaded.Count(track => track.CanPlay)} of {vm.YouTube.Downloaded.Count}.");
+        // A second search while the first one is still caching: the old pass used to keep its
+        // rows and its download slots, so the new rows never finished and their button stayed
+        // dead. The fake download is slowed down to make the overlap happen every time.
+        SmokeYouTubeRunner.Delay = TimeSpan.FromMilliseconds(250);
+        try
+        {
+            vm.YouTube.SearchQuery = "first pass";
+            vm.YouTube.SearchCommand.Execute(null);
+            await UntilAsync(() => vm.YouTube.Results.Count == 2, 8000, "first pass results");
+            await UntilAsync(() => vm.YouTube.Results.Any(item => item.IsDownloading), 8000, "first pass caching");
+            vm.YouTube.SearchQuery = "second pass";
+            vm.YouTube.SearchCommand.Execute(null);
+            await UntilAsync(() => vm.YouTube.Results.Count == 2, 8000, "second pass results");
+            await UntilAsync(() => vm.YouTube.Results.All(item => item.CanPlay), 20000, "second pass cached");
+            Check("youtube.secondSearchCachesItsRows",
+                vm.YouTube.Results.All(item => item.CanPlay),
+                $"Playable={vm.YouTube.Results.Count(item => item.CanPlay)} of {vm.YouTube.Results.Count}.");
+            // The button is driven by the command, not by the binding alone: a command has to be
+            // The button state comes from the command, so what matters is that the command is
+            // told to re-check once the file lands. Counting the notifications is the only way to
+            // tell a working binding from one that never hears about the new file.
+            var notified = 0;
+            void OnAddReady(object? sender, EventArgs args) => Interlocked.Increment(ref notified);
+            vm.YouTube.DownloadCommand.CanExecuteChanged += OnAddReady;
+            try
+            {
+                // The previous pass must be finished before the next one is asked for: its rows
+                // are already cached, so waiting on them would pass before this search even runs.
+                await UntilAsync(() => !vm.YouTube.IsSearching, 8000, "third pass idle");
+                var previousIds = vm.YouTube.Results.Select(item => item.VideoId).ToHashSet(StringComparer.Ordinal);
+                vm.YouTube.SearchQuery = "third pass";
+                vm.YouTube.SearchCommand.Execute(null);
+                await UntilAsync(() => vm.YouTube.Results.Count == 2 &&
+                    vm.YouTube.Results.All(item => !previousIds.Contains(item.VideoId)), 8000, "third pass results");
+                var beforeCache = Volatile.Read(ref notified);
+                await UntilAsync(() => vm.YouTube.Results.All(item => item.CanPlay), 20000, "third pass cached");
+                await UntilAsync(() => Volatile.Read(ref notified) > beforeCache, 5000, "add button notified");
+                Check("youtube.secondSearchEnablesAdd", Volatile.Read(ref notified) > beforeCache,
+                    $"CanExecuteChanged fired {Volatile.Read(ref notified) - beforeCache} times while caching.");
+                Check("youtube.secondSearchEnablesAddNow",
+                    vm.YouTube.Results.All(item => vm.YouTube.DownloadCommand.CanExecute(item)),
+                    $"Addable={vm.YouTube.Results.Count(item => vm.YouTube.DownloadCommand.CanExecute(item))} of {vm.YouTube.Results.Count}.");
+            }
+            finally { vm.YouTube.DownloadCommand.CanExecuteChanged -= OnAddReady; }
+            // The file lands before the row stops saying "caching", so the busy state is waited
+            // for instead of being asserted the moment CanPlay flips.
+            await UntilAsync(() => vm.YouTube.Results.All(item => !item.IsDownloading), 15000, "second pass settled");
+            Check("youtube.searchCacheCountedAfterSecondSearch",
+                vm.YouTube.Results.All(item => !item.IsDownloading),
+                $"Still downloading={vm.YouTube.Results.Count(item => item.IsDownloading)}.");
+        }
+        finally
+        {
+            SmokeYouTubeRunner.Delay = TimeSpan.Zero;
+        }
+
+        await vm.YouTube.ClearSearchCacheAsync();
        vm.YouTube.SearchQuery = string.Empty;
         vm.YouTube.Results.Clear();
         SmokeYouTubeBinaries.YtDlpPresent = false;
@@ -1642,6 +1699,12 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         /// <summary>A real MP3 the fake download copies, so the cache holds decodable audio.</summary>
         public static string? FixturePath { get; set; }
 
+        /// <summary>
+        /// Slows the fake download down so a second search can start while the first cache pass
+        /// is still running: that overlap is exactly the bug that left later rows uncacheable.
+        /// </summary>
+        public static TimeSpan Delay { get; set; } = TimeSpan.Zero;
+
         public Task<YouTubeProcessResult> RunAsync(
             YouTubeProcessRequest request, CancellationToken cancellationToken = default)
         {
@@ -1652,9 +1715,15 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
 
             if (request.Arguments.Any(argument => argument.StartsWith("ytsearch", StringComparison.Ordinal)))
             {
+                // The ids follow the query, so a second search really produces different rows: the
+                // bug was that the first pass kept caching its own results and starved the new ones.
+                var query = string.Concat(request.Arguments
+                    .First(argument => argument.StartsWith("ytsearch", StringComparison.Ordinal))
+                    .SkipWhile(character => character != ':')).Substring(1);
+                var suffix = Math.Abs(query.GetHashCode(StringComparison.Ordinal)) % 10000;
                 var payload =
-                    """{"id":"previewAAAA","title":"Never Gonna Give You Up","uploader":"Rick Astley","duration":213}""" + "\n" +
-                    """{"id":"previewBBBB","title":"Despacito","uploader":"Luis Fonsi","duration":282}""";
+                    $"{{\"id\":\"preview{suffix:D4}\",\"title\":\"Never Gonna Give You Up\",\"uploader\":\"Rick Astley\",\"duration\":213}}" + "\n" +
+                    $"{{\"id\":\"secondr{suffix:D4}\",\"title\":\"Despacito\",\"uploader\":\"Luis Fonsi\",\"duration\":282}}";
                 return Task.FromResult(new YouTubeProcessResult(0, payload, string.Empty, false));
             }
 
@@ -1666,6 +1735,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             }
 
             // Otherwise it is a download: place a real file where -o points and print its path.
+            if (Delay > TimeSpan.Zero) { Thread.Sleep(Delay); }
             var template = request.Arguments.SkipWhile(a => a != "-o").Skip(1).FirstOrDefault();
             if (template is not null && FixturePath is not null)
             {

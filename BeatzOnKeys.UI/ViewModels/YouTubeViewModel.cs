@@ -28,6 +28,12 @@ public sealed partial class YouTubeViewModel : ObservableObject
     private readonly Action _requestSave;
     private readonly Action<string> _userMessage;
     private readonly CancellationTokenSource _lifetime = new();
+    /// <summary>
+    /// The background cache run of the current search. A new search cancels it: the old run is
+    /// still downloading rows that no longer exist, and the two download slots it holds are
+    /// exactly the ones the new rows are waiting for.
+    /// </summary>
+    private CancellationTokenSource? _cacheLoop;
     private string _searchQuery = string.Empty;
     private string _statusText;
     private string _cacheSizeText = string.Empty;

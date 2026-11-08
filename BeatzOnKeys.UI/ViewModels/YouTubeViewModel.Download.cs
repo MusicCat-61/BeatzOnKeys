@@ -14,6 +14,38 @@ public sealed partial class YouTubeViewModel
 
     public bool CanStartAnotherDownload => ActiveDownloads < YouTubeTrackService.MaxConcurrentDownloads;
 
+    /// <summary>
+    /// Stops the background cache run of the previous search and forgets it. The rows of that run
+    /// are already gone from the list; letting it finish would only burn the download slots.
+    /// </summary>
+    private void CancelCacheLoop()
+    {
+        var loop = _cacheLoop;
+        _cacheLoop = null;
+        if (loop is null) { return; }
+        try { loop.Cancel(); }
+        catch (ObjectDisposedException) { }
+        finally { loop.Dispose(); }
+    }
+
+    /// <summary>
+    /// Runs the cache pass with its own token, linked to the lifetime so Dispose still stops it,
+    /// and rethrows nothing: a cancelled pass is the normal way a new search takes over.
+    /// </summary>
+    private async Task StartCacheLoopAsync()
+    {
+        CancelCacheLoop();
+        var loop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _cacheLoop = loop;
+        try { await CacheResultsAsync(loop.Token).ConfigureAwait(true); }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (ReferenceEquals(_cacheLoop, loop)) { _cacheLoop = null; }
+            loop.Dispose();
+        }
+    }
+
     /// <summary>The second button next to the field: a pasted link downloads without a search.</summary>
     public AsyncRelayCommand DownloadFromQueryCommand => _downloadFromQuery ??= new AsyncRelayCommand(
         () => DownloadFromQueryAsync(), () => !IsBusy && !string.IsNullOrWhiteSpace(SearchQuery));
@@ -32,6 +64,9 @@ public sealed partial class YouTubeViewModel
             return;
         }
 
+        // A second search must not share the download slots with the first one: the old run is
+        // still caching rows the user no longer sees, and those slots are what the new rows wait for.
+        CancelCacheLoop();
         IsSearching = true;
         Results.Clear();
         StatusText = Loc.T("L_YtSearching");
@@ -52,7 +87,7 @@ public sealed partial class YouTubeViewModel
             StatusText = found.Count == 0 ? Loc.T("L_YtNotFound") : Loc.F("L_YtFoundFormat", found.Count);
             // Results are fetched right away, so pressing play works at once and the user hears
             // what the row actually is before deciding to keep it.
-            _ = CacheResultsAsync(_lifetime.Token);
+            _ = StartCacheLoopAsync();
         }
         catch (OperationCanceledException) { StatusText = string.Empty; }
         catch (YouTubeException exception)
@@ -214,8 +249,12 @@ public sealed partial class YouTubeViewModel
                 var result = await _service.DownloadAsync(item.VideoId, progress, cancellationToken).ConfigureAwait(true);
                 item.CachedPath = result.CachedPath;
                 item.CacheFailed = false;
+                // The row button is driven by the command, and a command re-checks only when it
+                // is told to: the binding on CanDownload alone leaves it disabled.
+                DownloadCommand.NotifyCanExecuteChanged();
                 // The occupied space is shown while the list fills, not only at the very end.
                 await RefreshCacheSizeAsync().ConfigureAwait(true);
+                await RefreshSearchCacheSizeAsync().ConfigureAwait(true);
             }
             catch (OperationCanceledException) { return; }
             catch (Exception exception)
@@ -228,6 +267,7 @@ public sealed partial class YouTubeViewModel
                 item.IsDownloading = false;
                 item.Progress = 0;
                 PreviewCommand.NotifyCanExecuteChanged();
+                DownloadCommand.NotifyCanExecuteChanged();
             }
         }
 

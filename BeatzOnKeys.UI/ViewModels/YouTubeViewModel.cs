@@ -266,9 +266,16 @@ public sealed partial class YouTubeViewModel : ObservableObject
     /// <summary>True while the field is doing something the user should see: searching or fetching.</summary>
     public bool ShowQueryActivity => IsSearching || IsQueryDownloading;
 
+    /// <summary>The cancel button exists only while there is something to cancel.</summary>
+    public Visibility CancelVisible => IsSearching || IsDownloading || IsQueryDownloading || _cacheLoop is not null
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
     public bool IsBusy => IsSearching || IsInstalling || IsDownloading || IsQueryDownloading;
 
     public bool IsDownloading => Downloaded.Any(track => track.IsDownloading);
+
+    private void NotifyDownloadingChanged() => OnPropertyChanged(nameof(CancelVisible));
 
     public bool HasResults => Results.Count > 0;
     public bool HasDownloaded => Downloaded.Count > 0;
@@ -379,6 +386,20 @@ public sealed partial class YouTubeViewModel : ObservableObject
 
     public IReadOnlyList<YouTubeTrackState> ToStates() =>
         Downloaded.Select(track => track.State).ToList();
+
+    /// <summary>
+    /// Replaces the saved list with the one library.json holds. Used once, after the library is
+    /// read; the rows are rebuilt so a row's view state cannot outlive its track.
+    /// </summary>
+    internal void ReplaceTracks(IEnumerable<YouTubeTrackState> tracks)
+    {
+        Downloaded.Clear();
+        foreach (var state in tracks) { Downloaded.Add(new YouTubeTrackViewModel(state)); }
+        RefreshPositions();
+        OnPropertyChanged(nameof(HasDownloaded));
+        OnPropertyChanged(nameof(TrackCount));
+        OnPropertyChanged(nameof(TrackCountNumber));
+    }
 
     public void RefreshBinaryState()
     {

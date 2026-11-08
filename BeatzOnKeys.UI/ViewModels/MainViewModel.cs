@@ -18,6 +18,13 @@ namespace BeatzOnKeys.UI.ViewModels;
 public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 {
     private readonly SettingsService _settingsService;
+    /// <summary>
+    /// Beside settings.json on purpose: the two files belong to one installation, so pointing a
+    /// test at its own settings file also gives it its own library.
+    /// </summary>
+    private readonly LibraryService _library;
+    private bool _libraryLoaded;
+    private string? _libraryMigratedVersion;
     private readonly PlaybackController _playbackController;
     private readonly IContinuousAudioPlayer _audioPlayer;
     private readonly TypingPlaybackService _typingPlayback;
@@ -26,6 +33,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     // Which tracks came from the YouTube cache, so the player card can name the source instead of
     // leaving the user guessing where the sound came from.
     private readonly HashSet<Guid> _youTubeTracks = [];
+    // The TikTok ones get their own set: the player card must be able to name the source, and
+    // mixing the two would make every TikTok file claim to be a YouTube download.
+    private readonly HashSet<Guid> _tikTokTracks = [];
     /// <summary>
     /// The search preview currently playing, if any. Only a preview suspends the idle pause: the
     /// user asked to hear that track properly. A downloaded track from the list is ordinary
@@ -35,7 +45,6 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private bool _idlePauseSuppressed;
     private string _playingTrackText = string.Empty;
     private string _playingSourceText = string.Empty;
-    private bool _isYouTubePage;
     private bool _isSettingsOpen;
     private readonly DispatcherTimer _saveTimer;
     private readonly DispatcherTimer _playbackTimer;
@@ -83,6 +92,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         ArgumentNullException.ThrowIfNull(settings);
         settings.Normalize();
         _settingsService = settingsService;
+        _library = new LibraryService(
+            LibraryService.LibraryFileFor(settingsService.FilePath),
+            settingsService.FilePath);
         _savedSelectedTrackId = settings.SelectedTrackId;
         _minVolume = Math.Clamp(settings.MinVolume, 0, 0.5);
         _maxVolume = settings.MaxVolume;
@@ -144,6 +156,17 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         YouTube.PlayRequested += OnYouTubePlayRequested;
         YouTube.PropertyChanged += OnYouTubePropertyChanged;
         YouTube.OpenMusicFolderRequested += OpenMusicFolder;
+        // The row button doubles as pause: the section cannot reach the player, so it asks here.
+        YouTube.PauseToggleRequested += TogglePause;
+        // TikTok has no search, no cookie and no binary: just a field and a list of its own.
+        TikTok = new TikTokViewModel(
+            TikTokServiceFactory?.Invoke() ?? new TikTokAudioService(new YtDlpBinaryManager(), new YouTubeProcessRunner()),
+            settings.TikTokTracks,
+            QueueSave,
+            message => UserMessageRequested?.Invoke(message));
+        TikTok.PlayRequested += OnTikTokPlayRequested;
+        TikTok.PropertyChanged += OnTikTokPropertyChanged;
+        TikTok.OpenMusicFolderRequested += OpenMusicFolder;
         Loc.LanguageChanged += OnLanguageChanged;
         Theme.Changed += OnThemeChanged;
         _playbackTimer.Start();
@@ -154,20 +177,46 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     /// <summary>The separate YouTube section: its own search, cache and settings.</summary>
     public YouTubeViewModel YouTube { get; }
 
-    /// <summary>True while the YouTube page is shown; the playlist page is hidden then.</summary>
-    public bool IsYouTubePage
+    /// <summary>The TikTok section: a link in, a file out, and its own cache.</summary>
+    public TikTokViewModel TikTok { get; }
+
+    /// <summary>
+    /// Replaceable so tests and the smoke never touch the network. A real download needs TikTok
+    /// to answer, which is not something a test may depend on.
+    /// </summary>
+    public static Func<ITikTokAudioService>? TikTokServiceFactory { get; set; }
+
+    /// <summary>
+    /// Exactly one of the three pages is active. A single field instead of two flags, because two
+    /// booleans can both be true at once and then the window has no defined content.
+    /// </summary>
+    private AppPage _page = AppPage.Playlist;
+
+    private enum AppPage
     {
-        get => _isYouTubePage;
-        private set
-        {
-            if (!SetProperty(ref _isYouTubePage, value)) { return; }
-            OnPropertyChanged(nameof(IsPlaylistPage));
-            OnPropertyChanged(nameof(SelectedTrackText));
-            RefreshCommands();
-        }
+        Playlist,
+        YouTube,
+        TikTok
     }
 
-    public bool IsPlaylistPage => !_isYouTubePage;
+    /// <summary>True while the YouTube page is shown.</summary>
+    public bool IsYouTubePage => _page == AppPage.YouTube;
+
+    /// <summary>True while the TikTok page is shown.</summary>
+    public bool IsTikTokPage => _page == AppPage.TikTok;
+
+    public bool IsPlaylistPage => _page == AppPage.Playlist;
+
+    private void SetPage(AppPage page)
+    {
+        if (_page == page) { return; }
+        _page = page;
+        OnPropertyChanged(nameof(IsPlaylistPage));
+        OnPropertyChanged(nameof(IsYouTubePage));
+        OnPropertyChanged(nameof(IsTikTokPage));
+        OnPropertyChanged(nameof(SelectedTrackText));
+        RefreshCommands();
+    }
 
     /// <summary>
     /// The playback panel floats above whichever tab is active, so that tab keeps its content
@@ -183,12 +232,14 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         }
     }
 
-    public RelayCommand ShowPlaylistCommand => _showPlaylist ??= new RelayCommand(() => IsYouTubePage = false);
-    public RelayCommand ShowYouTubeCommand => _showYouTube ??= new RelayCommand(() => IsYouTubePage = true);
+    public RelayCommand ShowPlaylistCommand => _showPlaylist ??= new RelayCommand(() => SetPage(AppPage.Playlist));
+    public RelayCommand ShowYouTubeCommand => _showYouTube ??= new RelayCommand(() => SetPage(AppPage.YouTube));
+    public RelayCommand ShowTikTokCommand => _showTikTok ??= new RelayCommand(() => SetPage(AppPage.TikTok));
     public RelayCommand ShowSettingsCommand => _showSettings ??= new RelayCommand(ToggleSettings);
     public RelayCommand CloseSettingsCommand => _closeSettings ??= new RelayCommand(() => IsSettingsOpen = false);
     private RelayCommand? _showPlaylist;
     private RelayCommand? _showYouTube;
+    private RelayCommand? _showTikTok;
     private RelayCommand? _showSettings;
     private RelayCommand? _closeSettings;
 
@@ -253,9 +304,12 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     /// The player card follows the active page: it names the local file on "Локально" and the
     /// cached YouTube track on "YouTube", because those are what "Старт" would play.
     /// </summary>
-    public string SelectedTrackText => IsYouTubePage
-        ? (YouTube.SelectedTrack?.Title ?? Loc.T("L_NoTrackSelected"))
-        : (SelectedTrack?.FileName ?? Loc.T("L_NoTrackSelected"));
+    public string SelectedTrackText => _page switch
+    {
+        AppPage.YouTube => YouTube.SelectedTrack?.Title ?? Loc.T("L_NoTrackSelected"),
+        AppPage.TikTok => TikTok.SelectedTrack?.Title ?? Loc.T("L_NoTrackSelected"),
+        _ => SelectedTrack?.FileName ?? Loc.T("L_NoTrackSelected")
+    };
     public double MaxVolume
     {
         get => _maxVolume;
@@ -531,6 +585,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
     public async Task InitializeAsync()
     {
+        // The library lives in its own file now. It is loaded before the playlist is built, so an
+        // existing installation sees its tracks on the very first start after the update.
+        await LoadLibraryAsync().ConfigureAwait(true);
         foreach (var track in Tracks.ToArray()) { await LoadTrackInfoAsync(track).ConfigureAwait(true); }
         var saved = _savedSelectedTrackId is Guid id ? Tracks.FirstOrDefault(track => track.Id == id) : null;
         SelectedTrack = saved ?? Tracks.FirstOrDefault(track => track.IsAvailable) ?? Tracks.FirstOrDefault();
@@ -630,13 +687,17 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     /// <summary>"Старт" is enabled when the active page has something to play.</summary>
-    private bool CanStartPlayback() => CanEditPlaylist && !IsRunning &&
-        (IsYouTubePage ? YouTube.Downloaded.Any(track => track.CanPlay) : Tracks.Any(track => track.IsAvailable));
+    private bool CanStartPlayback() => CanEditPlaylist && !IsRunning && _page switch
+    {
+        AppPage.YouTube => YouTube.Downloaded.Any(track => track.CanPlay),
+        AppPage.TikTok => TikTok.Tracks.Any(track => track.CanPlay),
+        _ => Tracks.Any(track => track.IsAvailable)
+    };
 
     private async Task StartPlaybackAsync()
     {
         // The button starts the list the user is looking at, not always the local one.
-        if (IsYouTubePage)
+        if (_page == AppPage.YouTube)
         {
             var cached = YouTube.SelectedTrack is { CanPlay: true } chosen
                 ? chosen
@@ -644,6 +705,17 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             if (cached is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
             YouTube.SelectTrack(cached);
             await PlayYouTubeAsync(cached.CachedPath, cached.Title, isPreview: false).ConfigureAwait(true);
+            return;
+        }
+
+        if (_page == AppPage.TikTok)
+        {
+            var cached = TikTok.SelectedTrack is { CanPlay: true } chosen
+                ? chosen
+                : TikTok.Tracks.FirstOrDefault(item => item.CanPlay);
+            if (cached is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
+            TikTok.SelectTrack(cached);
+            await PlayYouTubeAsync(cached.CachedPath, cached.Title, isPreview: false, isTikTok: true).ConfigureAwait(true);
             return;
         }
 
@@ -843,11 +915,12 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             PunchResponseEnabled = PunchResponseEnabled, BassReactiveGain = BassReactiveGain,
             StereoPulseEnabled = StereoPulseEnabled, AdaptiveVolumeEnabled = AdaptiveVolumeEnabled,
             SelectedTrackId = SelectedTrack?.Id, Language = Loc.CurrentCode, Theme = Theme.CurrentCode,
-            Tracks = Tracks.Select(track => track.ToState()).ToList(),
-            YouTubeTracks = YouTube.ToStates().ToList(),
             YouTubeCacheEnabled = YouTube.CacheEnabled,
             CookiesFolderPath = YouTube.CookiesFolderPath,
-            ProxyUrl = YouTube.ProxyUrl
+            ProxyUrl = YouTube.ProxyUrl,
+            // Once the library has taken the tracks over, settings.json stops carrying them: one
+            // owner per piece of data, so a reset of the preferences cannot wipe the collection.
+            TracksMigratedToLibrary = _libraryLoaded
         };
         try { await _settingsService.SaveAsync(snapshot).ConfigureAwait(true); }
         catch (Exception exception)
@@ -855,6 +928,55 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             AppLogger.Error("settings", "Failed to save settings.", exception);
             // Remember the first failure so the window can explain it once instead of staying silent.
             _storageWarning ??= Loc.F("L_SettingsNotSavedFormat", AppPaths.SettingsFile);
+        }
+
+        if (!_libraryLoaded) { return; }
+        try
+        {
+            await _library.SaveAsync(new LibrarySnapshot(
+                Tracks.Select(track => track.ToState()).ToList(),
+                YouTube.ToStates().ToList(),
+                TikTok.ToStates().ToList(),
+                _libraryMigratedVersion)).ConfigureAwait(true);
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error("library", "Failed to save the library.", exception);
+            _storageWarning ??= Loc.F("L_SettingsNotSavedFormat", _library.FilePath);
+        }
+    }
+
+    /// <summary>
+    /// Loads library.json, migrating an older settings.json on the way. The three collections are
+    /// replaced rather than appended to, so running twice cannot duplicate a track.
+    /// </summary>
+    private async Task LoadLibraryAsync()
+    {
+        try
+        {
+            var snapshot = await _library.LoadAsync(_lifetime.Token).ConfigureAwait(true);
+            _libraryMigratedVersion = snapshot.PathsMigratedToLibraryVersion;
+            _libraryLoaded = true;
+            if (snapshot.Tracks.Count == 0 && snapshot.YouTubeTracks.Count == 0 && snapshot.TikTokTracks.Count == 0)
+            {
+                // Nothing was stored yet; whatever the constructor built from settings stays.
+                return;
+            }
+
+            Tracks.Clear();
+            foreach (var state in snapshot.Tracks)
+            {
+                try { Tracks.Add(new TrackViewModel(state)); }
+                catch (Exception exception) { AppLogger.Error("library", $"Ignored invalid track path '{state.SourcePath}'.", exception); }
+            }
+
+            YouTube.ReplaceTracks(snapshot.YouTubeTracks);
+            TikTok.ReplaceTracks(snapshot.TikTokTracks);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            AppLogger.Error("library", "Could not load the library; the playlist may be incomplete.", exception);
         }
     }
 
@@ -878,6 +1000,12 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         }
         var playing = _playbackController.CurrentTrack;
         SyncIdlePauseFor(playing);
+        // The search row's button doubles as pause, so it has to follow the player, not its own
+        // memory of what it started.
+        YouTube.SyncPreviewPlayback(
+            playing is not null && playing.Id == _previewTrackId,
+            _audioPlayer.IsPlaying,
+            _audioPlayer.IsPaused || _audioPlayer.IsIdlePaused);
         var playingName = playing is null ? string.Empty :
             _friendlyNames.TryGetValue(playing.Id, out var friendly) ? friendly : playing.Name;
         NowPlayingText = playing is null ? string.Empty :
@@ -885,9 +1013,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         PlayingTrackText = playing is null ? Loc.T("L_NothingPlaying") : playingName;
         PlayingSourceText = playing is null
             ? Loc.T("L_NowPlayingCard")
-            : Loc.F("L_NowPlayingCard", _youTubeTracks.Contains(playing.Id)
-                ? Loc.T("L_SourceYouTube")
-                : Loc.T("L_SourceLocal"));
+            : Loc.F("L_NowPlayingCard", _tikTokTracks.Contains(playing.Id)
+                ? Loc.T("L_SourceTikTok")
+                : _youTubeTracks.Contains(playing.Id)
+                    ? Loc.T("L_SourceYouTube")
+                    : Loc.T("L_SourceLocal"));
         if (IsRunning)
         {
             // A paused run is not an ended one: the position stays short of the duration.
@@ -952,17 +1082,18 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private static YouTubeTrackService CreateDefaultYouTubeService() =>
         YouTubeServiceFactory?.Invoke() ?? new(new YtDlpBinaryManager(), new YouTubeProcessRunner());
 
-    /// <summary>Plays a cached YouTube file through the same player, without touching the playlist.</summary>
+    /// <summary>Plays a cached file through the same player, without touching the playlist.</summary>
     private void OnYouTubePlayRequested(string path, string title, bool isPreview) =>
         _ = PlayYouTubeAsync(path, title, isPreview);
 
-    private async Task PlayYouTubeAsync(string path, string title, bool isPreview)
+    private async Task PlayYouTubeAsync(string path, string title, bool isPreview, bool isTikTok = false)
     {
         try
         {
             var playback = AudioTrackLoader.Load(Guid.NewGuid(), path);
             _friendlyNames[playback.Id] = string.IsNullOrWhiteSpace(title) ? playback.Name : title;
-            _youTubeTracks.Add(playback.Id);
+            if (isTikTok) { _tikTokTracks.Add(playback.Id); }
+            else { _youTubeTracks.Add(playback.Id); }
             // The controller holds the playback order; a YouTube file joins it for this run only,
             // and Reorder keeps it at the end when the local playlist changes.
             _playbackController.UpsertTrack(playback);
@@ -1020,6 +1151,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(BehaviorSummary));
         OnPropertyChanged(nameof(PauseResumeText));
         YouTube.RefreshLocalization();
+        TikTok.RefreshLocalization();
         RefreshPlaybackProgress();
         StatusText = PlaybackStatusText;
         StateChanged?.Invoke();
@@ -1065,6 +1197,21 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         RefreshCommands();
     }
 
+    private void OnTikTokPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName is not (nameof(TikTokViewModel.SelectedTrack) or nameof(TikTokViewModel.TrackCount)))
+        { return; }
+        OnPropertyChanged(nameof(SelectedTrackText));
+        RefreshCommands();
+    }
+
+    /// <summary>
+    /// A TikTok file plays like a downloaded one, not like a preview: it came from the user's own
+    /// list, so the idle pause keeps working on it.
+    /// </summary>
+    private void OnTikTokPlayRequested(string path, string title) =>
+        _ = PlayYouTubeAsync(path, title, isPreview: false, isTikTok: true);
+
     public async ValueTask DisposeAsync()
     {
         if (_disposed || _closing) { return; }
@@ -1085,7 +1232,12 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         YouTube.PlayRequested -= OnYouTubePlayRequested;
         YouTube.PropertyChanged -= OnYouTubePropertyChanged;
         YouTube.OpenMusicFolderRequested -= OpenMusicFolder;
+        YouTube.PauseToggleRequested -= TogglePause;
         YouTube.Dispose();
+        TikTok.PlayRequested -= OnTikTokPlayRequested;
+        TikTok.PropertyChanged -= OnTikTokPropertyChanged;
+        TikTok.OpenMusicFolderRequested -= OpenMusicFolder;
+        TikTok.Dispose();
         await _typingPlayback.DisposeAsync().ConfigureAwait(true);
         _lifetime.Dispose();
         _disposed = true;

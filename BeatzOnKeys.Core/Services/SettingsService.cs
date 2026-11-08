@@ -17,6 +17,12 @@ public sealed class SettingsService
     public SettingsService(string? settingsFile = null) =>
         _settingsFile = Path.GetFullPath(settingsFile ?? AppPaths.SettingsFile);
 
+    /// <summary>
+    /// Where this instance reads and writes. Exposed so the library can sit beside it: the two
+    /// files belong to one installation and must always travel together.
+    /// </summary>
+    public string FilePath => _settingsFile;
+
     public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken = default)
     {
         await _saveGate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -44,6 +50,14 @@ public sealed class SettingsService
                 }
             }
             settings.Normalize();
+            if (settings.TracksMigratedToLibrary)
+            {
+                // The tracks live in library.json now; the copies here are a stale leftover.
+                settings.Tracks = [];
+                settings.YouTubeTracks = [];
+                settings.TikTokTracks = [];
+            }
+
             return settings;
         }
         catch (OperationCanceledException)
@@ -62,8 +76,11 @@ public sealed class SettingsService
     {
         ArgumentNullException.ThrowIfNull(settings);
         settings.Normalize();
+        // The library owns the tracks once it has taken them over. Before that the old fields are
+        // still written, so an installation that has not migrated yet keeps its tracks.
+        var payload = settings.TracksMigratedToLibrary ? WithoutTracks(settings) : settings;
         // Capture the complete JSON before waiting so callers cannot mutate an in-flight save.
-        var json = JsonSerializer.Serialize(settings, _jsonOptions);
+        var json = JsonSerializer.Serialize(payload, _jsonOptions);
         await _saveGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         var temporaryPath = _settingsFile + $".{Guid.NewGuid():N}.tmp";
         try
@@ -100,6 +117,29 @@ public sealed class SettingsService
             _saveGate.Release();
         }
     }
+
+    /// <summary>A copy with the track lists cleared, so only preferences reach settings.json.</summary>
+    private static AppSettings WithoutTracks(AppSettings settings) => new()
+    {
+        SchemaVersion = settings.SchemaVersion,
+        MinVolume = settings.MinVolume,
+        MaxVolume = settings.MaxVolume,
+        IdleTimeout = settings.IdleTimeout,
+        PauseOnIdle = settings.PauseOnIdle,
+        AutoAdvance = settings.AutoAdvance,
+        Loop = settings.Loop,
+        PunchResponseEnabled = settings.PunchResponseEnabled,
+        BassReactiveGain = settings.BassReactiveGain,
+        StereoPulseEnabled = settings.StereoPulseEnabled,
+        AdaptiveVolumeEnabled = settings.AdaptiveVolumeEnabled,
+        SelectedTrackId = settings.SelectedTrackId,
+        Language = settings.Language,
+        Theme = settings.Theme,
+        TracksMigratedToLibrary = settings.TracksMigratedToLibrary,
+        YouTubeCacheEnabled = settings.YouTubeCacheEnabled,
+        CookiesFolderPath = settings.CookiesFolderPath,
+        ProxyUrl = settings.ProxyUrl
+    };
 
     public async Task DeleteAsync(CancellationToken cancellationToken = default)
     {

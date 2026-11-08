@@ -68,17 +68,77 @@ public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result) : Obs
             OnPropertyChanged(nameof(CacheStateText));
             // The add button follows the file, so it lights up the moment the cache lands.
             OnPropertyChanged(nameof(CanDownload));
+            OnPropertyChanged(nameof(CanAdd));
         }
     }
 
     private string? _cachedPath;
 
     public bool CanPlay => !IsLive && !string.IsNullOrEmpty(CachedPath) && File.Exists(CachedPath);
+
+    /// <summary>
+    /// True for the one row whose file is playing right now. The button on that row turns into a
+    /// pause, because a second click on a playing track can only mean "stop this".
+    /// </summary>
+    public bool IsPlaying
+    {
+        get => _isPlaying;
+        internal set
+        {
+            if (!SetProperty(ref _isPlaying, value)) { return; }
+            OnPropertyChanged(nameof(PlayGlyph));
+            OnPropertyChanged(nameof(PreviewTooltip));
+        }
+    }
+
+    private bool _isPlaying;
+
+    /// <summary>Set when the playing row was paused, so the same button offers "continue".</summary>
+    public bool IsPaused
+    {
+        get => _isPaused;
+        internal set
+        {
+            if (!SetProperty(ref _isPaused, value)) { return; }
+            OnPropertyChanged(nameof(PlayGlyph));
+            OnPropertyChanged(nameof(PreviewTooltip));
+        }
+    }
+
+    private bool _isPaused;
+
+    /// <summary>Segoe MDL2 glyphs: play, pause and continue share one button.</summary>
+    public string PlayGlyph => _isPlaying && !_isPaused ? "\uE769" : "\uE768";
+
+    public string PreviewTooltip => _isPlaying && !_isPaused
+        ? Loc.T("L_YtPreviewPause")
+        : _isPlaying ? Loc.T("L_YtPreviewResume")
+        : Loc.T("L_YtPreview");
+
+    /// <summary>
+    /// Set once this result is in the saved list. The add button becomes a green check and stops
+    /// accepting clicks, so a second press cannot start a download that is already done.
+    /// </summary>
+    public bool IsAdded
+    {
+        get => _isAdded;
+        internal set
+        {
+            if (!SetProperty(ref _isAdded, value)) { return; }
+            OnPropertyChanged(nameof(CanAdd));
+        }
+    }
+
+    private bool _isAdded;
+
+    /// <summary>Adding is offered only for a cached result that is not already saved.</summary>
+    public bool CanAdd => CanDownload && !_isAdded;
     /// <summary>Recomputes the localized line after a language switch.</summary>
     public void RefreshLocalization()
     {
         OnPropertyChanged(nameof(CacheStateText));
         OnPropertyChanged(nameof(LiveBadgeText));
+        OnPropertyChanged(nameof(PreviewTooltip));
     }
 
     /// <summary>True while this result is being fetched for listening, so the row shows a state.</summary>

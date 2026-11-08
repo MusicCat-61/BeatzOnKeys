@@ -175,6 +175,12 @@ public partial class GuideWindow : Window
             ("Guide_YouTubeYtDlpT", "Guide_YouTubeYtDlpX"),
             ("Guide_YouTubeLimitsT", "Guide_YouTubeLimitsX")),
 
+        Section("Guide_SecTikTok", showsZapret: false,
+            ("Guide_TikTokLinkT", "Guide_TikTokLinkX"),
+            ("Guide_TikTokLinkShortT", "Guide_TikTokLinkShortX"),
+            ("Guide_TikTokCacheT", "Guide_TikTokCacheX"),
+            ("Guide_TikTokLimitsT", "Guide_TikTokLimitsX")),
+
         Section("Guide_SecTray",
             ("Guide_TrayIconT", "Guide_TrayIconX"),
             ("Guide_TrayMenuT", "Guide_TrayMenuX"),

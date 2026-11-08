@@ -116,6 +116,21 @@ internal static class Program
         ("YouTube.YtDlpVersionsCompareByDate", YouTubeTests.YtDlpVersionsCompareByDate),
         ("YouTube.LatestReleaseTagIsParsed", YouTubeTests.LatestReleaseTagIsParsed),
         ("YouTube.DownloadKeepsProgressOutputAlive", YouTubeTests.DownloadKeepsProgressOutputAlive)
+        ,("Media.UrlRecognisesBothPlatforms", MediaTests.MediaUrlRecognisesBothPlatforms)
+        ,("Media.UrlIgnoresTelegramQueryParameters", MediaTests.MediaUrlIgnoresTelegramQueryParameters)
+        ,("Media.UrlClassifiesRefusals", MediaTests.MediaUrlClassifiesRefusals)
+        ,("Media.UrlBuildsAndValidatesIds", MediaTests.MediaUrlBuildsAndValidatesIds)
+        ,("Media.TikTokPageIsParsedWithoutTheApi", MediaTests.TikTokPageIsParsedWithoutTheApi)
+        ,("Media.TikTokApiShapeIsParsed", MediaTests.TikTokApiShapeIsParsed)
+        ,("Media.TikTokServiceRefusesWithoutAudio", MediaTests.TikTokServiceRefusesWithoutAudio)
+        ,("Media.TikTokServiceReportsAnEmptyBody", MediaTests.TikTokServiceReportsAnEmptyBody)
+        ,("Media.TikTokServiceRefusesOversizedFiles", MediaTests.TikTokServiceRefusesOversizedFiles)
+        ,("Media.TikTokServiceMapsForbiddenToRestricted", MediaTests.TikTokServiceMapsForbiddenToRestricted)
+        ,("Media.TikTokServiceFollowsAShortLink", MediaTests.TikTokServiceFollowsAShortLink)
+        ,("Media.TikTokServiceConvertsAVideoToWav", MediaTests.TikTokServiceConvertsAVideoToWav)
+        ,("Media.LibraryRoundTripsAndSurvivesCorruption", MediaTests.LibraryRoundTripsAndSurvivesCorruption)
+        ,("Media.LibraryMigratesTracksOutOfSettings", MediaTests.LibraryMigratesTracksOutOfSettings)
+        ,("Media.LibraryRelocatesCachedPathsOnce", MediaTests.LibraryRelocatesCachedPathsOnce)
     ];
 
     private static async Task<int> Main()

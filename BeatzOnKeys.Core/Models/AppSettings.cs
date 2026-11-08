@@ -1,9 +1,12 @@
 namespace BeatzOnKeys.Core.Models;
 
-/// <summary>User preferences and playlist, stored in the local app-data folder.</summary>
+/// <summary>
+/// User preferences. The collected tracks used to live here too; they now live in library.json,
+/// and the fields stay only so an old file can still be read during the migration.
+/// </summary>
 public sealed class AppSettings
 {
-    public const int CurrentSchemaVersion = 5;
+    public const int CurrentSchemaVersion = 6;
     public const double DefaultMinVolume = 0.2;
     public const double DefaultMaxVolume = 1.0;
     public const double DefaultIdleTimeout = 3.0;
@@ -17,33 +20,43 @@ public sealed class AppSettings
     public bool AutoAdvance { get; set; }
     public bool Loop { get; set; } = true;
 
-    /// <summary>Shortens the attack to 15 ms when the track itself just hit a transient.</summary>
+    /// <summary>Volume punch on a hard key press.</summary>
     public bool PunchResponseEnabled { get; set; } = true;
 
-    /// <summary>Extra gain added while the 40–120 Hz band is loud; zero turns the effect off.</summary>
+    /// <summary>How strongly the bass drives the volume, 0 = off.</summary>
     public double BassReactiveGain { get; set; } = DefaultBassReactiveGain;
 
-    /// <summary>Shifts the left/right balance for 50 ms after each key press.</summary>
+    /// <summary>Left and right channels react independently instead of together.</summary>
     public bool StereoPulseEnabled { get; set; }
 
-    /// <summary>Lets the quiet level follow the measured loudness of the selected track.</summary>
+    /// <summary>Volume follows the loudness of the music itself.</summary>
     public bool AdaptiveVolumeEnabled { get; set; } = true;
     public Guid? SelectedTrackId { get; set; }
     public string? Language { get; set; }
     public string Theme { get; set; } = "dark";
-    public List<TrackState> Tracks { get; set; } = [];
 
     /// <summary>
-    /// Downloaded YouTube tracks. Deliberately a separate list: the local playlist stays exactly
-    /// what the user added from disk, and clearing the cache never touches it.
+    /// Read-only leftovers from before library.json. Nothing writes them any more, and once
+    /// <see cref="TracksMigratedToLibrary"/> is set they are ignored on load as well.
     /// </summary>
+    public List<TrackState> Tracks { get; set; } = [];
+
+    /// <inheritdoc cref="Tracks"/>
     public List<YouTubeTrackState> YouTubeTracks { get; set; } = [];
+
+    /// <inheritdoc cref="Tracks"/>
+    public List<YouTubeTrackState> TikTokTracks { get; set; } = [];
+
+    /// <summary>
+    /// Set once the tracks have been copied into library.json. Until then the old lists are read,
+    /// so an existing installation keeps its library after the update.
+    /// </summary>
+    public bool TracksMigratedToLibrary { get; set; }
 
     /// <summary>Keeps downloaded audio on disk instead of deleting it after playback.</summary>
     public bool YouTubeCacheEnabled { get; set; } = true;
 
     /// <summary>Folder scanned for Netscape-format cookie files, passed to yt-dlp when non-empty.</summary>
-
     public string CookiesFolderPath { get; set; } = string.Empty;
 
     /// <summary>Optional proxy for yt-dlp, for example http://127.0.0.1:8080.</summary>
@@ -60,30 +73,50 @@ public sealed class AppSettings
         Language = string.Equals(Language, "ru", StringComparison.OrdinalIgnoreCase) ? "ru" :
             string.Equals(Language, "en", StringComparison.OrdinalIgnoreCase) ? "en" : null;
         Tracks ??= [];
+        YouTubeTracks ??= [];
+        TikTokTracks ??= [];
+        NormalizeTracks(Tracks);
+        // Only checked when the list is here at all: once library.json owns the tracks, an empty
+        // list in settings means "they live elsewhere", not "the selection is stale".
+        if (Tracks.Count > 0 && SelectedTrackId is Guid selected && !Tracks.Any(track => track.Id == selected))
+        {
+            SelectedTrackId = null;
+        }
+        CookiesFolderPath = (CookiesFolderPath ?? string.Empty).Trim();
+        ProxyUrl = (ProxyUrl ?? string.Empty).Trim();
+        NormalizeCachedTracks(YouTubeTracks);
+        NormalizeCachedTracks(TikTokTracks);
+    }
+
+    /// <summary>One row per file, no empty paths, and a stable id for every entry.</summary>
+    public static void NormalizeTracks(List<TrackState> tracks)
+    {
+        if (tracks is null) { return; }
         var ids = new HashSet<Guid>();
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        Tracks = Tracks.Where(track =>
+        tracks.RemoveAll(track =>
         {
-            if (track is null || string.IsNullOrWhiteSpace(track.SourcePath) || !paths.Add(track.SourcePath)) { return false; }
+            if (track is null || string.IsNullOrWhiteSpace(track.SourcePath) || !paths.Add(track.SourcePath))
+            {
+                return true;
+            }
+
             if (track.Id == Guid.Empty) { track.Id = Guid.NewGuid(); }
-            return ids.Add(track.Id);
-        }).ToList();
-        if (SelectedTrackId is Guid selected && !Tracks.Any(track => track.Id == selected)) { SelectedTrackId = null; }
-        NormalizeYouTube();
+            return !ids.Add(track.Id);
+        });
     }
 
     /// <summary>
-    /// Keeps the cached-track list consistent: one row per video, no empty identifiers, and a
+    /// Keeps a cached-track list consistent: one row per video, no empty identifiers, and a
     /// "Downloading" row that survived a crash becomes "Failed" instead of spinning forever.
+    /// Shared by the YouTube and TikTok lists, which have the same shape.
     /// </summary>
-    private void NormalizeYouTube()
+    public static void NormalizeCachedTracks(List<YouTubeTrackState> tracks)
     {
-        YouTubeTracks ??= [];
-        CookiesFolderPath = (CookiesFolderPath ?? string.Empty).Trim();
-        ProxyUrl = (ProxyUrl ?? string.Empty).Trim();
+        if (tracks is null) { return; }
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var kept = new List<YouTubeTrackState>(YouTubeTracks.Count);
-        foreach (var track in YouTubeTracks)
+        var kept = new List<YouTubeTrackState>(tracks.Count);
+        foreach (var track in tracks)
         {
             if (track is null || string.IsNullOrWhiteSpace(track.VideoId)) { continue; }
             track.VideoId = track.VideoId.Trim();
@@ -103,6 +136,7 @@ public sealed class AppSettings
             kept.Add(track);
         }
 
-        YouTubeTracks = kept;
+        tracks.Clear();
+        tracks.AddRange(kept);
     }
 }

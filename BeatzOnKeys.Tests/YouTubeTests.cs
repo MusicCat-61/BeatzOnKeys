@@ -267,7 +267,7 @@ internal static class YouTubeTests
         AssertEx.Equal(YouTubeTrackStatus.Ready, settings.YouTubeTracks[0].Status);
         // A download cannot survive a restart, so it resurfaces as failed instead of spinning.
         AssertEx.Equal(YouTubeTrackStatus.Failed, settings.YouTubeTracks[1].Status);
-        AssertEx.Equal(5, AppSettings.CurrentSchemaVersion);
+        AssertEx.Equal(6, AppSettings.CurrentSchemaVersion);
         AssertEx.True(settings.CookiesFolderPath is not null && settings.ProxyUrl is not null,
             "The new YouTube settings must be non-null after normalization.");
         return Task.CompletedTask;

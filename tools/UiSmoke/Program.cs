@@ -188,6 +188,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 });
             _hook = new FakeKeyboardHook();
             _player = new ContinuousAudioPlayer();
+            // TikTok never touches the network either: the fake writes the same quiet fixture.
+            MainViewModel.TikTokServiceFactory = () => new SmokeTikTokService(_fixtures[0]);
             var settingsService = MakeSettingsService(SettingsPath);
             _vm = Own(new MainViewModel(new AppSettings { Language = "en" }, settingsService, _hook, _player));
             _vm.UserMessageRequested += message => _messages.Add(message);
@@ -1522,6 +1524,99 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             finally { SmokeYouTubeRunner.SearchDelay = TimeSpan.Zero; }
         }
 
+        // --- The three tabs and the TikTok page ------------------------------------------------
+        // The page switch is a single field now, so exactly one of the three can be active.
+        {
+            var tabs = _vm!;
+            // The section is photographed without the settings overlay, so the field and the
+            // list are what the picture shows.
+            tabs.CloseSettingsCommand.Execute(null);
+            tabs.ShowTikTokCommand.Execute(null);
+            Check("pages.tikTok", tabs.IsTikTokPage && !tabs.IsYouTubePage && !tabs.IsPlaylistPage,
+                $"TikTok={tabs.IsTikTokPage}, YouTube={tabs.IsYouTubePage}, playlist={tabs.IsPlaylistPage}.");
+            tabs.ShowYouTubeCommand.Execute(null);
+            Check("pages.youTube", tabs.IsYouTubePage && !tabs.IsTikTokPage && !tabs.IsPlaylistPage,
+                $"TikTok={tabs.IsTikTokPage}, YouTube={tabs.IsYouTubePage}, playlist={tabs.IsPlaylistPage}.");
+            tabs.ShowPlaylistCommand.Execute(null);
+            Check("pages.playlist", tabs.IsPlaylistPage && !tabs.IsYouTubePage && !tabs.IsTikTokPage,
+                $"TikTok={tabs.IsTikTokPage}, YouTube={tabs.IsYouTubePage}, playlist={tabs.IsPlaylistPage}.");
+
+            tabs.ShowTikTokCommand.Execute(null);
+            await SettleAsync();
+            Check("tiktok.emptyList", tabs.TikTok.Tracks.Count == 0 && !tabs.TikTok.HasTracks,
+                $"Tracks={tabs.TikTok.Tracks.Count}.");
+            Check("tiktok.fieldIsTheMainThing", !string.IsNullOrWhiteSpace(tabs.TikTok.InputHint),
+                $"Hint='{tabs.TikTok.InputHint}'.");
+            Check("tiktok.cancelHiddenWhenIdle", tabs.TikTok.CancelVisible != Visibility.Visible,
+                $"Visibility={tabs.TikTok.CancelVisible}.");
+            SaveScreenshot(_window!, $"tiktok-empty-{Loc.CurrentCode}.png");
+
+            // A YouTube link in the TikTok field must be refused with a sentence, not a download.
+            tabs.TikTok.InputUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+            tabs.TikTok.AddLinkCommand.Execute(null);
+            await SettleAsync();
+            Check("tiktok.refusesYouTubeLink", tabs.TikTok.Tracks.Count == 0 &&
+                tabs.TikTok.StatusText == Loc.T("L_TikTokFailureNotTikTok"),
+                $"Status='{tabs.TikTok.StatusText}', tracks={tabs.TikTok.Tracks.Count}.");
+
+            // A real TikTok link becomes a row that can be played.
+            tabs.TikTok.InputUrl = "https://www.tiktok.com/@someone/video/7234567890123456789";
+            tabs.TikTok.AddLinkCommand.Execute(null);
+            await UntilAsync(() => tabs.TikTok.Tracks.Count == 1, 8000, "tiktok row");
+            await UntilAsync(() => tabs.TikTok.Tracks[0].CanPlay, 8000, "tiktok playable");
+            Check("tiktok.linkBecomesARow", tabs.TikTok.Tracks.Count == 1 && tabs.TikTok.Tracks[0].CanPlay,
+                $"Tracks={tabs.TikTok.Tracks.Count}, playable={tabs.TikTok.Tracks.FirstOrDefault()?.CanPlay}.");
+            Check("tiktok.fileLivesInItsOwnFolder",
+                tabs.TikTok.Tracks[0].CachedPath.Contains("TikTok", StringComparison.OrdinalIgnoreCase),
+                tabs.TikTok.Tracks[0].CachedPath);
+            Check("tiktok.fieldIsCleared", tabs.TikTok.InputUrl.Length == 0, $"InputUrl='{tabs.TikTok.InputUrl}'.");
+            await SettleAsync();
+            SaveScreenshot(_window!, $"tiktok-track-{Loc.CurrentCode}.png");
+
+            // The cancel button appears only while a download runs, and pressing it stops it.
+            SmokeTikTokService.Delay = TimeSpan.FromSeconds(20);
+            try
+            {
+                tabs.TikTok.InputUrl = "https://www.tiktok.com/@someone/video/7234567890123456799";
+                tabs.TikTok.AddLinkCommand.Execute(null);
+                await UntilAsync(() => tabs.TikTok.IsBusy, 5000, "tiktok busy");
+                await SettleAsync();
+                Check("tiktok.cancelVisibleWhileBusy", tabs.TikTok.CancelVisible == Visibility.Visible,
+                    $"Visibility={tabs.TikTok.CancelVisible}.");
+                SaveScreenshot(_window!, $"tiktok-cancel-{Loc.CurrentCode}.png");
+                tabs.TikTok.CancelDownloadCommand.Execute(null);
+                await UntilAsync(() => !tabs.TikTok.IsBusy, 8000, "tiktok stopped");
+                Check("tiktok.cancelStopsTheDownload", !tabs.TikTok.IsBusy && tabs.TikTok.Tracks.Count == 1,
+                    $"Busy={tabs.TikTok.IsBusy}, tracks={tabs.TikTok.Tracks.Count}, status='{tabs.TikTok.StatusText}'.");
+                Check("tiktok.cancelSaysSo", tabs.TikTok.StatusText == Loc.T("L_TikTokCancelled"),
+                    $"Status='{tabs.TikTok.StatusText}'.");
+            }
+            finally { SmokeTikTokService.Delay = TimeSpan.Zero; }
+
+            // Clearing the TikTok cache must leave the YouTube cache alone.
+            var youTubeFolder = Path.Combine(session, "youtube", "Music");
+            var youTubeBefore = Directory.Exists(youTubeFolder) ? Directory.GetFiles(youTubeFolder).Length : 0;
+            tabs.TikTok.ConfirmRequested = (_, _) => true;
+            await tabs.TikTok.ClearCacheAsync();
+            var youTubeAfter = Directory.Exists(youTubeFolder) ? Directory.GetFiles(youTubeFolder).Length : 0;
+            Check("tiktok.clearRemovesOnlyItsOwn", tabs.TikTok.Tracks.Count == 0 && youTubeBefore == youTubeAfter,
+                $"TikTok tracks={tabs.TikTok.Tracks.Count}, YouTube files {youTubeBefore} -> {youTubeAfter}.");
+
+            // A refusal is reported in the user's language rather than as an HTTP code.
+            MainViewModel.TikTokServiceFactory = () => new FailingTikTokService();
+            var refusing = Own(new MainViewModel(new AppSettings { Language = Loc.CurrentCode },
+                MakeSettingsService(Path.Combine(session, "tiktok-refuse", "settings.json")),
+                new FakeKeyboardHook(), new ContinuousAudioPlayer()));
+            await refusing.InitializeAsync();
+            refusing.TikTok.InputUrl = "https://www.tiktok.com/@someone/video/7234567890123456799";
+            refusing.TikTok.AddLinkCommand.Execute(null);
+            await SettleAsync();
+            Check("tiktok.failureIsHuman", refusing.TikTok.StatusText == Loc.T("L_TikTokFailureRestricted"),
+                $"Status='{refusing.TikTok.StatusText}'.");
+            MainViewModel.TikTokServiceFactory = () => new SmokeTikTokService(_fixtures[0]);
+            tabs.ShowPlaylistCommand.Execute(null);
+        }
+
         var windowViewModel = _vm!;
         windowViewModel.ShowYouTubeCommand.Execute(null);
         await SettleAsync();
@@ -1541,6 +1636,39 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             windowViewModel.YouTube.Results.Count == 2 && windowViewModel.YouTube.Results.All(item => item.CanPlay),
             $"Results={windowViewModel.YouTube.Results.Count}, playable={windowViewModel.YouTube.Results.Count(item => item.CanPlay)}.");
         SaveScreenshot(_window!, $"youtube-search-{Loc.CurrentCode}.png");
+        // The row button is a toggle, not a second "play": the same result twice means pause, and
+        // the glyph follows the player rather than the row's own memory of what it started.
+        {
+            var results = windowViewModel.YouTube;
+            var toggled = results.Results[0];
+            results.PreviewCommand.Execute(toggled);
+            await UntilAsync(() => toggled.IsPlaying, 5000, "preview playing");
+            Check("youtube.previewShowsPause", toggled.PlayGlyph == "\uE769" && !toggled.IsPaused,
+                $"Glyph={(int)toggled.PlayGlyph[0]:X4}, paused={toggled.IsPaused}.");
+            results.PreviewCommand.Execute(toggled);
+            await UntilAsync(() => toggled.IsPaused, 5000, "preview paused");
+            Check("youtube.previewSecondPressPauses", toggled.IsPlaying && toggled.IsPaused &&
+                toggled.PlayGlyph == "\uE768",
+                $"Glyph={(int)toggled.PlayGlyph[0]:X4}, playing={toggled.IsPlaying}, paused={toggled.IsPaused}.");
+            // Another row takes over, so the first one must go back to a plain play button.
+            results.PreviewCommand.Execute(results.Results[1]);
+            await UntilAsync(() => !toggled.IsPlaying, 5000, "preview moved");
+            Check("youtube.previewMovesBetweenRows", !toggled.IsPlaying && results.Results[1].IsPlaying,
+                $"First playing={toggled.IsPlaying}, second playing={results.Results[1].IsPlaying}.");
+            await StopAsync(windowViewModel);
+
+            // Adding a result turns the button into a green check and stops it accepting clicks.
+            var toAdd = results.Results[0];
+            Check("youtube.addIsOffBeforeAdding", toAdd.CanAdd && !toAdd.IsAdded,
+                $"CanAdd={toAdd.CanAdd}, added={toAdd.IsAdded}.");
+            results.DownloadCommand.Execute(toAdd);
+            await UntilAsync(() => toAdd.IsAdded, 15000, "result added");
+            Check("youtube.addBecomesACheckmark", toAdd.IsAdded && !toAdd.CanAdd,
+                $"Added={toAdd.IsAdded}, CanAdd={toAdd.CanAdd}, tracks={results.TrackCount}.");
+            // The added row belongs to the downloaded list, which the next check fills and counts itself.
+            results.ReplaceTracks([]);
+        }
+
         windowViewModel.YouTube.Results.Clear();
         SmokeYouTubeBinaries.YtDlpPresent = false;
         windowViewModel.YouTube.RefreshBinaryState();
@@ -1608,9 +1736,16 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             loaded.AutoAdvance && !loaded.Loop && loaded.Language == "ru" && loaded.Theme == "light" && loaded.SelectedTrackId == selected &&
             !loaded.PunchResponseEnabled && Near(loaded.BassReactiveGain, 0.12) && loaded.StereoPulseEnabled &&
             !loaded.AdaptiveVolumeEnabled &&
-            loaded.Tracks.Count == expectedTracks.Length && loaded.Tracks.Zip(expectedTracks).All(pair => pair.First.Id == pair.Second.Id &&
-                pair.First.SourcePath == pair.Second.SourcePath && pair.First.AddedAt == pair.Second.AddedAt),
+            // The tracks moved to library.json on purpose: settings.json must not carry them any
+            // more, and the flag is what proves the move happened.
+            loaded.TracksMigratedToLibrary && loaded.Tracks.Count == 0,
             $"schema={loaded.SchemaVersion}, min={loaded.MinVolume}, max={loaded.MaxVolume}, idle={loaded.IdleTimeout}s, pause={loaded.PauseOnIdle}, auto={loaded.AutoAdvance}, loop={loaded.Loop}, language={loaded.Language}, theme={loaded.Theme}, selected={loaded.SelectedTrackId}; path={Friendly(SettingsPath)}.");
+        // The collection is not gone, it is somewhere else: read it back from library.json.
+        var library = await new LibraryService(LibraryService.LibraryFileFor(SettingsPath), SettingsPath).LoadAsync();
+        Check("library.tracksPersisted", library.Tracks.Count == expectedTracks.Length &&
+            library.Tracks.Zip(expectedTracks).All(pair => pair.First.Id == pair.Second.Id &&
+                pair.First.SourcePath == pair.Second.SourcePath && pair.First.AddedAt == pair.Second.AddedAt),
+            $"library tracks={library.Tracks.Count}, expected {expectedTracks.Length}.");
         var raw = await File.ReadAllTextAsync(SettingsPath);
         using var document = JsonDocument.Parse(raw);
         var fields = document.RootElement.EnumerateObject().ToArray();

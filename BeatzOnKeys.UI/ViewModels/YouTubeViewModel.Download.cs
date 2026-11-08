@@ -52,6 +52,32 @@ public sealed partial class YouTubeViewModel
         }
     }
 
+    /// <summary>
+    /// Cancels whatever is running: a search, the background cache pass, or a download started from
+    /// the field. One button, because the user pressing it wants "stop", not a choice of what to stop.
+    /// </summary>
+    public RelayCommand CancelCommand => _cancel ??= new RelayCommand(CancelCurrentWork,
+        () => IsSearching || IsDownloading || IsQueryDownloading || _cacheLoop is not null);
+
+    private RelayCommand? _cancel;
+
+    /// <summary>Owns the token of the running search, so Cancel can stop it without a restart.</summary>
+    private CancellationTokenSource? _searchCancellation;
+
+    private void CancelCurrentWork()
+    {
+        var wasSearching = IsSearching;
+        var wasCaching = _cacheLoop is not null;
+        try { _searchCancellation?.Cancel(); }
+        catch (ObjectDisposedException) { }
+        CancelCacheLoop();
+        // The status is set here as well as in the catch: cancelling the cache pass has no
+        // exception to report, and a silent stop would look like a hang.
+        if (wasSearching) { StatusText = Loc.T("L_YtSearchCancelled"); }
+        else if (wasCaching) { StatusText = Loc.T("L_YtCachingCancelled"); }
+        CancelCommand.NotifyCanExecuteChanged();
+    }
+
     /// <summary>The second button next to the field: a pasted link downloads without a search.</summary>
     public AsyncRelayCommand DownloadFromQueryCommand => _downloadFromQuery ??= new AsyncRelayCommand(
         () => DownloadFromQueryAsync(), () => !IsBusy && !string.IsNullOrWhiteSpace(SearchQuery));
@@ -73,6 +99,8 @@ public sealed partial class YouTubeViewModel
         // A second search must not share the download slots with the first one: the old run is
         // still caching rows the user no longer sees, and those slots are what the new rows wait for.
         CancelCacheLoop();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _searchCancellation = cancellation;
         IsSearching = true;
         Results.Clear();
         StatusText = Loc.T("L_YtSearching");
@@ -86,10 +114,17 @@ public sealed partial class YouTubeViewModel
                 StatusText = Loc.F("L_YtInstallingFormat", Math.Round(value * 100));
             });
             var found = await _service
-                .SearchOrInstallAsync(query, 10, installProgress, _lifetime.Token)
+                .SearchOrInstallAsync(query, 10, installProgress, cancellation.Token)
                 .ConfigureAwait(true);
             RefreshBinaryState();
-            foreach (var item in found) { Results.Add(new YouTubeSearchItemViewModel(item)); }
+            foreach (var item in found)
+            {
+                // A fresh search can list something already saved: it starts as a check mark.
+                Results.Add(new YouTubeSearchItemViewModel(item)
+                {
+                    IsAdded = Downloaded.Any(track => track.VideoId == item.VideoId)
+                });
+            }
             StatusText = found.Count == 0 ? Loc.T("L_YtNotFound") : Loc.F("L_YtFoundFormat", found.Count);
             // Results are fetched right away, so pressing play works at once and the user hears
             // what the row actually is before deciding to keep it.
@@ -195,6 +230,9 @@ public sealed partial class YouTubeViewModel
             if (!string.IsNullOrWhiteSpace(result.Title)) { row.Title = result.Title; }
             row.SetDuration(result.Duration);
             row.MarkReady(result.CachedPath);
+            // The same video may still be listed in the search results; its button has to turn into
+            // a check, or a second press would download the file again.
+            foreach (var item in Results.Where(candidate => candidate.VideoId == videoId)) { item.IsAdded = true; }
             StatusText = Loc.F("L_YtDownloadedFormat", row.Title);
             NotifyCountChanged();
         }
@@ -233,6 +271,39 @@ public sealed partial class YouTubeViewModel
         item => item is { CanPlay: true });
 
     private RelayCommand<YouTubeSearchItemViewModel>? _previewCommand;
+
+
+    /// <summary>
+    /// Asks the window to pause or continue whatever is playing. The view model cannot reach the
+    /// player, and the row button is the only place that needs the toggle.
+    /// </summary>
+    public event Action? PauseToggleRequested;
+
+    /// <summary>The result whose file is in the player right now, if it came from the search list.</summary>
+    private YouTubeSearchItemViewModel? _activePreview;
+
+    /// <summary>
+    /// Mirrors the player state onto the rows. Called on every progress tick, so it does nothing
+    /// unless something actually changed.
+    /// </summary>
+    public void SyncPreviewPlayback(bool isCurrent, bool isPlaying, bool isPaused)
+    {
+        if (!isCurrent)
+        {
+            if (_activePreview is null) { return; }
+            _activePreview.IsPlaying = false;
+            _activePreview.IsPaused = false;
+            _activePreview = null;
+            return;
+        }
+
+        if (_activePreview is null) { return; }
+        // A paused preview still owns the player, so the row keeps its marker: only a stopped
+        // track releases it. Otherwise the row would fall back to a plain play button the moment
+        // it was paused, and the next press would look like a fresh start.
+        _activePreview.IsPlaying = isPlaying || isPaused;
+        _activePreview.IsPaused = isPaused;
+    }
 
     /// <summary>
     /// How long one row may hold the background pass. A preview nobody asked for must not keep a
@@ -332,6 +403,24 @@ public sealed partial class YouTubeViewModel
     private void Preview(YouTubeSearchItemViewModel item)
     {
         if (!item.CanPlay) { return; }
+        // The same row twice means "stop", not "start again from the top": that is the only
+        // thing a second click on a playing track can reasonably mean.
+        if (ReferenceEquals(item, _activePreview))
+        {
+            PauseToggleRequested?.Invoke();
+            return;
+        }
+
+        // The row that was playing gives up the marker, or it would keep showing a pause button
+        // for a track the player no longer holds.
+        if (_activePreview is not null)
+        {
+            _activePreview.IsPlaying = false;
+            _activePreview.IsPaused = false;
+        }
+        _activePreview = item;
+        item.IsPlaying = true;
+        item.IsPaused = false;
         PlayRequested?.Invoke(item.CachedPath!, item.Title, true);
         StatusText = Loc.F("L_YtPreviewingFormat", item.Title);
     }

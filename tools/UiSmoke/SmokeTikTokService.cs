@@ -21,13 +21,29 @@ internal sealed class SmokeTikTokService(string fixturePath) : ITikTokAudioServi
 
     public static int Calls { get; private set; }
 
-    public static void Reset() => Calls = 0;
+    /// <summary>
+    /// Refuses the next call with this kind and then behaves, so one view model can be shown both a
+    /// provider refusal and the successful retry that clears the plate it raised.
+    /// </summary>
+    public static TikTokFailure? RefuseNext { get; set; }
+
+    public static void Reset()
+    {
+        Calls = 0;
+        RefuseNext = null;
+    }
 
     public async Task<TikTokAudioResult> DownloadAsync(
         string? mediaId, string originalUrl, TikTokAudioOptions options,
         IProgress<double>? progress, CancellationToken cancellationToken)
     {
         Calls++;
+        if (RefuseNext is { } refusal)
+        {
+            RefuseNext = null;
+            throw new TikTokException(refusal, "The smoke refuses on purpose.");
+        }
+
         if (Delay > TimeSpan.Zero) { await Task.Delay(Delay, cancellationToken).ConfigureAwait(false); }
         var id = mediaId ?? "7234567890123456789";
         Directory.CreateDirectory(options.MusicDirectory);
@@ -38,11 +54,14 @@ internal sealed class SmokeTikTokService(string fixturePath) : ITikTokAudioServi
     }
 }
 
-/// <summary>A TikTok service that always refuses, so the localized failure text can be checked.</summary>
-internal sealed class FailingTikTokService : ITikTokAudioService
+/// <summary>
+/// A TikTok service that always refuses, so the localized failure text can be checked. The kind is
+/// a parameter because one of them, a provider refusal, has to raise a plate in the interface.
+/// </summary>
+internal sealed class FailingTikTokService(TikTokFailure failure = TikTokFailure.Restricted) : ITikTokAudioService
 {
     public Task<TikTokAudioResult> DownloadAsync(
         string? mediaId, string originalUrl, TikTokAudioOptions options,
         IProgress<double>? progress, CancellationToken cancellationToken) =>
-        throw new TikTokException(TikTokFailure.Restricted, "The smoke pretends TikTok said no.");
+        throw new TikTokException(failure, "The smoke pretends TikTok said no.");
 }

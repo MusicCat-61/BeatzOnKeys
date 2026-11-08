@@ -1613,7 +1613,30 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             await SettleAsync();
             Check("tiktok.failureIsHuman", refusing.TikTok.StatusText == Loc.T("L_TikTokFailureRestricted"),
                 $"Status='{refusing.TikTok.StatusText}'.");
-            MainViewModel.TikTokServiceFactory = () => new SmokeTikTokService(_fixtures[0]);
+            // The plate is a diagnosis, not a standing advert: it stays hidden until the network
+            // really refuses, and the retry that works puts it away again. It is checked on the main
+            // view model, because that is the one the window is actually bound to.
+            Check("tiktok.networkHintHiddenByDefault", !tabs.TikTok.ShowNetworkHint,
+                $"ShowNetworkHint={tabs.TikTok.ShowNetworkHint}.");
+            SmokeTikTokService.Reset();
+            SmokeTikTokService.RefuseNext = TikTokFailure.NetworkBlocked;
+            tabs.TikTok.InputUrl = "https://www.tiktok.com/@someone/video/7234567890123456799";
+            tabs.TikTok.AddLinkCommand.Execute(null);
+            await SettleAsync();
+            Check("tiktok.providerRefusalRaisesThePlate", tabs.TikTok.ShowNetworkHint &&
+                tabs.TikTok.NetworkHintVisible == Visibility.Visible &&
+                tabs.TikTok.StatusText == Loc.T("L_TikTokFailureNetwork"),
+                $"ShowNetworkHint={tabs.TikTok.ShowNetworkHint}, status='{tabs.TikTok.StatusText}'.");
+            SaveScreenshot(_window!, $"tiktok-provider-{Loc.CurrentCode}.png");
+
+            // The same field, one press later, with the network behaving: the row arrives and the
+            // plate goes away.
+            tabs.TikTok.InputUrl = "https://www.tiktok.com/@someone/video/7234567890123456799";
+            tabs.TikTok.AddLinkCommand.Execute(null);
+            await UntilAsync(() => tabs.TikTok.Tracks.Count == 1, 8000, "tiktok retry");
+            Check("tiktok.successClearsThePlate", !tabs.TikTok.ShowNetworkHint &&
+                tabs.TikTok.NetworkHintVisible != Visibility.Visible,
+                $"ShowNetworkHint={tabs.TikTok.ShowNetworkHint}.");
             tabs.ShowPlaylistCommand.Execute(null);
         }
 

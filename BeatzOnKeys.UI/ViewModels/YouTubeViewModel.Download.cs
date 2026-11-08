@@ -133,7 +133,7 @@ public sealed partial class YouTubeViewModel
         catch (OperationCanceledException) { StatusText = string.Empty; }
         catch (YouTubeException exception)
         {
-            StatusText = Loc.T(FailureKey(exception.Failure));
+            StatusText = FailureText(exception.Failure);
             AppLogger.Error("youtube", "The search failed.", exception);
         }
         catch (Exception exception)
@@ -244,8 +244,8 @@ public sealed partial class YouTubeViewModel
         }
         catch (YouTubeException exception)
         {
-            row.MarkFailed(Loc.T(FailureKey(exception.Failure)));
-            StatusText = Loc.T(FailureKey(exception.Failure));
+            row.MarkFailed(FailureText(exception.Failure));
+            StatusText = FailureText(exception.Failure);
             NotifyCountChanged();
             AppLogger.Warning("youtube", $"The download of {videoId} failed: {exception.Message}");
         }
@@ -462,6 +462,15 @@ public sealed partial class YouTubeViewModel
     }
 
     /// <summary>Maps a classified failure to its translation key; the wording lives in the dictionary.</summary>
+    /// <summary>
+    /// The sentence for a failure. One case names a folder, so it is formatted with the live path
+    /// instead of a hardcoded %LOCALAPPDATA% that portable installs never use.
+    /// </summary>
+    internal static string FailureText(YouTubeFailure failure) =>
+        failure == YouTubeFailure.FfmpegMissing
+            ? Loc.F("L_YtFailureNeedsFfmpeg", AppPaths.BinDirectory)
+            : Loc.T(FailureKey(failure));
+
     internal static string FailureKey(YouTubeFailure failure) => failure switch
     {
         YouTubeFailure.YtDlpMissing => "L_YtFailureYtDlpMissing",

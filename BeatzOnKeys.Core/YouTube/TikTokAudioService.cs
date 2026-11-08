@@ -18,7 +18,16 @@ public enum TikTokFailure
     DownloadFailed = 5,
     Timeout = 6,
     Cancelled = 7,
-    TooLarge = 8
+    TooLarge = 8,
+
+    /// <summary>
+    /// The network itself refused the request: a reset in the middle, or TikTok refusing this
+    /// address outright. Nothing the program does on its own fixes that, so it is its own kind.
+    /// </summary>
+    NetworkBlocked = 9,
+
+    /// <summary>The interception page appeared and its puzzle could not be solved in the budget.</summary>
+    ChallengeFailed = 10
 }
 
 /// <summary>Carries the reason so the view model can translate it instead of guessing from text.</summary>
@@ -66,6 +75,15 @@ public sealed class TikTokAudioService : ITikTokAudioService
     private readonly HttpClient _http;
     private readonly IYtDlpBinaryProvider _binaries;
     private readonly IYouTubeProcessRunner _runner;
+
+    /// <summary>
+    /// The solved interception puzzle, kept for the whole download: TikTok honours it for a couple
+    /// of minutes, which covers the page, the media request and a retry or two.
+    /// </summary>
+    private string? _unlockedCookie;
+
+    /// <summary>How many times a reset connection is retried before the user is told.</summary>
+    private const int TransferAttempts = 3;
 
     public TikTokAudioService(
         IYtDlpBinaryProvider binaries,
@@ -120,24 +138,41 @@ public sealed class TikTokAudioService : ITikTokAudioService
         progress?.Report(0.05);
 
         var media = await ReadMediaAsync(id, originalUrl, cancellationToken).ConfigureAwait(false);
-        if (media is null)
+        progress?.Report(0.15);
+        var title = Trim(media?.Title, 100) ?? id;
+
+        // A direct address is the fastest way and needs no external tool. It is only a fast path,
+        // though: whenever it does not end in a playable file, yt-dlp is asked instead of the user
+        // being told the video is gone.
+        string? cached = null;
+        TikTokException? directFailure = null;
+        if (media?.AudioUrl is { } audioUrl)
         {
-            // Every HTTP path came back empty: the signed API and the public page both refused.
-            return await DownloadWithYtDlpAsync(id, originalUrl, options, progress, cancellationToken).ConfigureAwait(false);
+            try { cached = await SaveAudioAsync(id, audioUrl, options, progress, cancellationToken).ConfigureAwait(false); }
+            catch (TikTokException exception) when (IsWorthRetryingAnotherWay(exception)) { directFailure = exception; }
         }
 
-        progress?.Report(0.15);
-        var title = Trim(media.Title, 100) ?? id;
-        var cached = media.AudioUrl is not null
-            ? await SaveAudioAsync(id, media.AudioUrl, options, progress, cancellationToken).ConfigureAwait(false)
-            : await SaveVideoAsWavAsync(id, media.VideoUrl!, options, progress, cancellationToken).ConfigureAwait(false);
+        if (cached is null && media?.VideoUrl is { } videoUrl)
+        {
+            try { cached = await SaveVideoAsWavAsync(id, videoUrl, options, progress, cancellationToken).ConfigureAwait(false); }
+            catch (TikTokException exception) when (IsWorthRetryingAnotherWay(exception)) { directFailure = exception; }
+        }
+
+        if (cached is null || !AudioTrackLoader.TryLoad(cached, out _, out _))
+        {
+            var fallback = await DownloadWithYtDlpAsync(
+                id, title, originalUrl, options, progress, cancellationToken, directFailure).ConfigureAwait(false);
+            cached = fallback.CachedPath;
+            // yt-dlp often knows the real title even when the page refused to tell us.
+            if (string.Equals(title, id, StringComparison.Ordinal)) { title = fallback.Title; }
+        }
 
         if (!AudioTrackLoader.TryLoad(cached, out _, out _))
         {
-            // A container we cannot decode is not worth keeping on disk.
-            TryDelete(cached);
+            // The file stays on disk on purpose. Deleting it threw away the only evidence of what
+            // TikTok actually served, and a retry can make use of it.
             throw new TikTokException(TikTokFailure.UnsupportedAudio,
-                "TikTok returned a format this machine cannot decode.");
+                $"The file TikTok served is not audio this machine can play: {cached}");
         }
 
         progress?.Report(1d);
@@ -146,49 +181,88 @@ public sealed class TikTokAudioService : ITikTokAudioService
 
     /// <summary>
     /// Turns vm./vt. short links into an id. HEAD is tried first because it costs one packet; some
-    /// TikTok edges refuse it, so a GET with headers-only reading is the fallback.
+    /// TikTok edges answer a short link with the interception page instead of a redirect, so the
+    /// body is read through the unlocking path and the redirect is followed once more after that.
     /// </summary>
-    private async Task<string> ResolveIdAsync(string originalUrl, CancellationToken cancellationToken)
+    internal async Task<string> ResolveIdAsync(string originalUrl, CancellationToken cancellationToken)
     {
         var url = originalUrl.Trim();
         if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) { url = "https://" + url; }
+
+        if (await TryFollowAsync(url, HttpMethod.Head, cancellationToken).ConfigureAwait(false) is { } fromHead)
+        {
+            return fromHead;
+        }
+
+        // A challenge here is a real possibility: TikTok sometimes guards the short-link host too.
+        // ReadPageAsync unlocks it, and the second HEAD then gets the redirect it was denied.
+        var body = await ReadPageAsync(url, cancellationToken).ConfigureAwait(false);
+        if (await TryFollowAsync(url, HttpMethod.Head, cancellationToken).ConfigureAwait(false) is { } afterUnlock)
+        {
+            return afterUnlock;
+        }
+
+        // Some edges answer the follow-up with the destination inside the body instead of a redirect.
+        if (body is not null && TryReadIdFromText(body, out var embedded)) { return embedded; }
+
+        throw new TikTokException(TikTokFailure.VideoNotFound, "The TikTok link did not lead to a video.");
+    }
+
+    /// <summary>
+    /// Sends one redirect-following request and reports the id in wherever it ended up. The unlocked
+    /// key travels with it, or the follow-up would be challenged exactly like the first attempt.
+    /// </summary>
+    private async Task<string?> TryFollowAsync(string url, HttpMethod method, CancellationToken cancellationToken)
+    {
         try
         {
-            using var head = new HttpRequestMessage(HttpMethod.Head, url);
-            using var response = await _http.SendAsync(head, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                .ConfigureAwait(false);
-            if (TryReadId(response.RequestMessage?.RequestUri, out var id)) { return id; }
-        }
-        catch (HttpRequestException) { /* HEAD refused; the GET below is the real attempt. */ }
+            using var request = new HttpRequestMessage(method, url);
+            if (_unlockedCookie is not null)
+            {
+                request.Headers.TryAddWithoutValidation("Cookie", $"{TikTokWaf.CookieName}={_unlockedCookie}");
+            }
 
-        using var get = new HttpRequestMessage(HttpMethod.Get, url);
-        using var full = await _http.SendAsync(get, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-            .ConfigureAwait(false);
-        if (TryReadId(full.RequestMessage?.RequestUri, out var resolved)) { return resolved; }
-        throw new TikTokException(TikTokFailure.VideoNotFound, "The TikTok link did not lead to a video.");
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false);
+            return TryReadId(response.RequestMessage?.RequestUri, out var id) ? id : null;
+        }
+        catch (HttpRequestException) { return null; }
     }
 
     private static bool TryReadId(Uri? uri, out string id)
     {
         id = string.Empty;
-        if (uri is null) { return false; }
-        var match = System.Text.RegularExpressions.Regex.Match(uri.AbsoluteUri, @"(?:video|v|embed(?:/v2)?)/(?<id>\d{15,25})");
-        if (!match.Success) { return false; }
-        id = match.Groups["id"].Value;
-        return true;
+        return uri is not null && TryReadIdFromText(uri.AbsoluteUri, out id);
     }
+
+    private static bool TryReadIdFromText(string text, out string id)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            text, @"(?:video|v|embed(?:/v2)?)/(?<id>\d{15,25})");
+        id = match.Success ? match.Groups["id"].Value : string.Empty;
+        return match.Success;
+    }
+
+    /// <summary>
+    /// A direct download that failed in a way another route might survive. Cancelling and a file
+    /// that is simply too large are decisions, not accidents, so they stop here.
+    /// </summary>
+    private static bool IsWorthRetryingAnotherWay(TikTokException exception) =>
+        exception.Failure is not (TikTokFailure.Cancelled or TikTokFailure.TooLarge);
 
     internal sealed record TikTokMedia(string? AudioUrl, string? VideoUrl, string? Title);
 
-    /// <summary>The three HTTP paths in order of reliability, each returning the same shape.</summary>
+    /// <summary>
+    /// The three HTTP paths in order of reliability, each returning the same shape. A page that
+    /// answers with the interception puzzle is unlocked and read again rather than written off.
+    /// </summary>
     private async Task<TikTokMedia?> ReadMediaAsync(string id, string originalUrl, CancellationToken cancellationToken)
     {
         var api = await TryReadJsonAsync(
             $"https://www.tiktok.com/api/item/detail/?aid=1988&itemId={id}", cancellationToken).ConfigureAwait(false);
         if (ParseMedia(api) is { } fromApi) { return fromApi; }
 
-        var page = await TryReadTextAsync(
-            $"https://www.tiktok.com/@i/video/{id}", cancellationToken).ConfigureAwait(false);
+        var page = await ReadPageAsync($"https://www.tiktok.com/@i/video/{id}", cancellationToken).ConfigureAwait(false);
         if (ParsePage(page) is { } fromPage) { return fromPage; }
 
         // Only the title is recoverable here, so the caller still gets a sensible row name when the
@@ -202,6 +276,47 @@ public sealed class TikTokAudioService : ITikTokAudioService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Fetches a page and, when TikTok answers with the "Please wait" puzzle instead, solves it and
+    /// asks again with the key. This is what turns a wall into content without any external tool.
+    /// </summary>
+    internal async Task<string?> ReadPageAsync(string url, CancellationToken cancellationToken)
+    {
+        // A key already in hand goes on the very first attempt: without it every page of the same
+        // download would be challenged once more, which is both slower and one more strike on the
+        // rate limiter.
+        var first = await TryReadTextAsync(url, cancellationToken, _unlockedCookie).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(first)) { return first; }
+        if (!TikTokWaf.LooksLikeChallenge(first)) { return first; }
+
+        // The same puzzle twice in a row is a refusal, not a prompt to grind again.
+        if (_unlockedCookie is null)
+        {
+            var payload = TikTokWaf.ReadPayload(first);
+            // The solve is pure CPU work with no await inside, so it goes to a worker: on a slow
+            // machine the hard case is around a second, and that must not freeze the window.
+            var unlocked = await Task.Run(() => TikTokWaf.Unlock(payload), cancellationToken)
+                .ConfigureAwait(false);
+            if (unlocked is null)
+            {
+                throw new TikTokException(TikTokFailure.ChallengeFailed,
+                    "TikTok asked for a proof this program could not produce.");
+            }
+
+            _unlockedCookie = unlocked;
+            AppLogger.Info("tiktok", "Solved the interception puzzle; asking again with the key.");
+        }
+
+        var second = await TryReadTextAsync(url, cancellationToken, _unlockedCookie).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(second) || TikTokWaf.LooksLikeChallenge(second))
+        {
+            throw new TikTokException(TikTokFailure.ChallengeFailed,
+                "TikTok kept asking for the proof even after it was solved.");
+        }
+
+        return second;
     }
 
     /// <summary>Reads the API shape: itemInfo.itemStruct at the root.</summary>
@@ -283,7 +398,10 @@ public sealed class TikTokAudioService : ITikTokAudioService
 
         if (item.TryGetProperty("video", out var videoNode) && videoNode.ValueKind == JsonValueKind.Object)
         {
-            foreach (var name in new[] { "playAddr", "downloadAddr", "playAddrH264" })
+            // H.264 first, on purpose. The plain playAddr is very often the bytevc1 (H.265) variant,
+            // which Windows only decodes with a separate HEVC package installed; asking for the AVC
+            // variant up front is what keeps ordinary machines able to play the result.
+            foreach (var name in new[] { "playAddrH264", "play_addr_h264", "downloadAddr", "playAddr" })
             {
                 if (videoNode.TryGetProperty(name, out var address) && ReadUrl(address) is { } candidate)
                 {
@@ -357,11 +475,18 @@ public sealed class TikTokAudioService : ITikTokAudioService
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested) { return null; }
     }
 
-    private async Task<string?> TryReadTextAsync(string url, CancellationToken cancellationToken)
+    private async Task<string?> TryReadTextAsync(
+        string url, CancellationToken cancellationToken, string? cookie = null)
     {
         try
         {
-            using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken)
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (cookie is not null)
+            {
+                request.Headers.TryAddWithoutValidation("Cookie", $"{TikTokWaf.CookieName}={cookie}");
+            }
+
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken)
                 .ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) { return null; }
             return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
@@ -393,11 +518,42 @@ public sealed class TikTokAudioService : ITikTokAudioService
     /// <summary>
     /// Downloads to a .part file so an interrupted transfer never looks like a finished track, and
     /// refuses to grow past the cap instead of discovering it after the disk is full.
+    ///
+    /// <para>
+    /// The finished file is renamed to its real extension before this returns. Leaving the ".part"
+    /// name in place was the reason good audio was thrown away: the player only accepts .mp3, .wav
+    /// and .m4a, so a perfectly decoded MP3 called "123.part" was deleted as unreadable.
+    /// </para>
     /// </summary>
     private async Task<(string Path, string? ContentType)> SaveStreamAsync(
         string url, string id, TikTokAudioOptions options, IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await TransferAsync(url, id, options, progress, cancellationToken).ConfigureAwait(false);
+            }
+            catch (HttpRequestException exception) when (attempt < TransferAttempts)
+            {
+                // A reset in the middle of a transfer is the network, not the video. Give it two
+                // more chances with a pause before telling the user anything.
+                AppLogger.Info("tiktok", $"Transfer attempt {attempt} failed ({exception.Message}); retrying.");
+                await Task.Delay(TimeSpan.FromMilliseconds(600 * attempt), cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private async Task<(string Path, string? ContentType)> TransferAsync(
+        string url, string id, TikTokAudioOptions options, IProgress<double>? progress, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        if (_unlockedCookie is not null)
+        {
+            request.Headers.TryAddWithoutValidation("Cookie", $"{TikTokWaf.CookieName}={_unlockedCookie}");
+        }
+
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
         {
@@ -425,6 +581,7 @@ public sealed class TikTokAudioService : ITikTokAudioService
         }
 
         var partial = Path.Combine(options.MusicDirectory, id + ".part");
+        var final = Path.Combine(options.MusicDirectory, id + ExtensionFor(contentType, url));
         await using (var file = File.Create(partial))
         {
             await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
@@ -436,6 +593,7 @@ public sealed class TikTokAudioService : ITikTokAudioService
                 written += read;
                 if (written > options.MaximumBytes)
                 {
+                    TryDelete(partial);
                     throw new TikTokException(TikTokFailure.TooLarge,
                         $"The file is larger than {options.MaximumBytes / (1024 * 1024)} MB.");
                 }
@@ -445,7 +603,9 @@ public sealed class TikTokAudioService : ITikTokAudioService
             }
         }
 
-        return (partial, contentType);
+        // The rename is the point: from here on the file has the name the player expects.
+        File.Move(partial, final, overwrite: true);
+        return (final, contentType);
     }
 
     private static string ExtensionFor(string? contentType, string url) => contentType?.ToLowerInvariant() switch
@@ -489,13 +649,28 @@ public sealed class TikTokAudioService : ITikTokAudioService
     /// page and API at once, which is a question of "when" rather than "if".
     /// </summary>
     private async Task<TikTokAudioResult> DownloadWithYtDlpAsync(
-        string id, string originalUrl, TikTokAudioOptions options,
-        IProgress<double>? progress, CancellationToken cancellationToken)
+        string id, string title, string originalUrl, TikTokAudioOptions options,
+        IProgress<double>? progress, CancellationToken cancellationToken, TikTokException? earlier = null)
     {
-        var executable = _binaries.FindYtDlp();
+        string? executable;
+        try
+        {
+            // Fetched on demand, exactly as the YouTube section does it: 22 MB arrive once, with a
+            // progress bar, and every later TikTok download has a working tool.
+            executable = _binaries.FindYtDlp() ??
+                await _binaries.EnsureYtDlpAsync(null, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            AppLogger.Error("tiktok", "yt-dlp is not available for TikTok.", exception);
+            executable = null;
+        }
+
         if (executable is null)
         {
-            throw new TikTokException(TikTokFailure.Restricted,
+            // Nothing else can read the media, so the earlier, more specific reason is the honest
+            // thing to report rather than "yt-dlp is missing".
+            throw earlier ?? new TikTokException(TikTokFailure.Restricted,
                 "TikTok did not expose this video, and yt-dlp is not installed to try another way.");
         }
 
@@ -506,7 +681,9 @@ public sealed class TikTokAudioService : ITikTokAudioService
             Arguments =
             [
                 "--no-playlist", "--no-progress", "--no-warnings",
-                "-f", "bestaudio/best",
+                // "audio" is the mp3 track TikTok serves separately; bestaudio picks it first when
+                // the extractor offers it, and the plain best is the fallback when it does not.
+                "-f", "audio/bestaudio/best",
                 "-o", template,
                 "--print", "after_move:filepath",
                 originalUrl.Trim()
@@ -516,7 +693,8 @@ public sealed class TikTokAudioService : ITikTokAudioService
 
         if (result.ExitCode != 0)
         {
-            throw new TikTokException(TikTokFailure.VideoNotFound, "yt-dlp could not fetch this TikTok either.");
+            throw Classify(result.StandardError) ?? earlier ?? new TikTokException(
+                TikTokFailure.VideoNotFound, "yt-dlp could not fetch this TikTok either.");
         }
 
         var path = result.StandardOutput
@@ -525,7 +703,7 @@ public sealed class TikTokAudioService : ITikTokAudioService
 
         if (path is null || !File.Exists(path))
         {
-            throw new TikTokException(TikTokFailure.VideoNotFound, "yt-dlp reported success but left no file.");
+            throw earlier ?? new TikTokException(TikTokFailure.VideoNotFound, "yt-dlp reported success but left no file.");
         }
 
         if (!AudioTrackLoader.TryLoad(path, out _, out _))
@@ -534,15 +712,51 @@ public sealed class TikTokAudioService : ITikTokAudioService
             if (converted is null)
             {
                 throw new TikTokException(TikTokFailure.UnsupportedAudio,
-                    "TikTok returned a format this machine cannot decode.");
+                    $"yt-dlp saved a container this machine cannot play: {path}");
             }
 
             path = converted;
         }
 
         progress?.Report(1d);
-        return new TikTokAudioResult(id, id, path);
+        return new TikTokAudioResult(id, string.IsNullOrWhiteSpace(title) ? id : title, path);
     }
+
+    /// <summary>
+    /// Reads yt-dlp's own words. It knows the difference between a video that is gone, one that
+    /// needs an account, and a network that refuses this address, and the user deserves that
+    /// difference instead of one catch-all sentence.
+    /// </summary>
+    internal static TikTokException? Classify(string? standardError)
+    {
+        if (string.IsNullOrWhiteSpace(standardError)) { return null; }
+        var text = standardError.ToLowerInvariant();
+        if (text.Contains("ip address is blocked") || text.Contains("not available in your region") ||
+            text.Contains("connection was reset") || text.Contains("recv failure") ||
+            text.Contains("failed to perform") || text.Contains("timed out"))
+        {
+            return new TikTokException(TikTokFailure.NetworkBlocked,
+                "The network refuses access to this TikTok: " + FirstLine(standardError));
+        }
+
+        if (text.Contains("login") || text.Contains("private") || text.Contains("requires authentication"))
+        {
+            return new TikTokException(TikTokFailure.Restricted,
+                "TikTok wants an account for this video: " + FirstLine(standardError));
+        }
+
+        if (text.Contains("unsupported url") || text.Contains("no video formats"))
+        {
+            return new TikTokException(TikTokFailure.VideoNotFound,
+                "TikTok did not serve a playable video: " + FirstLine(standardError));
+        }
+
+        return null;
+    }
+
+    private static string FirstLine(string text) =>
+        text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault() ?? text;
 
     private static string? Trim(string? text, int maximum)
     {

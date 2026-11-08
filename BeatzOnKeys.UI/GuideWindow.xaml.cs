@@ -7,6 +7,7 @@ using Brush = System.Windows.Media.Brush;
 using Button = System.Windows.Controls.Button;
 using Orientation = System.Windows.Controls.Orientation;
 using System.Windows.Input;
+using BeatzOnKeys.Core.Services;
 using BeatzOnKeys.UI.Localization;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
@@ -204,8 +205,11 @@ public partial class GuideWindow : Window
             ("Guide_UpdStorageT", "Guide_UpdStorageX"),
             ("Guide_NotSavedT", "Guide_NotSavedX")),
 
-        Section("Guide_SecFiles",
-            ("Guide_FilesT", "Guide_FilesX"))
+        // The paths are filled in from the live root rather than written into the text: the
+        // root depends on where the program runs from, and a hardcoded %LOCALAPPDATA% was a lie
+        // in portable mode.
+        new GuideSection(Loc.T("Guide_SecFiles"),
+            [new GuideItem(Loc.T("Guide_FilesT"), Loc.F("Guide_FilesX", AppPaths.RootDirectory))])
     ];
 
     private static GuideSection Section(string titleKey, params (string TitleKey, string TextKey)[] items) =>

@@ -50,6 +50,8 @@ public sealed class TikTokViewModel : ObservableObject
         MoveTrackDownCommand = new RelayCommand<YouTubeTrackViewModel>(
             track => MoveTrack(track, 1), track => CanMove(track, 1));
         OpenMusicFolderCommand = new RelayCommand(() => OpenMusicFolderRequested?.Invoke());
+        // The plate is advice, not a modal: it can be put away without acting on it.
+        DismissNetworkHintCommand = new RelayCommand(() => ShowNetworkHint = false);
         Tracks.CollectionChanged += (_, _) => NotifyCountChanged();
         RefreshPositions();
     }
@@ -72,6 +74,7 @@ public sealed class TikTokViewModel : ObservableObject
     public RelayCommand<YouTubeTrackViewModel> MoveTrackUpCommand { get; }
     public RelayCommand<YouTubeTrackViewModel> MoveTrackDownCommand { get; }
     public RelayCommand OpenMusicFolderCommand { get; }
+    public RelayCommand DismissNetworkHintCommand { get; }
 
     public string InputUrl
     {
@@ -132,6 +135,26 @@ public sealed class TikTokViewModel : ObservableObject
 
     /// <summary>The cancel button sits beside the field and only exists while something runs.</summary>
     public Visibility CancelVisible => _isBusy ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// Shown only when the network itself refused the request. It is not advice shown to everybody:
+    /// it appears after a real failure, because telling people to look at their connection while
+    /// everything works is noise.
+    /// </summary>
+    public Visibility NetworkHintVisible =>
+        _showNetworkHint ? Visibility.Visible : Visibility.Collapsed;
+
+    private bool _showNetworkHint;
+
+    public bool ShowNetworkHint
+    {
+        get => _showNetworkHint;
+        private set
+        {
+            if (!SetProperty(ref _showNetworkHint, value)) { return; }
+            OnPropertyChanged(nameof(NetworkHintVisible));
+        }
+    }
 
     public bool HasTracks => Tracks.Count > 0;
 
@@ -200,6 +223,8 @@ public sealed class TikTokViewModel : ObservableObject
         _downloadCancellation = cancellation;
         IsBusy = true;
         Progress = 0;
+        // A fresh attempt clears the previous verdict; it comes back only if the network refuses again.
+        ShowNetworkHint = false;
         StatusText = Loc.T("L_TikTokDownloading");
         YouTubeTrackViewModel? row = null;
         try
@@ -237,6 +262,9 @@ public sealed class TikTokViewModel : ObservableObject
         catch (TikTokException exception)
         {
             StatusText = Loc.T(FailureKey(exception.Failure));
+            // The plate is an offer, not a diagnosis shouted at everyone: it only appears when the
+            // network really did refuse, which the service reports as its own kind.
+            ShowNetworkHint = exception.Failure == TikTokFailure.NetworkBlocked;
             if (exception.Failure != TikTokFailure.Cancelled)
             {
                 AppLogger.Warning("tiktok", $"The TikTok download failed: {exception.Message}");
@@ -268,6 +296,8 @@ public sealed class TikTokViewModel : ObservableObject
         TikTokFailure.TooLarge => "L_TikTokFailureTooLarge",
         TikTokFailure.Timeout => "L_TikTokFailureTimeout",
         TikTokFailure.Cancelled => "L_TikTokCancelled",
+        TikTokFailure.NetworkBlocked => "L_TikTokFailureNetwork",
+        TikTokFailure.ChallengeFailed => "L_TikTokFailureChallenge",
         _ => "L_TikTokFailureDownload"
     };
 

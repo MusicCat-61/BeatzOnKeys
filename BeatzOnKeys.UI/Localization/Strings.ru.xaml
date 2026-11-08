@@ -199,6 +199,10 @@
     <sys:String x:Key="L_TikTokFailureTooLarge">Файл больше 50 МБ — такие ролики не скачиваем.</sys:String>
     <sys:String x:Key="L_TikTokFailureTimeout">TikTok не ответил за две минуты. Попробуйте ещё раз.</sys:String>
     <sys:String x:Key="L_TikTokFailureDownload">Не удалось скачать. Проверьте ссылку и попробуйте снова.</sys:String>
+    <sys:String x:Key="L_TikTokFailureNetwork">Сеть не пускает к TikTok: соединение обрывается.</sys:String>
+    <sys:String x:Key="L_TikTokFailureChallenge">TikTok запросил проверку, которую не удалось пройти. Попробуйте ещё раз через минуту.</sys:String>
+    <sys:String x:Key="L_TikTokNetworkTitle">Провайдер не пускает к TikTok</sys:String>
+    <sys:String x:Key="L_TikTokNetworkBody">Соединение с TikTok обрывается — обычно так провайдер ограничивает доступ. BeatzOnKeys не вшивает обход блокировок: это требует прав администратора. Рекомендуем Zapret2UI. ⚠️ Инструменты обхода блокировок предназначены для исследовательских и образовательных задач. Используйте их в соответствии с законодательством вашей страны.</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Название трека или ссылка YouTube</sys:String>
     <sys:String x:Key="L_YtSearch">Найти</sys:String>
     <sys:String x:Key="L_YtDownloadLink">Добавить</sys:String>
@@ -280,7 +284,7 @@
     <sys:String x:Key="L_YtFailureUnsupported">Скачанный звук не удалось ни открыть, ни конвертировать</sys:String>
     <sys:String x:Key="L_YtFailureDownload">Не удалось скачать трек</sys:String>
     <sys:String x:Key="L_YtFailureNoResult">Видео недоступно</sys:String>
-    <sys:String x:Key="L_YtFailureNeedsFfmpeg">Windows не может открыть M4A, а ffmpeg.exe для конвертации не найден. Положите ffmpeg.exe рядом с yt-dlp.exe в %LOCALAPPDATA%\BeatzOnKeys\bin</sys:String>
+    <sys:String x:Key="L_YtFailureNeedsFfmpeg">Windows не может открыть M4A, а ffmpeg.exe для конвертации не найден. Положите ffmpeg.exe рядом с yt-dlp.exe в {0}</sys:String>
     <sys:String x:Key="L_YtFailureUnknown">Неизвестная ошибка</sys:String>
     <sys:String x:Key="L_YtErrorDetailsFormat">Ошибка: {0}</sys:String>
     <sys:String x:Key="L_YtSearchFailed">Поиск не удался. Проверьте подключение к сети.</sys:String>
@@ -434,5 +438,5 @@
 
     <sys:String x:Key="Guide_SecFiles">Где лежат данные</sys:String>
     <sys:String x:Key="Guide_FilesT">Пути</sys:String>
-    <sys:String x:Key="Guide_FilesX">%LOCALAPPDATA%\BeatzOnKeys\settings.json — настройки и плейлист; logs\ — ежедневные журналы; updates\ — подготовленные обновления. В папке программы достаточно одного BeatzOnKeys.exe.</sys:String>
+    <sys:String x:Key="Guide_FilesX">Всё лежит в одном корне {0}: settings.json — настройки, library.json — коллекция треков, Logs\ — ежедневные журналы, Music\ — кеш YouTube, Music\TikTok\ — скачанное из TikTok, updates\ — подготовленные обновления. В папке программы достаточно одного BeatzOnKeys.exe.</sys:String>
 </ResourceDictionary>

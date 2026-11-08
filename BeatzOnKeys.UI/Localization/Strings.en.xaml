@@ -199,6 +199,10 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_TikTokFailureTooLarge">The file is over 50 MB, which is more than we download.</sys:String>
     <sys:String x:Key="L_TikTokFailureTimeout">TikTok did not answer within two minutes. Try again.</sys:String>
     <sys:String x:Key="L_TikTokFailureDownload">Could not download. Check the link and try again.</sys:String>
+    <sys:String x:Key="L_TikTokFailureNetwork">The network will not reach TikTok: the connection keeps dropping.</sys:String>
+    <sys:String x:Key="L_TikTokFailureChallenge">TikTok asked for a check this program could not pass. Try again in a minute.</sys:String>
+    <sys:String x:Key="L_TikTokNetworkTitle">Your provider is blocking TikTok</sys:String>
+    <sys:String x:Key="L_TikTokNetworkBody">The connection to TikTok keeps dropping, which is how providers usually restrict access. BeatzOnKeys does not bundle a workaround: that needs administrator rights. We recommend Zapret2UI. ⚠️ Circumvention tools are meant for research and education. Use them in line with the law where you live.</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Track name or a YouTube link</sys:String>
     <sys:String x:Key="L_YtSearch">Search</sys:String>
     <sys:String x:Key="L_YtDownloadLink">Add</sys:String>
@@ -280,7 +284,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtFailureUnsupported">The downloaded audio could neither be opened nor converted</sys:String>
     <sys:String x:Key="L_YtFailureDownload">Could not download the track</sys:String>
     <sys:String x:Key="L_YtFailureNoResult">The video is unavailable</sys:String>
-    <sys:String x:Key="L_YtFailureNeedsFfmpeg">Windows cannot open M4A and no ffmpeg.exe is available for conversion. Put ffmpeg.exe next to yt-dlp.exe in %LOCALAPPDATA%\BeatzOnKeys\bin</sys:String>
+    <sys:String x:Key="L_YtFailureNeedsFfmpeg">Windows cannot open M4A and no ffmpeg.exe is available for conversion. Put ffmpeg.exe next to yt-dlp.exe in {0}</sys:String>
     <sys:String x:Key="L_YtFailureUnknown">Unknown error</sys:String>
     <sys:String x:Key="L_YtErrorDetailsFormat">Error: {0}</sys:String>
     <sys:String x:Key="L_YtSearchFailed">The search failed. Check the network connection.</sys:String>
@@ -434,5 +438,5 @@ Details: {1}</sys:String>
 
     <sys:String x:Key="Guide_SecFiles">Where the data lives</sys:String>
     <sys:String x:Key="Guide_FilesT">Paths</sys:String>
-    <sys:String x:Key="Guide_FilesX">%LOCALAPPDATA%\BeatzOnKeys\settings.json holds the settings and playlist; logs\ keeps daily journals; updates\ stages verified updates. The program folder only needs BeatzOnKeys.exe.</sys:String>
+    <sys:String x:Key="Guide_FilesX">Everything lives under one root, {0}: settings.json holds the preferences, library.json the track collection, Logs\ the daily journals, Music\ the YouTube cache, Music\TikTok\ what came from TikTok, and updates\ the staged updates. The program folder only needs BeatzOnKeys.exe.</sys:String>
 </ResourceDictionary>

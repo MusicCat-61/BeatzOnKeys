@@ -131,6 +131,16 @@ internal static class Program
         ,("Media.LibraryRoundTripsAndSurvivesCorruption", MediaTests.LibraryRoundTripsAndSurvivesCorruption)
         ,("Media.LibraryMigratesTracksOutOfSettings", MediaTests.LibraryMigratesTracksOutOfSettings)
         ,("Media.LibraryRelocatesCachedPathsOnce", MediaTests.LibraryRelocatesCachedPathsOnce)
+        ,("TikTok.ThePuzzleIsSolved", TikTokWafTests.ThePuzzleIsSolved)
+        ,("TikTok.TheCookieCarriesTheAnswer", TikTokWafTests.TheCookieCarriesTheAnswer)
+        ,("TikTok.MalformedPayloadsAreRefused", TikTokWafTests.MalformedPayloadsAreRefused)
+        ,("TikTok.TheChallengePageIsRecognised", TikTokWafTests.TheChallengePageIsRecognised)
+        ,("TikTok.TheProviderRefusalIsReadFromYtDlp", TikTokWafTests.TheProviderRefusalIsReadFromYtDlp)
+        ,("TikTok.TheKeyTravelsOnTheSecondRequest", TikTokPageTests.TheKeyTravelsOnTheSecondRequest)
+        ,("TikTok.ASolvedPuzzleIsReused", TikTokPageTests.ASolvedPuzzleIsReused)
+        ,("TikTok.APuzzleThatKeepsComingBackIsReported", TikTokPageTests.APuzzleThatKeepsComingBackIsReported)
+        ,("TikTok.AShortLinkAnsweredWithThePuzzleStillResolves", TikTokPageTests.AShortLinkAnsweredWithThePuzzleStillResolves)
+        ,("TikTok.TheHardCaseFitsInTheBudget", TikTokPageTests.TheHardCaseFitsInTheBudget)
     ];
 
     private static async Task<int> Main()

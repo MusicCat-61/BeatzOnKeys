@@ -103,10 +103,10 @@ public static class UpdateService
     public static string StagedFilePath => Path.Combine(ExecutableDirectory, StagedFileName);
 
     /// <summary>Where the apply script records what it did; read on the next start.</summary>
-    public static string ApplyLogPath => Path.Combine(AppPaths.LogDirectory, "update-apply.log");
+    public static string ApplyLogPath => AppPaths.ApplyLogPath;
 
     /// <summary>Script that performs the swap after this process is gone.</summary>
-    private static string ApplyScriptPath => Path.Combine(AppPaths.RootDirectory, "apply-update.cmd");
+    private static string ApplyScriptPath => AppPaths.ApplyScriptPath;
 
     private static HttpClient ReleaseClient
     {

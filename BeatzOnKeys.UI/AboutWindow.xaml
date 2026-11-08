@@ -53,8 +53,22 @@
                             Click="ProjectLink_Click" Content="{DynamicResource About_ProjectLink}"/>
                     <Button Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,0,8,8"
                             Click="LicenseLink_Click" Content="{DynamicResource About_LicenseLink}"/>
+                    <!-- Two different Telegram places: the program channel and the author. The
+                         labels say which is which, because two bare links look interchangeable. -->
                     <Button Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,0,8,8"
-                            Click="TelegramLink_Click" Content="{DynamicResource About_Telegram}"/>
+                            Click="TelegramChannelLink_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{DynamicResource About_TelegramChannel}"/>
+                            <TextBlock Text=" · t.me/beatzonkeys" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,0,8,8"
+                            Click="TelegramLink_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{DynamicResource About_TelegramAuthor}"/>
+                            <TextBlock Text=" · @music_cat1" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        </StackPanel>
+                    </Button>
                     <Button Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,0,0,8"
                             Click="DonateLink_Click" Content="{DynamicResource About_Donate}"/>
                 </WrapPanel>

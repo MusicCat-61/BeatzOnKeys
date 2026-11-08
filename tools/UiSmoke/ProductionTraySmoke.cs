@@ -63,9 +63,12 @@ internal sealed class ProductionTraySmoke(string session)
 
     private void PrepareIsolatedData()
     {
+        // The production run takes the real App.OnStartup path, so it would look for a storage
+        // folder and could show a dialog. Pinning the mode keeps it headless and confined.
+        Environment.SetEnvironmentVariable(StorageResolver.ModeVariable, nameof(StorageMode.LocalAppData));
         SetProcessPath(nameof(AppPaths.RootDirectory), session);
         SetProcessPath(nameof(AppPaths.SettingsFile), Path.Combine(session, "settings.json"));
-        SetProcessPath(nameof(AppPaths.LogDirectory), Path.Combine(session, "logs"));
+        SetProcessPath(nameof(AppPaths.LogDirectory), Path.Combine(session, "Logs"));
         SetProcessPath(nameof(AppPaths.UpdateDirectory), Path.Combine(session, "updates"));
         var fixture = Path.Combine(session, "quiet-generated.wav");
         var format = new WaveFormat(44100, 16, 2);

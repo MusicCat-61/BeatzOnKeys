@@ -1318,14 +1318,6 @@
                                     Command="{Binding YouTube.OpenMusicFolderCommand}"
                                     Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,8,0,0"
                                     HorizontalAlignment="Left"/>
-                            <!-- Where the cache lives, and the one action that changes it. -->
-                            <TextBlock Text="{Binding YouTube.CachePathText}" FontSize="13" Margin="0,6,0,0"
-                                       TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"
-                                       ToolTip="{Binding YouTube.CachePath}"/>
-                            <Button Content="{DynamicResource L_YtChangeFolder}"
-                                    Command="{Binding YouTube.ChooseCacheFolderCommand}"
-                                    Style="{StaticResource SubtleButtonStyle}" Padding="8,4" Margin="0,6,0,0"
-                                    HorizontalAlignment="Left"/>
                         </StackPanel>
                     </Border>
 

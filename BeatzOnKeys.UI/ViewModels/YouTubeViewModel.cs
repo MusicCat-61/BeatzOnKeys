@@ -39,7 +39,6 @@ public sealed partial class YouTubeViewModel : ObservableObject
     private string _cookiesFolderPath = string.Empty;
     private double _installProgress;
     private bool _disposed;
-    private string _cachePath;
     private double _queryProgress;
     private bool _isQueryDownloading;
     private bool _isSearchTab = true;
@@ -50,7 +49,6 @@ public sealed partial class YouTubeViewModel : ObservableObject
         bool cacheEnabled,
         string cookiesFolderPath,
         string proxyUrl,
-        string cachePath,
         Action requestSave,
         Action<string> userMessage)
     {
@@ -60,10 +58,6 @@ public sealed partial class YouTubeViewModel : ObservableObject
         _cacheEnabled = cacheEnabled;
         _cookiesFolderPath = cookiesFolderPath ?? string.Empty;
         _proxyUrl = proxyUrl ?? string.Empty;
-        // An unset preference means "whatever the service is already using", not a hardcoded
-        // folder: otherwise the constructor would override a directory the caller just configured.
-        _cachePath = string.IsNullOrWhiteSpace(cachePath) ? _service.Options.MusicDirectory : cachePath;
-        ApplyCacheDirectory(_cachePath);
         // Empty means "nothing to report", so the line does not repeat the hint under the field.
         _statusText = string.Empty;
         Downloaded.CollectionChanged += OnDownloadedChanged;
@@ -80,7 +74,6 @@ public sealed partial class YouTubeViewModel : ObservableObject
             item => { if (item is not null) { _ = DownloadAsync(item.VideoId, item.Title); } },
             item => item is { CanDownload: true } && CanStartAnotherDownload);
         InstallYtDlpCommand = new AsyncRelayCommand(InstallYtDlpAsync, () => !IsInstalling);
-        ChooseCacheFolderCommand = new AsyncRelayCommand(ChooseCacheFolderAsync, () => !IsBusy);
         PlayCommand = new RelayCommand<YouTubeTrackViewModel>(
             track => { if (track is not null) { PlayRequested?.Invoke(track.CachedPath, track.Title); } },
             track => track is { CanPlay: true });
@@ -144,7 +137,6 @@ public sealed partial class YouTubeViewModel : ObservableObject
 
     public AsyncRelayCommand SearchCommand { get; }
     public RelayCommand<YouTubeSearchItemViewModel> DownloadCommand { get; }
-    public AsyncRelayCommand ChooseCacheFolderCommand { get; }
     public AsyncRelayCommand InstallYtDlpCommand { get; }
     public RelayCommand<YouTubeTrackViewModel> PlayCommand { get; }
     public RelayCommand<YouTubeTrackViewModel> RemoveCachedCommand { get; }
@@ -191,6 +183,9 @@ public sealed partial class YouTubeViewModel : ObservableObject
 
     public long CacheBytes => _cacheBytes;
 
+    /// <summary>Space the previews take; reported on its own line.</summary>
+    public long SearchCacheBytes => _searchCacheBytes;
+
     /// <summary>Space the kept tracks take; the previews are reported separately.</summary>
     public long KeptCacheBytes => Math.Max(0, _cacheBytes - _searchCacheBytes);
 
@@ -223,11 +218,6 @@ public sealed partial class YouTubeViewModel : ObservableObject
         get => _installProgress;
         private set => SetProperty(ref _installProgress, value);
     }
-
-    /// <summary>The folder the cache actually lives in; empty settings mean the default one.</summary>
-    public string CachePath => _cachePath;
-
-    public string CachePathText => Loc.F("L_YtCacheFolderFormat", _cachePath);
 
     /// <summary>Progress of a link that is being downloaded straight from the search field.</summary>
     public double QueryProgress
@@ -360,7 +350,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
         var current = _service.Options;
         _service.Options = new YouTubeOptions
         {
-            MusicDirectory = _cachePath,
+            MusicDirectory = AppPaths.MusicDirectory,
             DownloadDirectory = current.DownloadDirectory,
             CookiesFolder = string.IsNullOrWhiteSpace(CookiesFolderPath) ? null : CookiesFolderPath,
             ProxyUrl = string.IsNullOrWhiteSpace(ProxyUrl) ? null : ProxyUrl,

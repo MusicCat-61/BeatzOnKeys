@@ -132,7 +132,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         // The YouTube section keeps its own list; only the audio player is shared.
         _youTube = youTubeService ?? CreateDefaultYouTubeService();
         YouTube = new YouTubeViewModel(_youTube, settings.YouTubeTracks, settings.YouTubeCacheEnabled,
-            settings.CookiesFolderPath, settings.ProxyUrl, settings.YouTubeCachePath, QueueSave,
+            settings.CookiesFolderPath, settings.ProxyUrl, QueueSave,
             message => UserMessageRequested?.Invoke(message));
         YouTube.PlayRequested += OnYouTubePlayRequested;
         YouTube.PropertyChanged += OnYouTubePropertyChanged;
@@ -818,7 +818,6 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             Tracks = Tracks.Select(track => track.ToState()).ToList(),
             YouTubeTracks = YouTube.ToStates().ToList(),
             YouTubeCacheEnabled = YouTube.CacheEnabled,
-            YouTubeCachePath = YouTube.CachePath,
             CookiesFolderPath = YouTube.CookiesFolderPath,
             ProxyUrl = YouTube.ProxyUrl
         };

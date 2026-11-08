@@ -4,7 +4,7 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.3.1.4-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Version](https://img.shields.io/badge/version-1.3.1.5-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#requirements)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
@@ -58,19 +58,33 @@ BeatzOnKeys is written in C# with .NET 10 and WPF, with NAudio for decoding and 
 
 The effective quiet volume is `min(MinVolume, MaxVolume)`: it never exceeds the maximum volume, even when the maximum slider is set below the quiet-volume slider.
 
-Settings are stored in `%LOCALAPPDATA%\BeatzOnKeys\settings.json`. **Schema 3** contains `MinVolume`, `MaxVolume`, `IdleTimeout`, `PauseOnIdle`, `AutoAdvance`, `Loop`, `SelectedTrackId`, `Language`, `Theme`, and `Tracks`. In JSON, volumes are fractions in `0..1` (`0.2` means 20%; `MinVolume` is limited to `0.5`), and `IdleTimeout` is in seconds.
+Settings are stored in `<Root>\settings.json`. **Schema 3** contains `MinVolume`, `MaxVolume`, `IdleTimeout`, `PauseOnIdle`, `AutoAdvance`, `Loop`, `SelectedTrackId`, `Language`, `Theme`, and `Tracks`. In JSON, volumes are fractions in `0..1` (`0.2` means 20%; `MinVolume` is limited to `0.5`), and `IdleTimeout` is in seconds.
 
 The old `Volume` value automatically migrates to `MaxVolume`. Other new values use their defaults: `MinVolume = 0.2`, `IdleTimeout = 3`, `PauseOnIdle = true`. Your existing playlist and other saved preferences are retained.
 
-Per-user data lives outside the portable application folder:
+### Where the data lives
+
+Everything lives under one root, `<Root>`, and the root depends on where the program was started:
+
+| Mode | When | `<Root>` |
+|---|---|---|
+| **Portable** | the exe sits in an ordinary writable folder | the folder beside the exe |
+| **ChosenDirectory** | the exe sits on the desktop, in the profile, `C:\`, `C:\Windows`, Program Files or `%TEMP%` | the picked folder plus `\BeatzOnKeys\` |
+| **LocalAppData** | fallback when no folder was picked | `%LOCALAPPDATA%\BeatzOnKeys\` |
 
 ```text
-%LOCALAPPDATA%\BeatzOnKeys\
-├─ settings.json    # schema 3 preferences and playlist
-├─ logs/            # daily UTF-8 diagnostics
-└─ updates/         # verified update staging data
+<Root>\
+├─ settings.json          # preferences and playlist
+├─ Logs\                  # daily UTF-8 diagnostics
+├─ updates\               # verified update staging data
+├─ Music\                 # the YouTube cache
+├─ bin\                   # yt-dlp and ffmpeg
+└─ downloads\             # download scratch space
 ```
 
+On the first start from the desktop the program asks for a data folder and creates `BeatzOnKeys\` inside it. The answer is remembered in `%LOCALAPPDATA%\BeatzOnKeys\storage.json`; cancelling does not block startup — the program runs on `%LOCALAPPDATA%` and asks again next time. If the folder disappears, the question comes back and the recorded choice stays on disk.
+
+On the first start in **Portable** or **ChosenDirectory** mode, older data from `%LOCALAPPDATA%\BeatzOnKeys\` is copied into the new root. The originals stay where they are, and the copy never runs twice.
 ## End-of-track behavior
 
 These switches act at the track's **natural end**, not during an idle pause.
@@ -94,7 +108,7 @@ Choosing another track starts that track from its beginning.
 
 Only one copy can run at a time: launching it again restores the window of the running copy.
 
-No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.3.1.4 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
+No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.3.1.5 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
 
 ### Requirements
 
@@ -163,7 +177,7 @@ The updater downloads `BeatzOnKeys.exe` beside the running application and check
 
 ## Logs
 
-Logs are written to `%LOCALAPPDATA%\BeatzOnKeys\logs\beatzonkeys-YYYYMMDD.log`. Use **Logs** in the footer to open the folder.
+Logs are written to `<Root>\Logs\beatzonkeys-YYYYMMDD.log`. Use **Logs** in the footer to open the folder.
 
 | Category | What it records |
 |---|---|
@@ -182,14 +196,14 @@ dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Create the **1.3.1.4** portable self-contained folder in Windows **cmd**:
+Create the **1.3.1.5** portable self-contained folder in Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.3.1.4
+set BOK_VERSION=1.3.1.5
 publish.bat
 ```
 
-The publisher now defaults to `BOK_VERSION=1.3.1.4`; setting it explicitly makes the intended release version clear.
+The publisher now defaults to `BOK_VERSION=1.3.1.5`; setting it explicitly makes the intended release version clear.
 
 The publisher validates its `Build_Output` cleanup target, publishes `BeatzOnKeys.UI` self-contained for `win-x64`, and copies both READMEs, release notes, screenshots, the license, and third-party notices. It stops on any required publish/copy failure. The resulting `Build_Output` directory is the portable product.
 
@@ -228,6 +242,10 @@ publish.bat            self-contained publisher
 - **A restored source is gone** — add the file again or remove the unavailable entry.
 
 ## Credits & License
+
+- **Program channel:** [t.me/beatzonkeys](https://t.me/beatzonkeys) — news and releases.
+- **Author:** [@music_cat1](https://t.me/music_cat1).
+
 
 - **BeatzOnKeys:** [project](https://github.com/MusicCat-61/BeatzOnKeys).
 - Design, themes, localization structure, Mica shell, tray lifecycle, and keyboard-hook approach are based on [**MusicCatRGB**](https://github.com/MusicCat-61/MusicCatRGB) by MusicCat161 / MusicCat-61.

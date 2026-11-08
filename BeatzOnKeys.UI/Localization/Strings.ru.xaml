@@ -63,6 +63,9 @@
     <sys:String x:Key="L_TabSettings">Настройки</sys:String>
     <sys:String x:Key="L_SourceLocal">локально</sys:String>
     <sys:String x:Key="L_SourceYouTube">YouTube</sys:String>
+    <sys:String x:Key="Storage_PickFolder">Выберите папку для данных BeatzOnKeys</sys:String>
+    <sys:String x:Key="About_TelegramChannel">Канал программы</sys:String>
+    <sys:String x:Key="About_TelegramAuthor">Автор</sys:String>
     <sys:String x:Key="L_SelectedTrack">Выбранный трек</sys:String>
     <sys:String x:Key="L_NoTrackSelected">Выберите доступный трек</sys:String>
     <sys:String x:Key="L_PlaybackProgress">Позиция воспроизведения</sys:String>
@@ -200,11 +203,7 @@
     <sys:String x:Key="L_YtCacheCleared">Кеш очищен</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Открыть папку с музыкой</sys:String>
     <sys:String x:Key="L_YtCacheEnabled">Кешировать треки</sys:String>
-    <sys:String x:Key="L_YtCacheMovedFormat">Кеш перенесён в {0}. Файлов: {1}.</sys:String>
     <sys:String x:Key="L_YtQueryProgressFormat">Скачивание: {0}%</sys:String>
-    <sys:String x:Key="L_YtCacheFolderPick">Выберите папку для кеша</sys:String>
-    <sys:String x:Key="L_YtChangeFolder">Изменить папку…</sys:String>
-    <sys:String x:Key="L_YtCacheFolderFormat">Папка кеша: {0}</sys:String>
     <sys:String x:Key="L_YtCacheHint">Файлы лежат в %LOCALAPPDATA%\BeatzOnKeys\Music и переживают переустановку.</sys:String>
     <sys:String x:Key="L_YtSettingsTitle">yt-dlp</sys:String>
     <sys:String x:Key="L_YtInstall">Скачать/Обновить yt-dlp</sys:String>
@@ -247,7 +246,7 @@
     <sys:String x:Key="Guide_YouTubeDownloadT">Прямые ссылки и ограничения</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadX">Кнопка «Добавить» на строке результата становится активной только после того, как трек закеширован, и переносит его в список скачанных. До этого момента нажимать нечего: файла ещё нет.</sys:String>
     <sys:String x:Key="Guide_YouTubeCacheT">Кеш и папка</sys:String>
-    <sys:String x:Key="Guide_YouTubeCacheX">Галочка «Кешировать треки» решает, остаются ли прослушанные файлы на диске. «Занято треками» считает только добавленные треки, «Кеш поиска» — только предпросмотры. Рядом обе кнопки очистки, выбор папки кеша (внутри выбранной папки создаётся Cache) и кнопка «Открыть папку с музыкой».</sys:String>
+    <sys:String x:Key="Guide_YouTubeCacheX">Галочка «Кешировать треки» решает, остаются ли прослушанные файлы на диске. «Занято треками» считает только добавленные треки, «Кеш поиска» — только предпросмотры. Рядом обе кнопки очистки и кнопка «Открыть папку с музыкой». Кеш всегда лежит в папке данных программы: &lt;Root&gt;\Music.</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpT">yt-dlp</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpX">Скачивание идёт через yt-dlp.exe. Приложение не качает его при запуске: 22.5 МБ загружаются при первом действии, с прогресс-баром. Кнопка «Скачать/Обновить yt-dlp» повторяет загрузку, если она не удалась.</sys:String>
     <sys:String x:Key="Guide_YouTubeLimitsT">Ошибки и фолбэк</sys:String>
@@ -373,7 +372,7 @@
     <sys:String x:Key="Guide_EndT">Трек остаётся в конце</sys:String>
     <sys:String x:Key="Guide_EndX">Нажмите «Стоп», затем «Старт», включите повтор или автоперелистывание.</sys:String>
     <sys:String x:Key="Guide_UpdStorageT">Обновление не скачивается или не встаёт</sys:String>
-    <sys:String x:Key="Guide_UpdStorageX">Обновление скачивается в папку приложения и подменяет файл при следующем запуске. Если загрузка прервалась — закрыли окно, пропала связь — уже скачанные байты сохраняются, и следующая попытка продолжит с того же места, а не начнёт заново. Недокачанные файлы от других версий удаляются автоматически.</sys:String>
+    <sys:String x:Key="Guide_UpdStorageX">Обновление скачивается в папку данных программы и подменяет файл при следующем запуске. Если загрузка прервалась — закрыли окно, пропала связь — уже скачанные байты сохраняются, и следующая попытка продолжит с того же места. Все данные (настройки, логи, кеш, обновления) лежат в одном корне: рядом с exe, в выбранной папке или в %LOCALAPPDATA%\BeatzOnKeys. Новости и релизы — в канале t.me/beatzonkeys.</sys:String>
     <sys:String x:Key="Guide_NotSavedT">Настройки не сохраняются</sys:String>
     <sys:String x:Key="Guide_NotSavedX">Если папка профиля недоступна для записи, приложение сообщает об этом при запуске. Настройки хранятся в профиле пользователя.</sys:String>
 

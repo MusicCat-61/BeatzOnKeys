@@ -119,6 +119,7 @@ public partial class App : System.Windows.Application
                 return;
             }
 
+            ResolveStorage();
             AppLogger.Initialize();
             StartActivationListener();
             AppLogger.Info("ui", $"Starting BeatzOnKeys {typeof(App).Assembly.GetName().Version}; pid={Environment.ProcessId}.");
@@ -405,6 +406,66 @@ public partial class App : System.Windows.Application
         catch (OperationCanceledException)
         {
             // Normal application shutdown.
+        }
+    }
+
+    /// <summary>
+    /// Decides where this run keeps its data, asks for a folder when the executable sits somewhere
+    /// unsuitable, and copies an older per-user data set into the new root the first time it is used.
+    /// Runs before logging starts, so the log folder is the one the chosen root provides.
+    /// </summary>
+    private void ResolveStorage()
+    {
+        var executableDirectory = Path.GetDirectoryName(Environment.ProcessPath ?? string.Empty);
+        var settings = StorageSettingsStore.Load();
+        var plan = StorageResolver.Plan(executableDirectory, settings);
+        if (plan.NeedsFolderChoice && !StorageResolver.IsForced)
+        {
+            plan = AskForStorageFolder(settings) ?? plan;
+        }
+
+        // A harness that pinned the mode may also have redirected the paths itself, so the plan
+        // must not overwrite a root that something else already chose.
+        if (!StorageResolver.IsForced || AppPaths.RootDirectory == AppPaths.DefaultLocalRoot)
+        {
+            AppPaths.Apply(plan.Mode, plan.Root);
+        }
+
+        // The log folder exists in every mode, including the fallback.
+        AppPaths.EnsureCreated();
+
+        if (plan.Mode != StorageMode.LocalAppData && !StorageResolver.IsForced)
+        {
+            StorageResolver.Migrate(AppPaths.DefaultLocalRoot, AppPaths.RootDirectory);
+        }
+    }
+
+    /// <summary>
+    /// The first-run question. Cancelling is a valid answer: the run continues on the per-user
+    /// folder and the question comes back next time, because nothing was recorded.
+    /// </summary>
+    private StoragePlan? AskForStorageFolder(StorageSettings settings)
+    {
+        try
+        {
+            var dialog = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = Loc.T("Storage_PickFolder"),
+                InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            };
+            if (dialog.ShowDialog() != true) { return null; }
+
+            // The picked folder is a home for the data, not the data itself: a subfolder keeps
+            // our files apart from whatever else the user keeps there.
+            var root = AppPaths.ChosenRootFor(dialog.FolderName);
+            settings.ChosenRoot = root;
+            StorageSettingsStore.Save(settings);
+            return new StoragePlan(StorageMode.ChosenDirectory, root, false);
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning("storage", $"Could not ask for a storage folder: {exception.Message}");
+            return null;
         }
     }
 

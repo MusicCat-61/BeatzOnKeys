@@ -75,55 +75,6 @@ public sealed partial class YouTubeViewModel
         }
     }
 
-    /// <summary>
-    /// Switches the cache folder and carries the existing files over. The rows are repointed at
-    /// their new paths, so a track that was kept stays playable instead of turning into a dead row.
-    /// </summary>
-    private async Task ChooseCacheFolderAsync()
-    {
-        var dialog = new Microsoft.Win32.OpenFolderDialog
-        {
-            Title = Loc.T("L_YtCacheFolderPick"),
-            InitialDirectory = Directory.Exists(_cachePath) ? _cachePath : AppPaths.RootDirectory
-        };
-        if (dialog.ShowDialog() != true) { return; }
-
-        // The chosen folder is a home for the cache, not the cache itself: a Cache subfolder keeps
-        // it apart from whatever else the user keeps there.
-        var target = Path.Combine(dialog.FolderName, "Cache");
-        if (string.Equals(target, _cachePath, StringComparison.OrdinalIgnoreCase)) { return; }
-
-        var moved = CacheMigrator.Move(_cachePath, target, _lifetime.Token);
-        _cachePath = target;
-        ApplyCacheDirectory(target);
-        foreach (var track in Downloaded) { track.Relocate(moved); }
-        OnPropertyChanged(nameof(CachePath));
-        OnPropertyChanged(nameof(CachePathText));
-        _requestSave();
-        await RefreshCacheSizeAsync().ConfigureAwait(true);
-        // A dialog rather than a status line: the move is a one-off result the user should see and
-        // dismiss, not a sentence that quietly fades after a few seconds.
-        _userMessage(Loc.F("L_YtCacheMovedFormat", target, moved.Count));
-    }
-
-    /// <summary>Keeps the service pointed at the chosen folder; every download reads it from there.</summary>
-    private void ApplyCacheDirectory(string directory)
-    {
-        Directory.CreateDirectory(directory);
-        var current = _service.Options;
-        _service.Options = new YouTubeOptions
-        {
-            MusicDirectory = directory,
-            DownloadDirectory = current.DownloadDirectory,
-            CookiesFolder = current.CookiesFolder,
-            ProxyUrl = current.ProxyUrl,
-            CacheEnabled = current.CacheEnabled,
-            MaxConcurrentDownloads = current.MaxConcurrentDownloads,
-            DownloadTimeout = current.DownloadTimeout,
-            SearchTimeout = current.SearchTimeout,
-            Mirrors = current.Mirrors
-        };
-    }
     /// <summary>Downloads whatever link sits in the field, or explains why it cannot.</summary>
     private async Task DownloadFromQueryAsync()
     {

@@ -63,6 +63,9 @@
     <sys:String x:Key="L_TabSettings">Settings</sys:String>
     <sys:String x:Key="L_SourceLocal">local</sys:String>
     <sys:String x:Key="L_SourceYouTube">YouTube</sys:String>
+    <sys:String x:Key="Storage_PickFolder">Choose a folder for BeatzOnKeys data</sys:String>
+    <sys:String x:Key="About_TelegramChannel">Program channel</sys:String>
+    <sys:String x:Key="About_TelegramAuthor">Author</sys:String>
     <sys:String x:Key="L_SelectedTrack">Selected track</sys:String>
     <sys:String x:Key="L_NoTrackSelected">Select an available track</sys:String>
     <sys:String x:Key="L_PlaybackProgress">Playback position</sys:String>
@@ -200,11 +203,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtCacheCleared">The cache is empty</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Open the music folder</sys:String>
     <sys:String x:Key="L_YtCacheEnabled">Cache tracks</sys:String>
-    <sys:String x:Key="L_YtCacheMovedFormat">The cache moved to {0}. Files: {1}.</sys:String>
     <sys:String x:Key="L_YtQueryProgressFormat">Downloading: {0}%</sys:String>
-    <sys:String x:Key="L_YtCacheFolderPick">Choose the cache folder</sys:String>
-    <sys:String x:Key="L_YtChangeFolder">Change folder…</sys:String>
-    <sys:String x:Key="L_YtCacheFolderFormat">Cache folder: {0}</sys:String>
     <sys:String x:Key="L_YtCacheHint">Files live in %LOCALAPPDATA%\BeatzOnKeys\Music and survive a reinstall.</sys:String>
     <sys:String x:Key="L_YtSettingsTitle">yt-dlp</sys:String>
     <sys:String x:Key="L_YtInstall">Download/Update yt-dlp</sys:String>
@@ -247,7 +246,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadT">Links and limits</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadX">The Add button on a result row becomes active only once the track is cached, and then moves it into the downloaded list. Before that there is nothing to press: the file does not exist yet.</sys:String>
     <sys:String x:Key="Guide_YouTubeCacheT">Cache and folder</sys:String>
-    <sys:String x:Key="Guide_YouTubeCacheX">The cache switch decides whether played files stay on disk. Kept tracks counts only added tracks, search cache only the previews. Next to it are both clear buttons, the folder picker (a Cache folder is created inside the one you choose) and the folder button.</sys:String>
+    <sys:String x:Key="Guide_YouTubeCacheX">The cache switch decides whether played files stay on disk. Kept tracks counts only added tracks, search cache only the previews. Next to it are both clear buttons and the folder button. The cache always lives in the program data folder: &lt;Root&gt;\Music.</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpT">yt-dlp</sys:String>
     <sys:String x:Key="Guide_YouTubeYtDlpX">Downloads go through yt-dlp.exe. It is not fetched at startup: 22.5 MB arrive on the first action, with a progress bar. Download/Update yt-dlp repeats the download when it fails.</sys:String>
     <sys:String x:Key="Guide_YouTubeLimitsT">Failures and fallbacks</sys:String>
@@ -373,7 +372,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_EndT">The track stays at its end</sys:String>
     <sys:String x:Key="Guide_EndX">Press Stop, then Start, or enable loop or auto-advance.</sys:String>
     <sys:String x:Key="Guide_UpdStorageT">The update will not download or will not install</sys:String>
-    <sys:String x:Key="Guide_UpdStorageX">The update downloads into the application folder and swaps the file on the next start. If the transfer breaks — you closed the window, the connection dropped — the bytes already on disk are kept, and the next attempt continues from there instead of starting over. Half-downloaded files from other versions are removed automatically.</sys:String>
+    <sys:String x:Key="Guide_UpdStorageX">The update downloads into the program data folder and swaps the file on the next start. If the transfer breaks, the bytes already on disk are kept and the next attempt continues from there. All data — settings, logs, cache, updates — lives under one root: beside the exe, in a folder you picked, or in %LOCALAPPDATA%\BeatzOnKeys. News and releases: t.me/beatzonkeys.</sys:String>
     <sys:String x:Key="Guide_NotSavedT">Settings are not saved</sys:String>
     <sys:String x:Key="Guide_NotSavedX">When the profile folder is not writable the app says so at startup. Settings live in the user profile.</sys:String>
 

@@ -16,6 +16,9 @@ public partial class AboutWindow : Window
     // carry the full license texts and links to the LICENSE file.
     private const string NoticesUrl = "https://github.com/MusicCat-61/BeatzOnKeys/blob/main/THIRD-PARTY-NOTICES.md";
     private const string TelegramUrl = "https://t.me/music_cat1";
+
+    /// <summary>The program's own channel, kept apart from the author's contact link.</summary>
+    private const string TelegramChannelUrl = "https://t.me/beatzonkeys";
     private const string DonateUrl = "https://dalink.to/musiccat61";
     private static readonly TimeSpan FreshResultAge = TimeSpan.FromMinutes(30);
     private UpdateCheckResult? _result;
@@ -56,7 +59,7 @@ public partial class AboutWindow : Window
                 return parsed.Display;
             }
 
-            return assembly.GetName().Version?.ToString(3) ?? "1.3.1.4";
+            return assembly.GetName().Version?.ToString(3) ?? "1.3.1.5";
         }
     }
 
@@ -299,6 +302,8 @@ public partial class AboutWindow : Window
     private void LicenseLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(NoticesUrl);
 
     private void TelegramLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(TelegramUrl);
+
+    private void TelegramChannelLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(TelegramChannelUrl);
 
     private void DonateLink_Click(object sender, RoutedEventArgs eventArgs) => OpenUrl(DonateUrl);
 

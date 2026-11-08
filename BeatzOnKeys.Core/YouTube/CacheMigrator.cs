@@ -15,7 +15,27 @@ public static class CacheMigrator
     public static IReadOnlyDictionary<string, string> Move(
         string? from,
         string? to,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        Transfer(from, to, recursive: false, copyOnly: false, cancellationToken);
+
+    /// <summary>
+    /// The same transfer, but able to walk subfolders and to copy instead of move. Migrating a whole
+    /// data root needs both: the old folder must stay usable, and it has nested folders.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> Move(
+        string? from,
+        string? to,
+        bool recursive,
+        bool copyOnly,
+        CancellationToken cancellationToken = default) =>
+        Transfer(from, to, recursive, copyOnly, cancellationToken);
+
+    private static IReadOnlyDictionary<string, string> Transfer(
+        string? from,
+        string? to,
+        bool recursive,
+        bool copyOnly,
+        CancellationToken cancellationToken)
     {
         var moved = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (string.IsNullOrWhiteSpace(from) || string.IsNullOrWhiteSpace(to)) { return moved; }
@@ -36,10 +56,12 @@ public static class CacheMigrator
         Directory.CreateDirectory(target);
         if (!Directory.Exists(source)) { return moved; }
 
-        foreach (var file in Directory.EnumerateFiles(source))
+        var options = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+        foreach (var file in Directory.EnumerateFiles(source, "*", options))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var destination = Path.Combine(target, Path.GetFileName(file));
+            var relative = Path.GetRelativePath(source, file);
+            var destination = Path.Combine(target, relative);
             if (File.Exists(destination))
             {
                 // The same track is already there; pointing the caller at it is enough.
@@ -49,7 +71,10 @@ public static class CacheMigrator
 
             try
             {
-                File.Move(file, destination);
+                var parent = Path.GetDirectoryName(destination);
+                if (!string.IsNullOrEmpty(parent)) { Directory.CreateDirectory(parent); }
+                if (copyOnly) { File.Copy(file, destination); }
+                else { File.Move(file, destination); }
                 moved[file] = destination;
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

@@ -43,8 +43,7 @@ public sealed class AppSettings
     public bool YouTubeCacheEnabled { get; set; } = true;
 
     /// <summary>Folder scanned for Netscape-format cookie files, passed to yt-dlp when non-empty.</summary>
-    /// <summary>Where the YouTube cache lives; empty means the default per-user folder.</summary>
-    public string YouTubeCachePath { get; set; } = string.Empty;
+
     public string CookiesFolderPath { get; set; } = string.Empty;
 
     /// <summary>Optional proxy for yt-dlp, for example http://127.0.0.1:8080.</summary>
@@ -80,7 +79,6 @@ public sealed class AppSettings
     private void NormalizeYouTube()
     {
         YouTubeTracks ??= [];
-        YouTubeCachePath = (YouTubeCachePath ?? string.Empty).Trim();
         CookiesFolderPath = (CookiesFolderPath ?? string.Empty).Trim();
         ProxyUrl = (ProxyUrl ?? string.Empty).Trim();
         var seen = new HashSet<string>(StringComparer.Ordinal);

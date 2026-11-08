@@ -4,7 +4,7 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.3.1.4-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Version](https://img.shields.io/badge/version-1.3.1.5-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#требования)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
@@ -58,19 +58,33 @@ BeatzOnKeys написана на C# с .NET 10 и WPF; NAudio отвечает 
 
 Фактическая тихая громкость равна `min(MinVolume, MaxVolume)`: она никогда не выше максимальной, даже если слайдер максимума установлен ниже слайдера тихого уровня.
 
-Настройки хранятся в `%LOCALAPPDATA%\BeatzOnKeys\settings.json`. **Схема 3** содержит `MinVolume`, `MaxVolume`, `IdleTimeout`, `PauseOnIdle`, `AutoAdvance`, `Loop`, `SelectedTrackId`, `Language`, `Theme` и `Tracks`. В JSON громкости — доли в диапазоне `0..1` (`0.2` означает 20%; `MinVolume` ограничен `0.5`), а `IdleTimeout` — секунды.
+Настройки хранятся в `<Root>\settings.json`. **Схема 3** содержит `MinVolume`, `MaxVolume`, `IdleTimeout`, `PauseOnIdle`, `AutoAdvance`, `Loop`, `SelectedTrackId`, `Language`, `Theme` и `Tracks`. В JSON громкости — доли в диапазоне `0..1` (`0.2` означает 20%; `MinVolume` ограничен `0.5`), а `IdleTimeout` — секунды.
 
 Старое значение `Volume` автоматически переносится в `MaxVolume`. Остальные новые значения получают настройки по умолчанию: `MinVolume = 0.2`, `IdleTimeout = 3`, `PauseOnIdle = true`. Существующий список треков и другие сохранённые предпочтения остаются.
 
-Пользовательские данные находятся вне портативной папки программы:
+### Где лежат данные
+
+Все данные лежат в одном корне `<Root>`, и корень зависит от того, откуда запущена программа:
+
+| Режим | Когда | `<Root>` |
+|---|---|---|
+| **Portable** | exe в обычной папке на запись | папка с exe |
+| **ChosenDirectory** | exe на рабочем столе, в профиле, `C:\`, `C:\Windows`, Program Files или `%TEMP%` | выбранная папка + `\BeatzOnKeys\` |
+| **LocalAppData** | запасной вариант, если папку не выбрали | `%LOCALAPPDATA%\BeatzOnKeys\` |
 
 ```text
-%LOCALAPPDATA%\BeatzOnKeys\
-├─ settings.json    # настройки схемы 3 и список треков
-├─ logs/            # ежедневная UTF-8 диагностика
-└─ updates/         # подготовленные и проверенные обновления
+<Root>\
+├─ settings.json          # настройки и список треков
+├─ Logs\                  # ежедневная UTF-8 диагностика
+├─ updates\               # подготовленные и проверенные обновления
+├─ Music\                 # кеш YouTube
+├─ bin\                   # yt-dlp и ffmpeg
+└─ downloads\             # временные файлы загрузки
 ```
 
+При первом запуске с рабочего стола программа спрашивает папку для данных и создаёт в ней `BeatzOnKeys\`. Выбор запоминается в `%LOCALAPPDATA%\BeatzOnKeys\storage.json`; отмена не блокирует запуск — программа работает в `%LOCALAPPDATA%`, а вопрос вернётся при следующем старте. Если папка исчезла, вопрос вернётся, а запись о выборе останется.
+
+При первом запуске в режиме **Portable** или **ChosenDirectory** старые данные из `%LOCALAPPDATA%\BeatzOnKeys\` копируются в новый корень. Оригиналы остаются на месте, повторно копирование не выполняется.
 ## Поведение в конце трека
 
 Переключатели действуют при **естественном завершении трека**, а не при паузе из-за простоя.
@@ -94,7 +108,7 @@ BeatzOnKeys написана на C# с .NET 10 и WPF; NAudio отвечает 
 
 Одновременно может работать только одна копия: повторный запуск возвращает окно уже работающей.
 
-Установщик, права администратора и отдельный .NET Runtime не нужны. **Обновление с 1.0.x:** закройте старую программу, скачайте 1.3.1.4 вручную и замените старую папку, не используя старый встроенный установщик. Настройки перенесутся автоматически, как описано [выше](#настройки).
+Установщик, права администратора и отдельный .NET Runtime не нужны. **Обновление с 1.0.x:** закройте старую программу, скачайте 1.3.1.5 вручную и замените старую папку, не используя старый встроенный установщик. Настройки перенесутся автоматически, как описано [выше](#настройки).
 
 ### Требования
 
@@ -161,7 +175,7 @@ BeatzOnKeys написана на C# с .NET 10 и WPF; NAudio отвечает 
 
 ## Логи
 
-Логи лежат в `%LOCALAPPDATA%\BeatzOnKeys\logs\beatzonkeys-YYYYMMDD.log`. Кнопка **«Логи»** в нижней панели открывает папку.
+Логи лежат в `<Root>\Logs\beatzonkeys-YYYYMMDD.log`. Кнопка **«Логи»** в нижней панели открывает папку.
 
 | Категория | Что записывается |
 |---|---|
@@ -180,14 +194,14 @@ dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Создайте портативную самодостаточную папку **1.3.1.4** в Windows **cmd**:
+Создайте портативную самодостаточную папку **1.3.1.5** в Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.3.1.4
+set BOK_VERSION=1.3.1.5
 publish.bat
 ```
 
-Теперь скрипт по умолчанию использует `BOK_VERSION=1.3.1.4`; явное указание переменной делает целевую версию релиза однозначной.
+Теперь скрипт по умолчанию использует `BOK_VERSION=1.3.1.5`; явное указание переменной делает целевую версию релиза однозначной.
 
 Скрипт проверяет цель очистки `Build_Output`, публикует `BeatzOnKeys.UI` как self-contained `win-x64` и копирует оба README, примечания к релизу, скриншоты, лицензию и сторонние уведомления. Любая обязательная ошибка публикации/копирования останавливает сборку. Итоговый `Build_Output` — портативный продукт.
 
@@ -226,6 +240,10 @@ publish.bat            self-contained публикация
 - **Сохранённый источник пропал** — добавьте файл снова либо удалите недоступную запись.
 
 ## Авторы и лицензия
+
+- **Канал программы:** [t.me/beatzonkeys](https://t.me/beatzonkeys) — новости и релизы.
+- **Автор:** [@music_cat1](https://t.me/music_cat1).
+
 
 - **BeatzOnKeys:** [проект](https://github.com/MusicCat-61/BeatzOnKeys).
 - Дизайн, темы, структура локализации, Mica-оболочка, работа с треем и подход к перехвату клавиатуры основаны на [**MusicCatRGB**](https://github.com/MusicCat-61/MusicCatRGB) от MusicCat161 / MusicCat-61.

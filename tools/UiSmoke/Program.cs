@@ -46,6 +46,9 @@ internal static class Program
         if (!Regex.IsMatch(leaf, @"^[A-Za-z0-9_-]+$"))
             throw new ArgumentException("--session must be a simple artifact directory name.");
         if (args.Contains("--production-tray")) return ProductionTraySmoke.Run(root, leaf);
+        // Pin the storage mode: the smoke must never touch the real user folders, and the folder
+        // picker cannot be answered by a headless run.
+        Environment.SetEnvironmentVariable(StorageResolver.ModeVariable, nameof(StorageMode.LocalAppData));
         var session = Path.Combine(root, "artifacts", "ui-smoke", leaf);
         Directory.CreateDirectory(session);
         // LoadComponent requires the exact App assembly, so use a real App, not an App subclass.
@@ -245,8 +248,33 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         // It avoids relying on LOCALAPPDATA environment overrides, which GetFolderPath does not honor on Windows.
         SetProcessPath("RootDirectory", local);
         SetProcessPath("SettingsFile", Path.Combine(local, "unused-default-settings.json"));
-        SetProcessPath("LogDirectory", Path.Combine(session, "logs"));
+        SetProcessPath("LogDirectory", Path.Combine(session, "Logs"));
         SetProcessPath("UpdateDirectory", Path.Combine(session, "updates"));
+        // The data folders moved under one root, so they need redirecting too: otherwise the
+        // YouTube section would read and measure the real user cache.
+        SetProcessPath("MusicDirectory", Path.Combine(local, "Music"));
+        SetProcessPath("BinDirectory", Path.Combine(local, "bin"));
+        SetProcessPath("DownloadDirectory", Path.Combine(local, "downloads"));
+        // The cache folder picker was removed on purpose: the cache now always lives in
+        // <Root>\Music, so a leftover property or command would be dead UI code.
+        var youTubeType = typeof(YouTubeViewModel);
+        var removed = new[] { "CachePath", "CachePathText", "ChooseCacheFolderCommand" }
+            .Where(name => youTubeType.GetProperty(name) is not null ||
+                youTubeType.GetMethod(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance) is not null)
+            .ToArray();
+        Check("storage.cacheFolderPickerRemoved", removed.Length == 0,
+            removed.Length == 0 ? "CachePath and the folder command are gone." : "Still present: " + string.Join(", ", removed));
+        // The log folder is created in every mode, and the storage step must not have overridden
+        // the paths this harness pinned for itself.
+        Check("storage.modePinned", AppPaths.Mode == StorageMode.LocalAppData &&
+            Environment.GetEnvironmentVariable(StorageResolver.ModeVariable) == nameof(StorageMode.LocalAppData),
+            $"Mode={AppPaths.Mode}; the smoke pins LocalAppData so the real user folders stay untouched.");
+        AppPaths.EnsureCreated();
+        Check("storage.logsCreated", Directory.Exists(AppPaths.LogDirectory),
+            $"Logs folder: {AppPaths.LogDirectory}.");        Check("isolation.dataFolders", AppPaths.MusicDirectory.StartsWith(session, StringComparison.OrdinalIgnoreCase) &&
+            AppPaths.BinDirectory.StartsWith(session, StringComparison.OrdinalIgnoreCase) &&
+            AppPaths.DownloadDirectory.StartsWith(session, StringComparison.OrdinalIgnoreCase),
+            $"Music={AppPaths.MusicDirectory}, Bin={AppPaths.BinDirectory}, Downloads={AppPaths.DownloadDirectory}");
         Check("isolation.appPaths", AppPaths.RootDirectory.StartsWith(session, StringComparison.OrdinalIgnoreCase) &&
             AppPaths.LogDirectory.StartsWith(session, StringComparison.OrdinalIgnoreCase) &&
             AppPaths.UpdateDirectory.StartsWith(session, StringComparison.OrdinalIgnoreCase), "All process-local app-data paths redirected under " + Friendly(session));
@@ -556,7 +584,9 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                     vm.PlayingTrackText != vm.PlayingSourceText &&
                     cardTexts.Contains(vm.PlayingSourceText) &&
                     cardTexts.Contains(vm.PlayingTrackText),
-                    $"Source='{vm.PlayingSourceText}', track='{vm.PlayingTrackText}'.");
+                    $"Source='{vm.PlayingSourceText}' present={cardTexts.Contains(vm.PlayingSourceText)}, " +
+                    $"track='{vm.PlayingTrackText}' present={cardTexts.Contains(vm.PlayingTrackText)}; " +
+                    $"page playlist={vm.IsPlaylistPage} settingsOpen={vm.IsSettingsOpen}.");
                 var filename = light ? $"preview-light-{language}.png" : $"preview-{language}.png";
                 SaveScreenshot(window, filename);
                 // Audio really is playing, so the progress moves on its own; the check is that it
@@ -764,7 +794,17 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             status = update?.Status.ToString(), text = texts.FirstOrDefault(t => t.Name == "UpdateStatusText")?.Text };
         // The update notice renders the release notes: headings, bullets and bold must be real
         // formatting, and only the section for the active language may appear.
-        await CaptureUpdateNoticeAsync();        SaveScreenshot(about, light ? "about-light-ru.png" : "about-ru.png");
+        await CaptureUpdateNoticeAsync();        // Two Telegram destinations, labelled so they cannot be confused: the channel and the author.
+        var aboutButtons = Descendants<Button>(about).Where(button => button.IsVisible)
+            .Select(button => button.Content?.ToString() ?? "").ToArray();
+        var aboutTexts = Descendants<TextBlock>(about).Where(text => text.IsVisible)
+            .Select(RenderedText).ToArray();
+        Check("about.telegramChannel",
+            aboutTexts.Contains(Loc.T("About_TelegramChannel")) && aboutTexts.Contains(Loc.T("About_TelegramAuthor")) &&
+            aboutTexts.Any(text => text.Contains("beatzonkeys", StringComparison.Ordinal)) &&
+            aboutTexts.Any(text => text.Contains("music_cat1", StringComparison.Ordinal)),
+            $"Visible About text: {string.Join(" | ", aboutTexts.Where(text => text.Contains("t.me", StringComparison.Ordinal) || text.Contains('@')))}");
+        SaveScreenshot(about, light ? "about-light-ru.png" : "about-ru.png");
         about.Close();
         await SettleAsync();
         Check(label + ".closed", GetField<AboutWindow>(app, "_aboutWindow") is null && !about.IsVisible, "Real App About Closed clears its private window slot.");
@@ -1089,7 +1129,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     private async Task YouTubeSectionAsync()
     {
         var root = Path.Combine(session, "youtube-page");
-        var music = Path.Combine(root, "Music");
+        // The cache always lives in <Root>\Music now, so the fixtures go where the app looks.
+        var music = AppPaths.MusicDirectory;
         Directory.CreateDirectory(music);
         var cached = Path.Combine(music, "dQw4w9WgXcQ.mp3");
         File.Copy(_fixtures[0], cached, overwrite: true);
@@ -1098,6 +1139,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         // The window's own view model uses the harness service; the same fixtures go there so a
         // screenshot can show cached search rows without a download.
         var harnessMusic = Path.Combine(session, "youtube", "Music");
+        // Kept for the window's own service, which is built with its own folder below.
         Directory.CreateDirectory(harnessMusic);
         File.Copy(_fixtures[0], Path.Combine(harnessMusic, "dQw4w9WgXcQ.mp3"), overwrite: true);
         File.Copy(_fixtures[1], Path.Combine(harnessMusic, "kJQP7kiw5Fk.mp3"), overwrite: true);
@@ -1194,7 +1236,10 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         var expected = Loc.F("L_YtCacheUsedFormat", ByteSizeFormatter.Format(vm.YouTube.KeptCacheBytes, "КБ", "МБ", "ГБ"));
         Check("youtube.cacheSize", vm.YouTube.KeptCacheBytes > 0 && vm.YouTube.CacheSizeText == expected &&
             !vm.YouTube.CacheSizeText.Contains("L_YtCacheUsedFormat", StringComparison.Ordinal),
-            $"Cache: bytes={vm.YouTube.CacheBytes}, text='{vm.YouTube.CacheSizeText}', expected '{expected}'.");
+            $"Cache: bytes={vm.YouTube.CacheBytes}, kept={vm.YouTube.KeptCacheBytes}, search={vm.YouTube.SearchCacheBytes}, " +
+            $"dir='{AppPaths.MusicDirectory}' exists={Directory.Exists(AppPaths.MusicDirectory)} " +
+            $"files={(Directory.Exists(AppPaths.MusicDirectory) ? Directory.GetFiles(AppPaths.MusicDirectory).Length : -1)}, " +
+            $"text='{vm.YouTube.CacheSizeText}', expected '{expected}'.");
 
         Check("youtube.binaryNotInstalled", !vm.YouTube.YtDlpInstalled &&
             vm.YouTube.YtDlpStatusText == Loc.T("L_YtNotInstalled") &&

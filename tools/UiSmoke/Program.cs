@@ -155,6 +155,17 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             await GenerateFixturesAsync();
             await Section("nativeHook", () => { CheckNativeHook(); return Task.CompletedTask; });
             Loc.Initialize("en");
+            // The folder question is asked in the app's own dialog, so its text must be translated:
+            // a missing key once surfaced as a raw "Storage_PickFolder" in a title bar.
+            var storageKeys = new[] { "Storage_ExplainTitle", "Storage_ExplainBody", "Storage_ChooseButton",
+                "Storage_LaterButton", "Storage_ChosenBody", "Storage_PickFolder" };
+            var unresolvedStorage = storageKeys.Where(key => Loc.T(key) == key).ToArray();
+            // With the mode pinned the question must stay off, or a headless run would hang on a
+            // dialog nobody can answer.
+            Check("storage.noPromptWhenPinned", GetField<bool>(app, "_storageChoicePending") == false,
+                "A pinned storage mode must never open the folder question.");
+            Check("storage.dialogTextLocalized", unresolvedStorage.Length == 0,
+                unresolvedStorage.Length == 0 ? "All storage dialog strings resolve." : "Raw keys: " + string.Join(", ", unresolvedStorage));
             Theme.Apply(AppTheme.Dark, notify: false);
             // The YouTube section must not read, write or delete the real user cache during tests.
             var youTubeRoot = Path.Combine(session, "youtube");

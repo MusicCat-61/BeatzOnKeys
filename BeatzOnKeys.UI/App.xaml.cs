@@ -29,6 +29,8 @@ public partial class App : System.Windows.Application
     private DispatcherTimer? _updateTimer;
     private CancellationTokenSource? _updateCancellation;
     private string? _notifiedUpdateVersion;
+    private StorageSettings? _storageSettings;
+    private bool _storageChoicePending;
     private Icon? _trayIconImage;
     private bool _isExiting;
     private Mutex? _singleInstance;
@@ -417,12 +419,8 @@ public partial class App : System.Windows.Application
     private void ResolveStorage()
     {
         var executableDirectory = Path.GetDirectoryName(Environment.ProcessPath ?? string.Empty);
-        var settings = StorageSettingsStore.Load();
-        var plan = StorageResolver.Plan(executableDirectory, settings);
-        if (plan.NeedsFolderChoice && !StorageResolver.IsForced)
-        {
-            plan = AskForStorageFolder(settings) ?? plan;
-        }
+        _storageSettings = StorageSettingsStore.Load();
+        var plan = StorageResolver.Plan(executableDirectory, _storageSettings);
 
         // A harness that pinned the mode may also have redirected the paths itself, so the plan
         // must not overwrite a root that something else already chose.
@@ -438,34 +436,56 @@ public partial class App : System.Windows.Application
         {
             StorageResolver.Migrate(AppPaths.DefaultLocalRoot, AppPaths.RootDirectory);
         }
+
+        // The question is asked after the window is up, in the app's own dialog: a bare system
+        // folder picker before anything is drawn explains nothing and reads as a bug.
+        _storageChoicePending = plan.NeedsFolderChoice && !StorageResolver.IsForced;
     }
 
     /// <summary>
-    /// The first-run question. Cancelling is a valid answer: the run continues on the per-user
-    /// folder and the question comes back next time, because nothing was recorded.
+    /// The first-run question, shown once the main window exists. Cancelling is a valid answer:
+    /// the run continues on the per-user folder and the question returns next time, because
+    /// nothing was recorded.
     /// </summary>
-    private StoragePlan? AskForStorageFolder(StorageSettings settings)
+    private void OfferStorageFolder()
     {
+        if (!_storageChoicePending || _storageSettings is null || _mainWindow is null) { return; }
+        _storageChoicePending = false;
         try
         {
-            var dialog = new Microsoft.Win32.OpenFolderDialog
+            var wants = MessageDialog.Ask(
+                _mainWindow,
+                Loc.F("Storage_ExplainBody", AppPaths.DefaultLocalRoot),
+                Loc.T("Storage_ExplainTitle"),
+                Loc.T("Storage_ChooseButton"),
+                Loc.T("Storage_LaterButton"));
+            if (!wants) { return; }
+
+            var picker = new Microsoft.Win32.OpenFolderDialog
             {
                 Title = Loc.T("Storage_PickFolder"),
                 InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
             };
-            if (dialog.ShowDialog() != true) { return null; }
+            // Cancelling the picker leaves the run on the per-user folder without a second
+            // message: the user just said "not now", and scolding them for it is rude.
+            if (picker.ShowDialog() != true) { return; }
 
             // The picked folder is a home for the data, not the data itself: a subfolder keeps
             // our files apart from whatever else the user keeps there.
-            var root = AppPaths.ChosenRootFor(dialog.FolderName);
-            settings.ChosenRoot = root;
-            StorageSettingsStore.Save(settings);
-            return new StoragePlan(StorageMode.ChosenDirectory, root, false);
+            var root = AppPaths.ChosenRootFor(picker.FolderName);
+            _storageSettings.ChosenRoot = root;
+            StorageSettingsStore.Save(_storageSettings);
+            // The data this run already opened stays where it is; the next start uses the folder,
+            // and the copy happens then, so nothing is read while it is being moved.
+            StorageResolver.Migrate(AppPaths.DefaultLocalRoot, root);
+            MessageDialog.Notify(
+                _mainWindow,
+                Loc.F("Storage_ChosenBody", root),
+                Loc.T("Storage_ExplainTitle"));
         }
         catch (Exception exception)
         {
             AppLogger.Warning("storage", $"Could not ask for a storage folder: {exception.Message}");
-            return null;
         }
     }
 

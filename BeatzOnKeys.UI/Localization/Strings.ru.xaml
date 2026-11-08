@@ -63,6 +63,11 @@
     <sys:String x:Key="L_TabSettings">Настройки</sys:String>
     <sys:String x:Key="L_SourceLocal">локально</sys:String>
     <sys:String x:Key="L_SourceYouTube">YouTube</sys:String>
+    <sys:String x:Key="Storage_ExplainTitle">Где хранить данные?</sys:String>
+    <sys:String x:Key="Storage_ExplainBody">BeatzOnKeys запущена из папки, где держать данные не стоит (например, с рабочего стола). Выберите папку — программа создаст в ней BeatzOnKeys и будет хранить там настройки, логи, кеш YouTube и обновления. Если не выбрать сейчас, данные останутся в {0}, а вопрос вернётся при следующем запуске.</sys:String>
+    <sys:String x:Key="Storage_ChooseButton">Выбрать папку…</sys:String>
+    <sys:String x:Key="Storage_LaterButton">Не сейчас</sys:String>
+    <sys:String x:Key="Storage_ChosenBody">Готово: данные будут храниться в {0}. Текущий сеанс продолжает работать как раньше, новый путь вступит в силу после перезапуска.</sys:String>
     <sys:String x:Key="Storage_PickFolder">Выберите папку для данных BeatzOnKeys</sys:String>
     <sys:String x:Key="About_TelegramChannel">Канал программы</sys:String>
     <sys:String x:Key="About_TelegramAuthor">Автор</sys:String>

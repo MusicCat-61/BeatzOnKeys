@@ -63,6 +63,11 @@
     <sys:String x:Key="L_TabSettings">Settings</sys:String>
     <sys:String x:Key="L_SourceLocal">local</sys:String>
     <sys:String x:Key="L_SourceYouTube">YouTube</sys:String>
+    <sys:String x:Key="Storage_ExplainTitle">Where should the data live?</sys:String>
+    <sys:String x:Key="Storage_ExplainBody">BeatzOnKeys was started from a folder that should not hold its data, such as the desktop. Pick a folder and the program will create BeatzOnKeys inside it for settings, logs, the YouTube cache and updates. If you skip this now, the data stays in {0} and the question returns on the next start.</sys:String>
+    <sys:String x:Key="Storage_ChooseButton">Choose a folder…</sys:String>
+    <sys:String x:Key="Storage_LaterButton">Not now</sys:String>
+    <sys:String x:Key="Storage_ChosenBody">Done: the data will live in {0}. This session keeps running as before; the new location takes effect after a restart.</sys:String>
     <sys:String x:Key="Storage_PickFolder">Choose a folder for BeatzOnKeys data</sys:String>
     <sys:String x:Key="About_TelegramChannel">Program channel</sys:String>
     <sys:String x:Key="About_TelegramAuthor">Author</sys:String>

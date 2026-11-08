@@ -38,9 +38,18 @@ public partial class MessageDialog : Window
     }
 
     /// <summary>Asks a yes/no question; returns true only for the confirming button.</summary>
-    public static bool Ask(Window? owner, string message, string title)
+    public static bool Ask(Window? owner, string message, string title) =>
+        Ask(owner, message, title, null, null);
+
+    /// <summary>
+    /// The same question with labels of its own. A dialog that asks for a folder needs a button
+    /// that says so, not a generic "Yes".
+    /// </summary>
+    public static bool Ask(Window? owner, string message, string title, string? yesLabel, string? noLabel)
     {
         var dialog = new MessageDialog(message, title, showYesNo: true);
+        if (!string.IsNullOrWhiteSpace(yesLabel)) { dialog.BtnYes.Content = yesLabel; }
+        if (!string.IsNullOrWhiteSpace(noLabel)) { dialog.BtnNo.Content = noLabel; }
         dialog.Run(owner);
         return dialog._result;
     }

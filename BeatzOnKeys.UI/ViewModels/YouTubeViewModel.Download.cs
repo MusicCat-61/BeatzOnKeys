@@ -284,7 +284,7 @@ public sealed partial class YouTubeViewModel
     private void Preview(YouTubeSearchItemViewModel item)
     {
         if (!item.CanPlay) { return; }
-        PlayRequested?.Invoke(item.CachedPath!, item.Title);
+        PlayRequested?.Invoke(item.CachedPath!, item.Title, true);
         StatusText = Loc.F("L_YtPreviewingFormat", item.Title);
     }
 

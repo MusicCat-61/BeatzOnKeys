@@ -206,6 +206,9 @@
     <sys:String x:Key="L_YtCacheUsedFormat">Занято треками: {0}</sys:String>
     <sys:String x:Key="L_YtClearCache">Очистить кеш YouTube</sys:String>
     <sys:String x:Key="L_YtClearCacheConfirm">Удалить все скачанные треки YouTube? Локальный плейлист не пострадает.</sys:String>
+    <sys:String x:Key="L_YtClearSearchCacheConfirm">Удалить кеш поиска? Скачанные треки останутся.</sys:String>
+    <sys:String x:Key="L_YtClearDownloadedConfirm">Удалить все скачанные треки? Кеш поиска и локальный плейлист не пострадают.</sys:String>
+    <sys:String x:Key="L_YtDownloadedCleared">Скачанные треки удалены</sys:String>
     <sys:String x:Key="L_YtClearCacheTitle">Очистить кеш</sys:String>
     <sys:String x:Key="L_YtCacheCleared">Кеш очищен</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Открыть папку с музыкой</sys:String>
@@ -249,7 +252,7 @@
     <sys:String x:Key="L_ZapretOpen">Открыть Zapret2UI</sys:String>
     <sys:String x:Key="Guide_SecYouTube">YouTube</sys:String>
     <sys:String x:Key="Guide_YouTubeSearchT">Поиск и скачивание</sys:String>
-    <sys:String x:Key="Guide_YouTubeSearchX">Вкладка «YouTube» в заголовке окна. Введите название и нажмите «Найти» — появится до 10 результатов. Кнопка «Добавить» рядом с результатом сохраняет трек в постоянный список. Если вставить ссылку на видео, кнопка справа от поля станет «Скачать» и скачает её сразу, без поиска. Предпросмотр и скачанные треки играют полностью: пауза по простою на них не действует.</sys:String>
+    <sys:String x:Key="Guide_YouTubeSearchX">Вкладка «YouTube» в заголовке окна. Введите название и нажмите «Найти» — появится до 10 результатов. Кнопка «Добавить» рядом с результатом сохраняет трек в постоянный список. Если вставить ссылку на видео, кнопка справа от поля станет «Скачать» и скачает её сразу, без поиска. Предпросмотр в поиске играет полностью: пауза по простою на него не действует. Скачанные треки паузу соблюдают.</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadT">Прямые ссылки и ограничения</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadX">Кнопка «Добавить» на строке результата становится активной только после того, как трек закеширован, и переносит его в список скачанных. До этого момента нажимать нечего: файла ещё нет.</sys:String>
     <sys:String x:Key="Guide_YouTubeCacheT">Кеш и папка</sys:String>

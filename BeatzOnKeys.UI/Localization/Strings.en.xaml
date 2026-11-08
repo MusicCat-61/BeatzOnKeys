@@ -206,6 +206,9 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtCacheUsedFormat">Kept tracks: {0}</sys:String>
     <sys:String x:Key="L_YtClearCache">Clear the YouTube cache</sys:String>
     <sys:String x:Key="L_YtClearCacheConfirm">Delete every downloaded YouTube track? The local playlist is not affected.</sys:String>
+    <sys:String x:Key="L_YtClearSearchCacheConfirm">Delete the search cache? Downloaded tracks stay.</sys:String>
+    <sys:String x:Key="L_YtClearDownloadedConfirm">Delete all downloaded tracks? The search cache and the local playlist stay.</sys:String>
+    <sys:String x:Key="L_YtDownloadedCleared">Downloaded tracks deleted</sys:String>
     <sys:String x:Key="L_YtClearCacheTitle">Clear the cache</sys:String>
     <sys:String x:Key="L_YtCacheCleared">The cache is empty</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Open the music folder</sys:String>
@@ -249,7 +252,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_ZapretOpen">Open Zapret2UI</sys:String>
     <sys:String x:Key="Guide_SecYouTube">YouTube</sys:String>
     <sys:String x:Key="Guide_YouTubeSearchT">Search and download</sys:String>
-    <sys:String x:Key="Guide_YouTubeSearchX">The YouTube tab in the window title. Type a name and press Search for up to 10 results. The Add button next to a result keeps the track in your saved list. Paste a video link and the button beside the field becomes Download and fetches it directly, without searching. Previews and downloaded tracks play in full: idle pausing does not apply to them.</sys:String>
+    <sys:String x:Key="Guide_YouTubeSearchX">The YouTube tab in the window title. Type a name and press Search for up to 10 results. The Add button next to a result keeps the track in your saved list. Paste a video link and the button beside the field becomes Download and fetches it directly, without searching. A search preview plays in full: idle pausing does not apply to it. Downloaded tracks keep the pause.</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadT">Links and limits</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadX">The Add button on a result row becomes active only once the track is cached, and then moves it into the downloaded list. Before that there is nothing to press: the file does not exist yet.</sys:String>
     <sys:String x:Key="Guide_YouTubeCacheT">Cache and folder</sys:String>

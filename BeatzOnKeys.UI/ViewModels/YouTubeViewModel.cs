@@ -81,16 +81,14 @@ public sealed partial class YouTubeViewModel : ObservableObject
             item => item is { CanDownload: true } && CanStartAnotherDownload);
         InstallYtDlpCommand = new AsyncRelayCommand(InstallYtDlpAsync, () => !IsInstalling);
         PlayCommand = new RelayCommand<YouTubeTrackViewModel>(
-            track => { if (track is not null) { PlayRequested?.Invoke(track.CachedPath, track.Title); } },
+            track => { if (track is not null) { PlayRequested?.Invoke(track.CachedPath, track.Title, false); } },
             track => track is { CanPlay: true });
         RemoveCachedCommand = new RelayCommand<YouTubeTrackViewModel>(RemoveCached, track => track is not null);
-                // Preview caching fills the folder without adding rows, so the button must look at the
-        // measured size too; otherwise a cache of search results could never be cleared.
-        ClearCacheCommand = new RelayCommand(() => _ = ClearCacheAsync(),
-            () => !IsBusy && (Downloaded.Count > 0 || _cacheBytes > 0));
-        RefreshCacheCommand = new RelayCommand(() => _ = RefreshCacheSizeAsync());
         // Two different caches live in one folder: previews made by the search, and the tracks the
-        // user chose to keep. Each tab clears only its own share.
+        // user chose to keep. Each button clears only its own share, so neither surprises the other.
+        ClearDownloadedCommand = new RelayCommand(() => _ = ClearDownloadedAsync(),
+            () => !IsBusy && Downloaded.Count > 0);
+        RefreshCacheCommand = new RelayCommand(() => _ = RefreshCacheSizeAsync());
         ClearSearchCacheCommand = new RelayCommand(() => _ = ClearSearchCacheAsync(),
             () => !IsBusy && _searchCacheBytes > 0);
         OpenMusicFolderCommand = new RelayCommand(() => OpenMusicFolderRequested?.Invoke());
@@ -105,8 +103,17 @@ public sealed partial class YouTubeViewModel : ObservableObject
         RefreshBinaryState();
     }
 
-    /// <summary>Raised when the user asks to listen to a cached file; the window plays it.</summary>
-    public event Action<string, string>? PlayRequested;
+    /// <summary>
+    /// Raised when the user asks to listen to a cached file; the window plays it. The flag marks
+    /// a search preview, which is the one case where the idle pause stands aside.
+    /// </summary>
+    public event Action<string, string, bool>? PlayRequested;
+
+    /// <summary>
+    /// Asks the user to confirm a destructive step. Both clear buttons go through it, so neither
+    /// deletes silently; the window owns the dialog, the view model only asks the question.
+    /// </summary>
+    public Func<string, string, bool>? ConfirmRequested { get; set; }
 
     /// <summary>
     /// The section has two inner tabs. Search is the default because that is what the user opens
@@ -146,7 +153,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
     public AsyncRelayCommand InstallYtDlpCommand { get; }
     public RelayCommand<YouTubeTrackViewModel> PlayCommand { get; }
     public RelayCommand<YouTubeTrackViewModel> RemoveCachedCommand { get; }
-    public RelayCommand ClearCacheCommand { get; }
+    public RelayCommand ClearDownloadedCommand { get; }
     public RelayCommand RefreshCacheCommand { get; }
     public RelayCommand ClearSearchCacheCommand { get; }
     public RelayCommand OpenMusicFolderCommand { get; }
@@ -514,6 +521,12 @@ public sealed partial class YouTubeViewModel : ObservableObject
     /// <summary>Removes only the preview files; kept tracks and their rows stay untouched.</summary>
     public async Task ClearSearchCacheAsync()
     {
+        if (ConfirmRequested is { } confirm &&
+            !confirm(Loc.T("L_YtClearSearchCacheConfirm"), Loc.T("L_YtClearCacheTitle")))
+        {
+            return;
+        }
+
         try
         {
             await _service.DeleteFilesAsync(OrphanedCacheFiles(), _lifetime.Token).ConfigureAwait(true);
@@ -532,16 +545,31 @@ public sealed partial class YouTubeViewModel : ObservableObject
         await RefreshSearchCacheSizeAsync().ConfigureAwait(true);
         RefreshCommands();
     }
-    /// <summary>Deletes the cached files and forgets the rows; the local playlist is untouched.</summary>
-    public async Task ClearCacheAsync()
+    /// <summary>
+    /// Removes the kept tracks and their rows; the previews and the local playlist stay. The whole
+    /// folder is not wiped here: each button owns its own share, so neither surprises the other.
+    /// </summary>
+    public async Task ClearDownloadedAsync()
     {
+        if (ConfirmRequested is { } confirm &&
+            !confirm(Loc.T("L_YtClearDownloadedConfirm"), Loc.T("L_YtClearCacheTitle")))
+        {
+            return;
+        }
+
+        var files = Downloaded
+            .Select(track => track.CachedPath)
+            .Where(path => !string.IsNullOrEmpty(path))
+            .Select(path => path!)
+            .ToList();
         try
         {
-            await _service.ClearCacheAsync(_lifetime.Token).ConfigureAwait(true);
+            await _service.DeleteFilesAsync(files, _lifetime.Token).ConfigureAwait(true);
         }
+        catch (OperationCanceledException) { return; }
         catch (Exception exception)
         {
-            AppLogger.Error("youtube", "Could not clear the YouTube cache.", exception);
+            AppLogger.Error("youtube", "Could not clear the downloaded tracks.", exception);
             _userMessage(Loc.F("L_YtErrorDetailsFormat", exception.Message));
             return;
         }
@@ -551,13 +579,18 @@ public sealed partial class YouTubeViewModel : ObservableObject
         NotifyCountChanged();
         _requestSave();
         RefreshPositions();
-        Results.Clear();
-        _requestSave();
+        // A search row can point at a file that was just removed; the row must stop offering to
+        // play something that is no longer there.
+        foreach (var item in Results)
+        {
+            if (item.CachedPath is { } path && !File.Exists(path)) { item.CachedPath = null; }
+        }
+
         await RefreshCacheSizeAsync().ConfigureAwait(true);
-        StatusText = Loc.T("L_YtCacheCleared");
+        await RefreshSearchCacheSizeAsync().ConfigureAwait(true);
+        StatusText = Loc.T("L_YtDownloadedCleared");
         RefreshCommands();
         OnPropertyChanged(nameof(HasDownloaded));
-        OnPropertyChanged(nameof(HasResults));
     }
 
     private void RemoveCached(YouTubeTrackViewModel? track)
@@ -734,7 +767,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
         InstallYtDlpCommand.NotifyCanExecuteChanged();
         PreviewCommand.NotifyCanExecuteChanged();
         PlayCommand.NotifyCanExecuteChanged();
-        ClearCacheCommand.NotifyCanExecuteChanged();
+        ClearDownloadedCommand.NotifyCanExecuteChanged();
     }
 
     public void Dispose()

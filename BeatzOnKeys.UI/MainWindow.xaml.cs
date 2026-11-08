@@ -34,6 +34,10 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         viewModel.FilePickerRequested += OpenFilePicker;
         viewModel.UserMessageRequested += ShowUserMessage;
+        // The view model knows which button deletes what; the window owns the dialog, so both
+        // clear buttons ask the same question in the same place.
+        viewModel.YouTube.ConfirmRequested =
+            (message, title) => MessageDialog.Ask(this, message, title);
         Theme.Changed += OnThemeChanged;
         Loaded += (_, _) => FitToContent();
         viewModel.FitRequested += FitToContent;
@@ -467,15 +471,6 @@ public partial class MainWindow : Window
         {
             BeatzOnKeys.Core.Services.AppLogger.Error("ui", "Could not open the Zapret2UI page.", exception);
         }
-    }
-
-    private async void YouTubeClearCacheClick(object sender, RoutedEventArgs eventArgs)
-    {
-        if (!ViewModel.YouTube.ClearCacheCommand.CanExecute(null)) { return; }
-        var answer = MessageDialog.Ask(this, Loc.T("L_YtClearCacheConfirm"), Loc.T("L_YtClearCacheTitle"));
-        if (!answer) { return; }
-        try { await ViewModel.YouTube.ClearCacheAsync().ConfigureAwait(true); }
-        catch (Exception exception) { AppLogger.Error("youtube", "Clearing the cache failed.", exception); }
     }
 
     // ---- Playlist drag-and-drop -------------------------------------------------------------

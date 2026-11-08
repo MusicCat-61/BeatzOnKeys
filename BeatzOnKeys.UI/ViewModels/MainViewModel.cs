@@ -27,9 +27,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     // leaving the user guessing where the sound came from.
     private readonly HashSet<Guid> _youTubeTracks = [];
     /// <summary>
-    /// True while a YouTube track is playing, which suspends the idle pause: a preview is the user
-    /// asking to hear the track properly, not the typing background this setting exists for.
+    /// The search preview currently playing, if any. Only a preview suspends the idle pause: the
+    /// user asked to hear that track properly. A downloaded track from the list is ordinary
+    /// listening, so the pause keeps working there.
     /// </summary>
+    private Guid? _previewTrackId;
     private bool _idlePauseSuppressed;
     private string _playingTrackText = string.Empty;
     private string _playingSourceText = string.Empty;
@@ -314,7 +316,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     /// </summary>
     private void SyncIdlePauseFor(PlaybackTrack? playing)
     {
-        var suppressed = playing is not null && _youTubeTracks.Contains(playing.Id);
+        var suppressed = playing is not null && playing.Id == _previewTrackId;
         if (suppressed == _idlePauseSuppressed) { return; }
         _idlePauseSuppressed = suppressed;
         SyncIdlePause();
@@ -641,7 +643,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
                 : YouTube.Downloaded.FirstOrDefault(item => item.CanPlay);
             if (cached is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
             YouTube.SelectTrack(cached);
-            await PlayYouTubeAsync(cached.CachedPath, cached.Title).ConfigureAwait(true);
+            await PlayYouTubeAsync(cached.CachedPath, cached.Title, isPreview: false).ConfigureAwait(true);
             return;
         }
 
@@ -951,9 +953,10 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         YouTubeServiceFactory?.Invoke() ?? new(new YtDlpBinaryManager(), new YouTubeProcessRunner());
 
     /// <summary>Plays a cached YouTube file through the same player, without touching the playlist.</summary>
-    private void OnYouTubePlayRequested(string path, string title) => _ = PlayYouTubeAsync(path, title);
+    private void OnYouTubePlayRequested(string path, string title, bool isPreview) =>
+        _ = PlayYouTubeAsync(path, title, isPreview);
 
-    private async Task PlayYouTubeAsync(string path, string title)
+    private async Task PlayYouTubeAsync(string path, string title, bool isPreview)
     {
         try
         {
@@ -963,8 +966,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             // The controller holds the playback order; a YouTube file joins it for this run only,
             // and Reorder keeps it at the end when the local playlist changes.
             _playbackController.UpsertTrack(playback);
-            // Suspended before the first note: otherwise a short idle time would already be armed.
-            SyncIdlePauseFor(playback);
+            // The preview is remembered before the first note, so a short idle time cannot be armed
+            // and fire a moment later; a downloaded track clears it and keeps the pause working.
+            _previewTrackId = isPreview ? playback.Id : null;
             if (!_typingPlayback.SelectTrack(playback.Id, restart: true)) { return; }
             if (!IsRunning)
             {

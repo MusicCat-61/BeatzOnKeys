@@ -1420,7 +1420,45 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("youtube.playsWithoutPlaylistEntry", vm.IsRunning && player.IsPlaying && vm.Tracks.Count == 0 &&
             vm.NowPlayingText.Contains("Cached fixture", StringComparison.Ordinal),
             $"Running={vm.IsRunning}, playing={player.IsPlaying}, playlist={vm.Tracks.Count}, now='{vm.NowPlayingText}'.");
+        // The idle pause is a typing-background feature. A downloaded track keeps it; only the
+        // search preview stands aside. The player is watched past the timeout to prove the pause
+        // really fires here, which is the opposite of the preview check above.
+        await UntilAsync(() => player.IsIdlePaused, (int)(vm.IdleTimeout * 1000) + 4000, "downloaded idle pause");
+        Check("youtube.downloadedKeepsIdlePause", player.IsIdlePaused && vm.PauseOnIdle,
+            $"idlePaused={player.IsIdlePaused}, setting={vm.PauseOnIdle}, running={vm.IsRunning}.");
         await StopAsync(vm);
+
+        // The two clear buttons own separate shares and both ask first. A preview is created here
+        // so the split can be observed: clearing the downloaded tracks must leave the previews.
+        SmokeYouTubeBinaries.YtDlpPresent = true;
+        vm.YouTube.RefreshBinaryState();
+        vm.YouTube.SearchQuery = "clear split test";
+        vm.YouTube.SearchCommand.Execute(null);
+        await UntilAsync(() => vm.YouTube.Results.Count == 2, 8000, "clear split results");
+        await UntilAsync(() => vm.YouTube.Results.All(item => item.CanPlay), 20000, "clear split cached");
+        var keptBefore = vm.YouTube.Downloaded.Count;
+        var asked = false;
+        vm.YouTube.ConfirmRequested = (_, _) => { asked = true; return false; };
+        await vm.YouTube.ClearDownloadedAsync();
+        Check("youtube.clearAsksFirst", asked && vm.YouTube.Downloaded.Count == keptBefore,
+            $"asked={asked}, rows={vm.YouTube.Downloaded.Count} of {keptBefore}.");
+
+        vm.YouTube.ConfirmRequested = (_, _) => true;
+        await vm.YouTube.ClearDownloadedAsync();
+        Check("youtube.clearDownloadedKeepsPreviews",
+            vm.YouTube.Downloaded.Count == 0 && vm.YouTube.Results.All(item => item.CanPlay),
+            $"rows={vm.YouTube.Downloaded.Count}, previews playable={vm.YouTube.Results.Count(item => item.CanPlay)} of {vm.YouTube.Results.Count}.");
+        Check("youtube.clearDownloadedFollowsRows", !vm.YouTube.ClearDownloadedCommand.CanExecute(null),
+            "With no rows left the button must go quiet.");
+
+        await vm.YouTube.ClearSearchCacheAsync();
+        Check("youtube.clearSearchLeavesNothing", vm.YouTube.Results.All(item => !item.CanPlay),
+            $"playable left={vm.YouTube.Results.Count(item => item.CanPlay)}.");
+        vm.YouTube.ConfirmRequested = null;
+        vm.YouTube.SearchQuery = string.Empty;
+        vm.YouTube.Results.Clear();
+        SmokeYouTubeBinaries.YtDlpPresent = false;
+        vm.YouTube.RefreshBinaryState();
 
         // The page switch must really swap the rendered content, so it runs on the window's own
         // view model and is undone afterwards, keeping the rest of the suite on the playlist page.

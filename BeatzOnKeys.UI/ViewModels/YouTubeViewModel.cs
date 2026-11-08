@@ -183,6 +183,12 @@ public sealed partial class YouTubeViewModel : ObservableObject
 
     public long CacheBytes => _cacheBytes;
 
+    /// <summary>
+    /// The real cache folder, not a hardcoded one: the root follows the storage mode now, so a
+    /// fixed "%LOCALAPPDATA%" hint would lie as soon as the data moved anywhere else.
+    /// </summary>
+    public string CacheHintText => Loc.F("L_YtCacheHint", AppPaths.MusicDirectory);
+
     /// <summary>Space the previews take; reported on its own line.</summary>
     public long SearchCacheBytes => _searchCacheBytes;
 
@@ -474,6 +480,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
     {
         if (!await MeasureSearchCacheAsync().ConfigureAwait(true)) { return; }
         OnPropertyChanged(nameof(SearchCacheSizeText));
+        OnPropertyChanged(nameof(CacheHintText));
         ClearSearchCacheCommand.NotifyCanExecuteChanged();
     }
 

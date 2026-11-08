@@ -139,7 +139,7 @@ public partial class App : System.Windows.Application
             _mainWindow.Show();
             _mainWindow.Activate();
             // Asked after the window is up, so the question has context and a theme.
-            OfferStorageFolder();
+            await OfferStorageFolderAsync().ConfigureAwait(true);
             // Hiding the window must not end the process; only an explicit exit does.
             ShutdownMode = ShutdownMode.OnLastWindowClose;
             NotifyStartupHints();
@@ -449,7 +449,7 @@ public partial class App : System.Windows.Application
     /// the run continues on the per-user folder and the question returns next time, because
     /// nothing was recorded.
     /// </summary>
-    private void OfferStorageFolder()
+    private async Task OfferStorageFolderAsync()
     {
         if (!_storageChoicePending || _storageSettings is null || _mainWindow is null) { return; }
         _storageChoicePending = false;
@@ -477,18 +477,60 @@ public partial class App : System.Windows.Application
             var root = AppPaths.ChosenRootFor(picker.FolderName);
             _storageSettings.ChosenRoot = root;
             StorageSettingsStore.Save(_storageSettings);
-            // The data this run already opened stays where it is; the next start uses the folder,
-            // and the copy happens then, so nothing is read while it is being moved.
+            // The data this run already opened stays where it is; the copy happens now so the
+            // restart finds everything ready.
             StorageResolver.Migrate(AppPaths.DefaultLocalRoot, root);
+
+            // The running session cannot switch roots under itself, so the only honest button is
+            // one that restarts the program.
             MessageDialog.Notify(
                 _mainWindow,
                 Loc.F("Storage_ChosenBody", root),
-                Loc.T("Storage_ExplainTitle"));
+                Loc.T("Storage_ExplainTitle"),
+                Loc.T("Storage_RestartButton"));
+            await RestartApplicationAsync().ConfigureAwait(true);
         }
         catch (Exception exception)
         {
             AppLogger.Warning("storage", $"Could not ask for a storage folder: {exception.Message}");
         }
+    }
+
+    /// <summary>
+    /// Starts a fresh copy and exits this one. The new process waits a moment in a detached shell:
+    /// otherwise it would find this copy still holding the single-instance mutex and the audio
+    /// device, signal it, and quit.
+    /// </summary>
+    private async Task RestartApplicationAsync()
+    {
+        var executable = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(executable) || !File.Exists(executable))
+        {
+            AppLogger.Warning("ui", "Cannot restart: the executable path is unknown.");
+            await ExitApplicationAsync().ConfigureAwait(true);
+            return;
+        }
+
+        try
+        {
+            _singleInstance?.Dispose();
+            _singleInstance = null;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c timeout /t 2 /nobreak >nul & start \"\" \"{executable}\"",
+                CreateNoWindow = true,
+                UseShellExecute = false,
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+            });
+            AppLogger.Info("ui", "Restarting to use the new data folder.");
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error("ui", "Could not schedule the restart.", exception);
+        }
+
+        await ExitApplicationAsync().ConfigureAwait(true);
     }
 
     private async Task CheckForUpdatesSilentlyAsync(CancellationToken cancellationToken)

@@ -67,7 +67,8 @@
     <sys:String x:Key="Storage_ExplainBody">BeatzOnKeys was started from a folder that should not hold its data, such as the desktop. Pick a folder and the program will create BeatzOnKeys inside it for settings, logs, the YouTube cache and updates. If you skip this now, the data stays in {0} and the question returns on the next start.</sys:String>
     <sys:String x:Key="Storage_ChooseButton">Choose a folder…</sys:String>
     <sys:String x:Key="Storage_LaterButton">Not now</sys:String>
-    <sys:String x:Key="Storage_ChosenBody">Done: the data will live in {0}. This session keeps running as before; the new location takes effect after a restart.</sys:String>
+    <sys:String x:Key="Storage_ChosenBody">Done: the data will live in {0}. The program has to restart to use the new folder, which happens as soon as you press the button.</sys:String>
+    <sys:String x:Key="Storage_RestartButton">Restart</sys:String>
     <sys:String x:Key="Storage_PickFolder">Choose a folder for BeatzOnKeys data</sys:String>
     <sys:String x:Key="About_TelegramChannel">Program channel</sys:String>
     <sys:String x:Key="About_TelegramAuthor">Author</sys:String>
@@ -209,7 +210,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Open the music folder</sys:String>
     <sys:String x:Key="L_YtCacheEnabled">Cache tracks</sys:String>
     <sys:String x:Key="L_YtQueryProgressFormat">Downloading: {0}%</sys:String>
-    <sys:String x:Key="L_YtCacheHint">Files live in %LOCALAPPDATA%\BeatzOnKeys\Music and survive a reinstall.</sys:String>
+    <sys:String x:Key="L_YtCacheHint">Files live in {0} and survive a reinstall.</sys:String>
     <sys:String x:Key="L_YtSettingsTitle">yt-dlp</sys:String>
     <sys:String x:Key="L_YtInstall">Download/Update yt-dlp</sys:String>
     <sys:String x:Key="L_YtInstalledFormat">yt-dlp is installed: {0}</sys:String>

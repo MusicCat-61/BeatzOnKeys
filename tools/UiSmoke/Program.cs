@@ -158,14 +158,14 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             // The folder question is asked in the app's own dialog, so its text must be translated:
             // a missing key once surfaced as a raw "Storage_PickFolder" in a title bar.
             var storageKeys = new[] { "Storage_ExplainTitle", "Storage_ExplainBody", "Storage_ChooseButton",
-                "Storage_LaterButton", "Storage_ChosenBody", "Storage_PickFolder" };
+                "Storage_LaterButton", "Storage_ChosenBody", "Storage_PickFolder", "Storage_RestartButton" };
             var unresolvedStorage = storageKeys.Where(key => Loc.T(key) == key).ToArray();
             // With the mode pinned the question must stay off, or a headless run would hang on a
             // dialog nobody can answer.
             // The question method existed but was never called, so the prompt silently never
             // appeared. Calling it here proves it runs and returns at once when nothing is pending.
-            Invoke(app, "OfferStorageFolder");
-            Check("storage.questionMethodRuns", typeof(App).GetMethod("OfferStorageFolder",
+            Invoke(app, "OfferStorageFolderAsync");
+            Check("storage.questionMethodRuns", typeof(App).GetMethod("OfferStorageFolderAsync",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic) is not null &&
                 GetField<bool>(app, "_storageChoicePending") == false,
                 "OfferStorageFolder is present and does nothing while the mode is pinned.");
@@ -1216,6 +1216,12 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         await SettleAsync();
 
         // The downloaded tab carries the same counter as the local list and a chip per row.
+        // The cache hint used to be a hardcoded %LOCALAPPDATA% path; with a movable root it must
+        // read the folder the app is actually using.
+        Check("storage.cacheHintUsesRealPath",
+            vm.YouTube.CacheHintText.Contains(AppPaths.MusicDirectory, StringComparison.OrdinalIgnoreCase) &&
+            !vm.YouTube.CacheHintText.Contains("%LOCALAPPDATA%", StringComparison.Ordinal),
+            $"Hint='{vm.YouTube.CacheHintText}', MusicDirectory='{AppPaths.MusicDirectory}'.");
         Check("youtube.downloadedCounter", vm.YouTube.TrackCount == 2 && vm.YouTube.TrackCountNumber == "2",
             $"TrackCount={vm.YouTube.TrackCount}, text='{vm.YouTube.TrackCountNumber}'.");
         Check("youtube.statusChips", vm.YouTube.Downloaded.All(track => track.IsChipReady) &&

@@ -55,9 +55,14 @@ public partial class MessageDialog : Window
     }
 
     /// <summary>Shows a single-button notice.</summary>
-    public static void Notify(Window? owner, string message, string title)
+    public static void Notify(Window? owner, string message, string title) =>
+        Notify(owner, message, title, null);
+
+    /// <summary>A single-button notice whose button says what happens next.</summary>
+    public static void Notify(Window? owner, string message, string title, string? okLabel)
     {
         var dialog = new MessageDialog(message, title, showYesNo: false);
+        if (!string.IsNullOrWhiteSpace(okLabel)) { dialog.BtnYes.Content = okLabel; }
         dialog.Run(owner);
     }
 

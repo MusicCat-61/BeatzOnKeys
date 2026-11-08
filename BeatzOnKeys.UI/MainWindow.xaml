@@ -1685,7 +1685,7 @@
                                  Style="{StaticResource InputBoxStyle}"
                                  AutomationProperties.Name="{DynamicResource L_TikTokInputHint}"/>
                     </DockPanel>
-                    <TextBlock Text="{DynamicResource L_TikTokSearchHint}" FontSize="14" TextWrapping="Wrap"
+                    <TextBlock Text="{DynamicResource L_TikTokSearchHint}" FontSize="16" TextWrapping="Wrap"
                                Margin="0,10,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <ProgressBar Value="{Binding TikTok.Progress, Mode=OneWay}" Maximum="1" Height="4"
                                  Margin="0,10,0,0">
@@ -1727,7 +1727,7 @@
                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding TikTok.CacheSizeText}" FontSize="14.5"
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <TextBlock Text="{Binding TikTok.CacheHintText}" FontSize="12.5" Margin="0,4,0,0"
+                        <TextBlock Text="{Binding TikTok.CacheHintText}" FontSize="14.5" Margin="0,4,0,0"
                                    TextTrimming="CharacterEllipsis"
                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
                     </StackPanel>
@@ -1751,9 +1751,10 @@
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="{DynamicResource L_TikTokTracksTitle}" FontSize="15" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
-                        <Border Background="{DynamicResource OverlayBrush}" CornerRadius="9" Padding="7,1"
-                                Margin="8,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding TikTok.TrackCountNumber}" FontSize="11.5"
+                        <Border Margin="10,0,0,0" Height="26" MinWidth="26" CornerRadius="13"
+                                Background="{DynamicResource DropAreaBrush}"
+                                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+                            <TextBlock Text="{Binding TikTok.TrackCountNumber}" FontSize="15"
                                        FontWeight="SemiBold" HorizontalAlignment="Center"
                                        VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                         </Border>
@@ -1818,7 +1819,7 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock Grid.Row="1" Text="{DynamicResource L_TikTokEmpty}" FontSize="13"
+                    <TextBlock Grid.Row="1" Text="{DynamicResource L_TikTokEmpty}" FontSize="15"
                                TextWrapping="Wrap" VerticalAlignment="Top" Margin="0,10,0,0"
                                Foreground="{DynamicResource TextTertiaryBrush}">
                         <TextBlock.Style>

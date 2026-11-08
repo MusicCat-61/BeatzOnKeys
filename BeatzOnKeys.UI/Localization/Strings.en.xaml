@@ -70,7 +70,7 @@
     <sys:String x:Key="Storage_ChosenBody">Done: the data will live in {0}. The program has to restart to use the new folder, which happens as soon as you press the button.</sys:String>
     <sys:String x:Key="Storage_RestartButton">Restart</sys:String>
     <sys:String x:Key="Storage_PickFolder">Choose a folder for BeatzOnKeys data</sys:String>
-    <sys:String x:Key="About_TelegramChannel">Program channel</sys:String>
+    <sys:String x:Key="About_TelegramChannel">Telegram channel</sys:String>
     <sys:String x:Key="About_TelegramAuthor">Author</sys:String>
     <sys:String x:Key="L_SelectedTrack">Selected track</sys:String>
     <sys:String x:Key="L_NoTrackSelected">Select an available track</sys:String>
@@ -199,10 +199,11 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_TikTokFailureTooLarge">The file is over 50 MB, which is more than we download.</sys:String>
     <sys:String x:Key="L_TikTokFailureTimeout">TikTok did not answer within two minutes. Try again.</sys:String>
     <sys:String x:Key="L_TikTokFailureDownload">Could not download. Check the link and try again.</sys:String>
-    <sys:String x:Key="L_TikTokFailureNetwork">The network will not reach TikTok: the connection keeps dropping.</sys:String>
+    <sys:String x:Key="L_TikTokFailureNetwork">The connection to TikTok broke. Try again in a minute.</sys:String>
+<sys:String x:Key="L_TikTokFailureRegion">TikTok will not serve this clip to your connection — that is its own restriction. Another network may open it.</sys:String>
     <sys:String x:Key="L_TikTokFailureChallenge">TikTok asked for a check this program could not pass. Try again in a minute.</sys:String>
-    <sys:String x:Key="L_TikTokNetworkTitle">Your provider is blocking TikTok</sys:String>
-    <sys:String x:Key="L_TikTokNetworkBody">The connection to TikTok keeps dropping, which is how providers usually restrict access. BeatzOnKeys does not bundle a workaround: that needs administrator rights. We recommend Zapret2UI. ⚠️ Circumvention tools are meant for research and education. Use them in line with the law where you live.</sys:String>
+    <sys:String x:Key="L_TikTokNetworkTitle">The connection to TikTok keeps breaking</sys:String>
+    <sys:String x:Key="L_TikTokNetworkBody">TikTok did not answer, or the connection broke halfway. It does not happen with every clip: wait a minute and try again. If it keeps happening, try another internet connection.</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Track name or a YouTube link</sys:String>
     <sys:String x:Key="L_YtSearch">Search</sys:String>
     <sys:String x:Key="L_YtDownloadLink">Add</sys:String>

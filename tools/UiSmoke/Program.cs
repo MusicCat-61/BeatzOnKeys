@@ -1080,6 +1080,14 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             ReferenceEquals(vm.SelectedTrack, first),
             $"{beforeMove.TotalSeconds:F2}s -> {player.Position.TotalSeconds:F2}s while the selected track moved down.");
 
+        // A click on a playlist row plays it, which is why the row needs no play button. Playing
+        // while the transport is already running must switch the track rather than restart it.
+        var clicked = vm.Tracks.Last();
+        await vm.PlayPlaylistTrackAsync(clicked);
+        await UntilAsync(() => ReferenceEquals(vm.SelectedTrack, clicked), 5000, "click plays the row");
+        Check("playlist.clickPlaysTheRow", vm.IsRunning && ReferenceEquals(vm.SelectedTrack, clicked),
+            $"Running={vm.IsRunning}; selected={vm.SelectedTrackText}.");
+
         // Removing the current track stops playback and selects the neighbour that takes its place.
         await UntilAsync(() => vm.RemoveTrackCommand.CanExecute(vm.SelectedTrack), 5000, "remove current track");
         vm.RemoveTrackCommand.Execute(vm.SelectedTrack);
@@ -1574,6 +1582,10 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 $"Title='{addedRow.Title}'.");
             Check("tiktok.rowShowsItsFormat", addedRow.Extension == "MP3",
                 $"Extension='{addedRow.Extension}'.");
+            // The card heading must never be blank: that empty line was what read as "the cache
+            // row disappeared", and it happened whenever the first measurement had not run yet.
+            Check("tiktok.cacheLabelIsNeverBlank", !string.IsNullOrWhiteSpace(tabs.TikTok.CacheSizeText),
+                $"CacheSizeText='{tabs.TikTok.CacheSizeText}'.");
             Check("tiktok.fileLivesInItsOwnFolder",
                 tabs.TikTok.Tracks[0].CachedPath.Contains("TikTok", StringComparison.OrdinalIgnoreCase),
                 tabs.TikTok.Tracks[0].CachedPath);

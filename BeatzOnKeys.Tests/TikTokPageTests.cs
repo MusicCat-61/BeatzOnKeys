@@ -115,6 +115,25 @@ public static class TikTokPageTests
         return Task.CompletedTask;
     }
 
+    public static Task ThePageStatusIsReadFromTiktokItself()
+    {
+        // The status lives in the page TikTok sends, and it is the difference between "the video is
+        // gone" and "TikTok will not show it from this connection".
+        const string blocked = "<html><script id=\"__UNIVERSAL_DATA_FOR_REHYDRATION__\" type=\"application/json\">" +
+            "{\"__DEFAULT_SCOPE__\":{\"webapp.video-detail\":{\"statusCode\":10204}}}</script></html>";
+        AssertEx.Equal(10204, TikTokAudioService.ReadPageStatus(blocked),
+            "TikTok's refusal code is read out of the page.");
+
+        const string healthy = "<html><script id=\"__UNIVERSAL_DATA_FOR_REHYDRATION__\" type=\"application/json\">" +
+            "{\"__DEFAULT_SCOPE__\":{\"webapp.video-detail\":{\"statusCode\":0,\"itemInfo\":{}}}}</script></html>";
+        AssertEx.Equal(0, TikTokAudioService.ReadPageStatus(healthy), "A served page reports zero.");
+
+        AssertEx.Equal(0, TikTokAudioService.ReadPageStatus("<html>nothing here</html>"),
+            "A page without the blob reports zero rather than failing.");
+        AssertEx.Equal(0, TikTokAudioService.ReadPageStatus(null), "A missing page reports zero.");
+        return Task.CompletedTask;
+    }
+
     private static (string Payload, long Nonce) BuildChallenge()
     {
         var salt = RandomNumberGenerator.GetBytes(32);

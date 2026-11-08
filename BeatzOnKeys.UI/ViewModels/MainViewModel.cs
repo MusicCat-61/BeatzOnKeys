@@ -721,14 +721,30 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
         var track = SelectedTrack is { IsAvailable: true } ? SelectedTrack : Tracks.FirstOrDefault(item => item.IsAvailable);
         if (track is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
+        await PlayPlaylistTrackAsync(track).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Играет строку локального плейлиста. Один вход для кнопки «Старт» и для клика по строке:
+    /// клик, как и в списках YouTube и TikTok, включает трек, а не только выделяет его.
+    /// </summary>
+    public async Task PlayPlaylistTrackAsync(TrackViewModel? track)
+    {
+        if (track is not { IsAvailable: true }) { return; }
         _changingPlayback = true;
         RefreshCommands();
         try
         {
             SelectedTrack = track;
             if (!_typingPlayback.SelectTrack(track.Id, restart: true)) { return; }
-            await _typingPlayback.StartAsync().ConfigureAwait(true);
-            IsRunning = _typingPlayback.IsRunning;
+            // Воспроизведение уже идёт — клик переключает трек, а не перезапускает всю сессию,
+            // поэтому StartAsync зовётся только когда транспорт стоит.
+            if (!IsRunning)
+            {
+                await _typingPlayback.StartAsync().ConfigureAwait(true);
+                IsRunning = _typingPlayback.IsRunning;
+            }
+
             IsPaused = false;
             _trackEnded = false;
             RefreshPlaybackProgress();

@@ -103,9 +103,14 @@ public sealed class TikTokViewModel : ObservableObject
 
     public string CacheSizeText
     {
-        get => _cacheSizeText;
+        // The label must never be blank: before the first measurement, or after a refresh that could
+        // not run, the card would otherwise lose its heading and look like a broken section.
+        get => string.IsNullOrEmpty(_cacheSizeText) ? ZeroCacheLabel() : _cacheSizeText;
         private set => SetProperty(ref _cacheSizeText, value);
     }
+
+    private static string ZeroCacheLabel() => Loc.F("L_TikTokCacheLabel",
+        ByteSizeFormatter.Format(0, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")));
 
     public double Progress
     {
@@ -368,26 +373,36 @@ public sealed class TikTokViewModel : ObservableObject
 
     public async Task RefreshCacheSizeAsync()
     {
-        var bytes = await Task.Run(() =>
+        try
         {
-            try
+            var bytes = await Task.Run(() =>
             {
-                if (!Directory.Exists(_options.MusicDirectory)) { return 0L; }
-                return Directory.EnumerateFiles(_options.MusicDirectory)
-                    .Where(path => !path.EndsWith(".part", StringComparison.OrdinalIgnoreCase))
-                    .Sum(path =>
-                    {
-                        try { return new FileInfo(path).Length; }
-                        catch (IOException) { return 0L; }
-                    });
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                return 0L;
-            }
-        }).ConfigureAwait(true);
-        CacheSizeText = Loc.F("L_TikTokCacheLabel",
-            ByteSizeFormatter.Format(bytes, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")));
+                try
+                {
+                    if (!Directory.Exists(_options.MusicDirectory)) { return 0L; }
+                    return Directory.EnumerateFiles(_options.MusicDirectory)
+                        .Where(path => !path.EndsWith(".part", StringComparison.OrdinalIgnoreCase))
+                        .Sum(path =>
+                        {
+                            try { return new FileInfo(path).Length; }
+                            catch (IOException) { return 0L; }
+                        });
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    return 0L;
+                }
+            }).ConfigureAwait(true);
+            CacheSizeText = Loc.F("L_TikTokCacheLabel",
+                ByteSizeFormatter.Format(bytes, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")));
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // Fire-and-forget callers cannot see this, and a section without its heading looks
+            // broken, so the label is restored rather than left as it was.
+            CacheSizeText = ZeroCacheLabel();
+            AppLogger.Warning("tiktok", $"Could not measure the TikTok cache: {exception.Message}");
+        }
     }
 
     public IReadOnlyList<YouTubeTrackState> ToStates() => Tracks.Select(track => track.State).ToList();

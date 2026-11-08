@@ -21,13 +21,20 @@ public enum TikTokFailure
     TooLarge = 8,
 
     /// <summary>
-    /// The network itself refused the request: a reset in the middle, or TikTok refusing this
-    /// address outright. Nothing the program does on its own fixes that, so it is its own kind.
+    /// The network itself refused the request: a reset in the middle, or a transfer that never
+    /// started. Nothing the program does on its own fixes that, so it is its own kind.
     /// </summary>
     NetworkBlocked = 9,
 
     /// <summary>The interception page appeared and its puzzle could not be solved in the budget.</summary>
-    ChallengeFailed = 10
+    ChallengeFailed = 10,
+
+    /// <summary>
+    /// TikTok answered with its own code 10204: the video exists, but this connection is not allowed
+    /// to see it. Nothing is broken and nobody is blocking the site, so it gets a sentence of its
+    /// own instead of being folded into a network failure.
+    /// </summary>
+    RegionBlocked = 11
 }
 
 /// <summary>Carries the reason so the view model can translate it instead of guessing from text.</summary>
@@ -267,6 +274,7 @@ public sealed class TikTokAudioService : ITikTokAudioService
 
         var page = await ReadPageAsync($"https://www.tiktok.com/@i/video/{id}", cancellationToken).ConfigureAwait(false);
         if (ParsePage(page) is { } fromPage) { return fromPage; }
+        _pageStatus = ReadPageStatus(page);
 
         // Only the title is recoverable here, so the caller still gets a sensible row name when the
         // media addresses are behind a wall.
@@ -330,6 +338,11 @@ public sealed class TikTokAudioService : ITikTokAudioService
     /// Reads the server-rendered page: the item hides inside __UNIVERSAL_DATA_FOR_REHYDRATION__,
     /// with SIGI_STATE as the older spelling. Both are tried, and a page without them is ignored.
     /// </summary>
+    private int _pageStatus;
+
+    /// <summary>TikTok's own verdict for the page, kept so a later failure can name it.</summary>
+    internal int PageStatus => _pageStatus;
+
     internal static TikTokMedia? ParsePage(string? html)
     {
         if (string.IsNullOrWhiteSpace(html)) { return null; }
@@ -354,6 +367,35 @@ public sealed class TikTokAudioService : ITikTokAudioService
 
         return null;
     }
+
+    /// <summary>
+    /// Reads TikTok's own status code out of the page. The value decides the sentence the user gets,
+    /// and it is TikTok's verdict rather than a guess made from another tool's wording.
+    /// </summary>
+    internal static int ReadPageStatus(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) { return 0; }
+        const string open = "<script id=\"__UNIVERSAL_DATA_FOR_REHYDRATION__\" type=\"application/json\">";
+        var start = html.IndexOf(open, StringComparison.Ordinal);
+        if (start < 0) { return 0; }
+        start += open.Length;
+        var end = html.IndexOf("</script>", start, StringComparison.Ordinal);
+        if (end <= start) { return 0; }
+        try
+        {
+            using var document = JsonDocument.Parse(html[start..end]);
+            return ReadStatusCode(document.RootElement);
+        }
+        catch (JsonException) { return 0; }
+    }
+
+    private static int ReadStatusCode(JsonElement root) =>
+        root.ValueKind == JsonValueKind.Object &&
+        root.TryGetProperty("__DEFAULT_SCOPE__", out var scope) && scope.ValueKind == JsonValueKind.Object &&
+        scope.TryGetProperty("webapp.video-detail", out var detail) && detail.ValueKind == JsonValueKind.Object &&
+        detail.TryGetProperty("statusCode", out var code) && code.ValueKind == JsonValueKind.Number
+            ? code.GetInt32()
+            : 0;
 
     private static JsonElement? FindItem(JsonElement root)
     {
@@ -748,14 +790,21 @@ public sealed class TikTokAudioService : ITikTokAudioService
     {
         if (string.IsNullOrWhiteSpace(standardError)) { return null; }
         var text = standardError.ToLowerInvariant();
-        if (text.Contains("ip address is blocked") || text.Contains("not available in your region") ||
-            text.Contains("connection was reset") || text.Contains("recv failure") ||
-            text.Contains("failed to perform") || text.Contains("timed out"))
+        // yt-dlp's "your IP address is blocked" is its wording for TikTok's own status 10204, which
+        // is a regional decision by TikTok and has nothing to do with the provider. Keeping the two
+        // apart is the point: one is fixed by trying again in a minute, the other is not.
+        if (text.Contains("ip address is blocked") || text.Contains("not available in your region"))
         {
-            return new TikTokException(TikTokFailure.NetworkBlocked,
-                "The network refuses access to this TikTok: " + FirstLine(standardError));
+            return new TikTokException(TikTokFailure.RegionBlocked,
+                "TikTok does not serve this video to this connection: " + FirstLine(standardError));
         }
 
+        if (text.Contains("connection was reset") || text.Contains("recv failure") ||
+            text.Contains("too slow") || text.Contains("failed to perform") || text.Contains("timed out"))
+        {
+            return new TikTokException(TikTokFailure.NetworkBlocked,
+                "The connection to TikTok broke: " + FirstLine(standardError));
+        }
         if (text.Contains("login") || text.Contains("private") || text.Contains("requires authentication"))
         {
             return new TikTokException(TikTokFailure.Restricted,

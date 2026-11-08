@@ -416,6 +416,38 @@ public partial class MainWindow : Window
         eventArgs.Handled = true;
     }
 
+    // --- Клик по строке запускает трек: список TikTok, как и список скачанных YouTube, ---
+    // --- не держит кнопку прослушивания внутри строки.                                  ---
+
+    private YouTubeTrackViewModel? _tikTokClickCandidate;
+
+    private void TikTokList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs eventArgs) =>
+        _tikTokClickCandidate = TikTokRowAt(eventArgs.OriginalSource as DependencyObject);
+
+    private void TikTokList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
+    {
+        var candidate = _tikTokClickCandidate;
+        _tikTokClickCandidate = null;
+
+        // Кнопки внутри строки — стрелки и корзина — обрабатывают свой клик сами, иначе нажатие
+        // на корзину заодно запускало бы трек.
+        if (candidate is null || candidate is { CanPlay: false }) { return; }
+        if (eventArgs.OriginalSource is DependencyObject source && IsInsideButton(source)) { return; }
+        ViewModel.TikTok.SelectTrack(candidate);
+        ViewModel.TikTok.PlayCommand.Execute(candidate);
+    }
+
+    private static YouTubeTrackViewModel? TikTokRowAt(DependencyObject? source)
+    {
+        var element = source;
+        while (element is not null and not ListBoxItem)
+        {
+            element = VisualTreeHelper.GetParent(element);
+        }
+
+        return (element as ListBoxItem)?.DataContext as YouTubeTrackViewModel;
+    }
+
     private static YouTubeTrackViewModel? YouTubeRowAt(DependencyObject? source)
     {
         var element = source;
@@ -518,8 +550,17 @@ public partial class MainWindow : Window
 
     private void Playlist_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
     {
+        var candidate = _dragCandidate;
+        var dragged = _dragging;
         _dragCandidate = null;
         _dragging = false;
+
+        // A click that did not turn into a drag plays the row, exactly like the YouTube and TikTok
+        // lists. Buttons inside the row handle their own clicks, so the arrows and the bin are
+        // unaffected.
+        if (dragged || candidate is null || candidate is { IsAvailable: false }) { return; }
+        if (eventArgs.OriginalSource is DependencyObject source && IsInsideButton(source)) { return; }
+        _ = ViewModel.PlayPlaylistTrackAsync(candidate);
     }
 
     private void Playlist_DragOver(object sender, DragEventArgs eventArgs)

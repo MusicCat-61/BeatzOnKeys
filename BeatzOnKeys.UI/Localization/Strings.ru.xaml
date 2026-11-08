@@ -70,7 +70,7 @@
     <sys:String x:Key="Storage_ChosenBody">Готово: данные будут храниться в {0}. Чтобы перейти на новую папку, программу нужно перезапустить — это произойдёт сразу после нажатия кнопки.</sys:String>
     <sys:String x:Key="Storage_RestartButton">Перезапустить</sys:String>
     <sys:String x:Key="Storage_PickFolder">Выберите папку для данных BeatzOnKeys</sys:String>
-    <sys:String x:Key="About_TelegramChannel">Канал программы</sys:String>
+    <sys:String x:Key="About_TelegramChannel">Телеграм канал</sys:String>
     <sys:String x:Key="About_TelegramAuthor">Автор</sys:String>
     <sys:String x:Key="L_SelectedTrack">Выбранный трек</sys:String>
     <sys:String x:Key="L_NoTrackSelected">Выберите доступный трек</sys:String>
@@ -199,10 +199,11 @@
     <sys:String x:Key="L_TikTokFailureTooLarge">Файл больше 50 МБ — такие ролики не скачиваем.</sys:String>
     <sys:String x:Key="L_TikTokFailureTimeout">TikTok не ответил за две минуты. Попробуйте ещё раз.</sys:String>
     <sys:String x:Key="L_TikTokFailureDownload">Не удалось скачать. Проверьте ссылку и попробуйте снова.</sys:String>
-    <sys:String x:Key="L_TikTokFailureNetwork">Сеть не пускает к TikTok: соединение обрывается.</sys:String>
+    <sys:String x:Key="L_TikTokFailureNetwork">Соединение с TikTok оборвалось. Попробуйте ещё раз через минуту.</sys:String>
+<sys:String x:Key="L_TikTokFailureRegion">TikTok не отдаёт этот ролик вашему подключению — его собственное ограничение. С другой сети он может открыться.</sys:String>
     <sys:String x:Key="L_TikTokFailureChallenge">TikTok запросил проверку, которую не удалось пройти. Попробуйте ещё раз через минуту.</sys:String>
-    <sys:String x:Key="L_TikTokNetworkTitle">Провайдер не пускает к TikTok</sys:String>
-    <sys:String x:Key="L_TikTokNetworkBody">Соединение с TikTok обрывается — обычно так провайдер ограничивает доступ. BeatzOnKeys не вшивает обход блокировок: это требует прав администратора. Рекомендуем Zapret2UI. ⚠️ Инструменты обхода блокировок предназначены для исследовательских и образовательных задач. Используйте их в соответствии с законодательством вашей страны.</sys:String>
+    <sys:String x:Key="L_TikTokNetworkTitle">Связь с TikTok обрывается</sys:String>
+    <sys:String x:Key="L_TikTokNetworkBody">TikTok не ответил или соединение прервалось на середине. Это бывает и не при каждом ролике: подождите минуту и попробуйте снова. Если так повторяется — попробуйте другое подключение к интернету.</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Название трека или ссылка YouTube</sys:String>
     <sys:String x:Key="L_YtSearch">Найти</sys:String>
     <sys:String x:Key="L_YtDownloadLink">Добавить</sys:String>

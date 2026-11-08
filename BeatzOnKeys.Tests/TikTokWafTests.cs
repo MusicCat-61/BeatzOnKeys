@@ -99,9 +99,14 @@ public static class TikTokWafTests
     public static Task TheProviderRefusalIsReadFromYtDlp()
     {
         // yt-dlp knows why it failed; the difference decides whether retrying is worth offering.
-        AssertEx.Equal(TikTokFailure.NetworkBlocked,
+        // Its "IP address is blocked" wording is a translation of TikTok's own status 10204, which
+        // is a regional decision by TikTok rather than a provider interfering with the connection.
+        AssertEx.Equal(TikTokFailure.RegionBlocked,
             TikTokAudioService.Classify("ERROR: [TikTok] 123: Your IP address is blocked from accessing this post")?.Failure,
-            "An address refused by TikTok is a network refusal.");
+            "TikTok withholding a post is the region answer, not a broken network.");
+        AssertEx.Equal(TikTokFailure.RegionBlocked,
+            TikTokAudioService.Classify("This video is not available in your region")?.Failure,
+            "A regional refusal is its own kind.");
         AssertEx.Equal(TikTokFailure.NetworkBlocked,
             TikTokAudioService.Classify("curl: (56) Recv failure: Connection was reset")?.Failure,
             "A reset connection is a network refusal too.");

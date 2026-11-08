@@ -1566,6 +1566,14 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             await UntilAsync(() => tabs.TikTok.Tracks[0].CanPlay, 8000, "tiktok playable");
             Check("tiktok.linkBecomesARow", tabs.TikTok.Tracks.Count == 1 && tabs.TikTok.Tracks[0].CanPlay,
                 $"Tracks={tabs.TikTok.Tracks.Count}, playable={tabs.TikTok.Tracks.FirstOrDefault()?.CanPlay}.");
+            // The row is named by the title TikTok gives, not by the numeric id: the id is what the
+            // file is called, and a list of numbers tells nobody anything.
+            var addedRow = tabs.TikTok.Tracks[0];
+            Check("tiktok.rowIsNamedByTitle", addedRow.Title == "Снежинка Северянка — Вольный Дух" &&
+                !addedRow.Title.All(char.IsDigit),
+                $"Title='{addedRow.Title}'.");
+            Check("tiktok.rowShowsItsFormat", addedRow.Extension == "MP3",
+                $"Extension='{addedRow.Extension}'.");
             Check("tiktok.fileLivesInItsOwnFolder",
                 tabs.TikTok.Tracks[0].CachedPath.Contains("TikTok", StringComparison.OrdinalIgnoreCase),
                 tabs.TikTok.Tracks[0].CachedPath);

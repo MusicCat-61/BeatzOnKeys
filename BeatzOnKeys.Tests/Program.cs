@@ -141,6 +141,7 @@ internal static class Program
         ,("TikTok.APuzzleThatKeepsComingBackIsReported", TikTokPageTests.APuzzleThatKeepsComingBackIsReported)
         ,("TikTok.AShortLinkAnsweredWithThePuzzleStillResolves", TikTokPageTests.AShortLinkAnsweredWithThePuzzleStillResolves)
         ,("TikTok.TheHardCaseFitsInTheBudget", TikTokPageTests.TheHardCaseFitsInTheBudget)
+        ,("TikTok.TheTitleAndPathArePulledApart", TikTokPageTests.TheTitleAndPathArePulledApart)
     ];
 
     private static async Task<int> Main()

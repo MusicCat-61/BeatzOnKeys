@@ -99,6 +99,22 @@ public static class TikTokPageTests
         return Task.CompletedTask;
     }
 
+    public static Task TheTitleAndPathArePulledApart()
+    {
+        // yt-dlp is asked for both facts on one line, because a second process call would cost more
+        // than the parse. The title may contain spaces, pipes and colons; the path must still be
+        // recovered exactly.
+        var line = @"C:\Music\TikTok\7704233321361870094.mp3|:|Снежинка Северянка & Вольный Дух";
+        var parts = line.Split("|:|", 2);
+        AssertEx.Equal(@"C:\Music\TikTok\7704233321361870094.mp3", parts[0], "The path comes first.");
+        AssertEx.Equal("Снежинка Северянка & Вольный Дух", parts[1], "The title keeps its spaces and ampersand.");
+
+        // A line without the separator is an older yt-dlp or a plain path, and must not break.
+        AssertEx.False("C:\\Music\\a.mp3".Contains("|:|", StringComparison.Ordinal),
+            "A plain path is recognised as having no title attached.");
+        return Task.CompletedTask;
+    }
+
     private static (string Payload, long Nonce) BuildChallenge()
     {
         var salt = RandomNumberGenerator.GetBytes(32);

@@ -1801,53 +1801,98 @@
                              ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Grid MinHeight="48" ToolTip="{Binding TooltipText}">
+                                <Grid ToolTip="{Binding TooltipText}" MinHeight="42">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="38"/>
+                                        <ColumnDefinition Width="42"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <Border Width="30" Height="30" CornerRadius="7" VerticalAlignment="Center"
+                                    <Border Width="34" Height="34" CornerRadius="8" VerticalAlignment="Center"
                                             Background="{DynamicResource OverlayBrush}">
-                                        <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}"
-                                                   FontSize="14" Foreground="{DynamicResource AccentBrush}"/>
+                                        <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="15"
+                                                   Foreground="{DynamicResource AccentBrush}"/>
                                     </Border>
 
-                                    <StackPanel Grid.Column="1" Margin="6,0,10,0" VerticalAlignment="Center">
+                                    <!-- The same two lines the playlist uses: a name and a second line that
+                                         says what the row is doing. The folder path is deliberately left
+                                         out here: every row lives in Music\TikTok, so it would repeat the
+                                         same sentence down the whole list. -->
+                                    <Grid Grid.Column="1" Margin="5,0,12,0" VerticalAlignment="Center">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
                                         <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                        <TextBlock Text="{Binding SubtitleText}" FontSize="12.5"
-                                                   TextTrimming="CharacterEllipsis" Margin="0,3,0,0"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Grid.Row="1" Text="{Binding SubtitleText}" FontSize="12"
+                                                   Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
                                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                    </Grid>
+
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                                                Margin="0,0,10,0">
+                                        <TextBlock Text="&#xE823;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                                                   Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,5,0"/>
+                                        <TextBlock Text="{Binding DurationText}" FontSize="12.5"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </StackPanel>
 
-                                    <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="12.5"
-                                               VerticalAlignment="Center" Margin="0,0,10,0"
-                                               Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                    <Button Grid.Column="3" Style="{StaticResource IconButtonStyle}" Width="30"
-                                            Height="30" Margin="0,0,2,0" CommandParameter="{Binding}"
-                                            ToolTip="{DynamicResource L_YtPreview}"
-                                            AutomationProperties.Name="{DynamicResource L_YtPreview}"
-                                            Command="{Binding DataContext.TikTok.PlayCommand, RelativeSource={RelativeSource AncestorType=Window}}">
-                                        <TextBlock Text="&#xE768;" Style="{StaticResource SymbolIconStyle}"
-                                                   FontSize="12"/>
-                                    </Button>
-                                    <Button Grid.Column="4" Margin="0,0,6,0" CommandParameter="{Binding}"
-                                            Command="{Binding DataContext.TikTok.RemoveCachedCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            ToolTip="{DynamicResource L_Remove}">
+                                    <Border Grid.Column="3" Background="{DynamicResource ControlBackgroundBrush}"
+                                            CornerRadius="4" Padding="6,3" Margin="0,0,7,0"
+                                            VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Extension}" FontSize="10.5" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                    </Border>
+
+                                    <!-- Play lives in the row header of the whole list, exactly as in the
+                                         playlist: a click on the row already starts it, so a second button
+                                         inside the row would only ask the same question twice. -->
+                                    <Button Grid.Column="4" Margin="0,0,2,0"
+                                            Command="{Binding DataContext.TikTok.MoveTrackUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" ToolTip="{DynamicResource L_MoveUp}"
+                                            AutomationProperties.Name="{DynamicResource L_MoveUp}">
                                         <Button.Style>
                                             <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
-                                                <Setter Property="Width" Value="30"/>
-                                                <Setter Property="Height" Value="30"/>
+                                                <Setter Property="Width" Value="26"/>
+                                                <Setter Property="Height" Value="26"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsFirst}" Value="True">
+                                                        <Setter Property="IsEnabled" Value="False"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
                                             </Style>
                                         </Button.Style>
-                                        <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}"
-                                                   FontSize="13"/>
+                                        <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70E;"/>
+                                    </Button>
+                                    <Button Grid.Column="5" Margin="0,0,6,0"
+                                            Command="{Binding DataContext.TikTok.MoveTrackDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" ToolTip="{DynamicResource L_MoveDown}"
+                                            AutomationProperties.Name="{DynamicResource L_MoveDown}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                                <Setter Property="Width" Value="26"/>
+                                                <Setter Property="Height" Value="26"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsLast}" Value="True">
+                                                        <Setter Property="IsEnabled" Value="False"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70D;"/>
+                                    </Button>
+                                    <Button Grid.Column="6" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
+                                            CommandParameter="{Binding}"
+                                            Command="{Binding DataContext.TikTok.RemoveCachedCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            ToolTip="{DynamicResource L_Remove}"
+                                            AutomationProperties.Name="{DynamicResource L_Remove}">
+                                        <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="13"/>
                                     </Button>
                                 </Grid>
                             </DataTemplate>

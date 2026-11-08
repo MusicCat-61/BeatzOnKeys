@@ -50,7 +50,7 @@ internal sealed class SmokeTikTokService(string fixturePath) : ITikTokAudioServi
         var target = Path.Combine(options.MusicDirectory, id + ".mp3");
         if (!File.Exists(target)) { File.Copy(fixturePath, target, overwrite: true); }
         progress?.Report(1);
-        return new TikTokAudioResult(id, "Smoke TikTok clip", target);
+        return new TikTokAudioResult(id, "Снежинка Северянка — Вольный Дух", target);
     }
 }
 

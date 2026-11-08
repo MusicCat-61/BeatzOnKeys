@@ -244,6 +244,15 @@ public sealed class YouTubeTrackViewModel : ObservableObject
     public string VideoId => _state.VideoId;
     public string CachedPath => _state.CachedPath;
 
+    /// <summary>
+    /// The file's own extension, upper-cased for the chip on the row. A YouTube cache file is always
+    /// m4a and the row never showed it; a TikTok list mixes mp3, m4a and wav, so the format earns
+    /// its place there.
+    /// </summary>
+    public string Extension => string.IsNullOrEmpty(_state.CachedPath)
+        ? string.Empty
+        : Path.GetExtension(_state.CachedPath).TrimStart('.').ToUpperInvariant();
+
     /// <summary>Length of the track, shown on the row; a dash when it was never reported.</summary>
     public string DurationText
     {
@@ -417,6 +426,7 @@ public sealed class YouTubeTrackViewModel : ObservableObject
         Status = YouTubeTrackStatus.Ready;
         Progress = 1;
         OnPropertyChanged(nameof(CachedPath));
+        OnPropertyChanged(nameof(Extension));
         OnPropertyChanged(nameof(CanPlay));
         OnPropertyChanged(nameof(TooltipText));
     }

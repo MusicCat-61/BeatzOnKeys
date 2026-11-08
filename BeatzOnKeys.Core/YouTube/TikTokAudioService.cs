@@ -68,6 +68,9 @@ public interface ITikTokAudioService
 /// </summary>
 public sealed class TikTokAudioService : ITikTokAudioService
 {
+    /// <summary>Sits between the saved path and the title in yt-dlp's one-line report.</summary>
+    private const string FileTitleSeparator = "|:|";
+
     private const string UserAgent =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
         "Chrome/119.0.0.0 Safari/537.36";
@@ -685,7 +688,7 @@ public sealed class TikTokAudioService : ITikTokAudioService
                 // the extractor offers it, and the plain best is the fallback when it does not.
                 "-f", "audio/bestaudio/best",
                 "-o", template,
-                "--print", "after_move:filepath",
+                "--print", "after_move:%(filepath)s" + FileTitleSeparator + "%(title)s",
                 originalUrl.Trim()
             ],
             Timeout = options.DownloadTimeout
@@ -697,9 +700,17 @@ public sealed class TikTokAudioService : ITikTokAudioService
                 TikTokFailure.VideoNotFound, "yt-dlp could not fetch this TikTok either.");
         }
 
-        var path = result.StandardOutput
+        var reported = result.StandardOutput
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .LastOrDefault();
+        var path = reported;
+        var reportedTitle = string.Empty;
+        if (reported is not null && reported.Contains(FileTitleSeparator, StringComparison.Ordinal))
+        {
+            var parts = reported.Split(FileTitleSeparator, 2);
+            path = parts[0];
+            reportedTitle = parts[1].Trim();
+        }
 
         if (path is null || !File.Exists(path))
         {
@@ -718,8 +729,14 @@ public sealed class TikTokAudioService : ITikTokAudioService
             path = converted;
         }
 
+        // The name TikTok shows is what a person recognises; the id is only what is left when even
+        // yt-dlp cannot name the video.
+        var finalTitle = string.IsNullOrWhiteSpace(title) || title == id
+            ? (string.IsNullOrWhiteSpace(reportedTitle) ? id : Trim(reportedTitle, 100) ?? id)
+            : title;
+
         progress?.Report(1d);
-        return new TikTokAudioResult(id, string.IsNullOrWhiteSpace(title) ? id : title, path);
+        return new TikTokAudioResult(id, finalTitle, path);
     }
 
     /// <summary>

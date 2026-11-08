@@ -84,6 +84,24 @@ public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result) : Obs
     /// <summary>True while this result is being fetched for listening, so the row shows a state.</summary>
     public bool IsCaching => !CanPlay && !IsLive && !_cacheFailed;
 
+    /// <summary>
+    /// Set when the background pass gave up on this row because it was slow. The row stays
+    /// available: the pass retries it once at the end, and the play and add buttons still work
+    /// with the full download timeout, which is what a deliberate click deserves.
+    /// </summary>
+    public bool Skipped
+    {
+        get => _skipped;
+        set
+        {
+            if (_skipped == value) { return; }
+            _skipped = value;
+            OnPropertyChanged(nameof(CacheStateText));
+        }
+    }
+
+    private bool _skipped;
+
     public bool CacheFailed
     {
         get => _cacheFailed;
@@ -104,6 +122,7 @@ public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result) : Obs
         ? LiveBadgeText
         : CanPlay ? Author
         : _cacheFailed ? Loc.T("L_YtCacheFailed")
+        : _skipped ? Loc.T("L_YtCachingLater")
         : Loc.T("L_YtCaching");
 }
 

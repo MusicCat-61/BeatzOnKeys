@@ -7,7 +7,7 @@ set "PROJECT=%ROOT%\BeatzOnKeys.UI\BeatzOnKeys.UI.csproj"
 for %%I in ("%ROOT%\Build_Output") do set "OUTPUT=%%~fI"
 for %%I in ("%OUTPUT%") do set "OUTPUT_NAME=%%~nxI"
 for %%I in ("%OUTPUT%\..") do set "OUTPUT_PARENT=%%~fI"
-if not defined BOK_VERSION set "BOK_VERSION=1.3.2.1"
+if not defined BOK_VERSION set "BOK_VERSION=1.3.3"
 
 if /I not "%OUTPUT_NAME%"=="Build_Output" goto :unsafe_output
 if /I not "%OUTPUT_PARENT%"=="%ROOT%" goto :unsafe_output

@@ -1071,6 +1071,218 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+<!-- While a search runs the empty area becomes a small piano scene: a ring turns,
+                             a light sweeps across the keys and two notes drift up. Every colour comes
+                             from the theme, and nothing is a picture asset, so it scales with DPI. -->
+                        <Grid Grid.Row="1" x:Name="SearchAnimation" IsHitTestVisible="False">
+                            <Grid.Style>
+                                <Style TargetType="Grid">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding YouTube.IsSearching}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Grid.Style>
+
+<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <!-- The ring turns: the only motion that says "working" without a bar. -->
+                                <Grid Width="132" Height="132" HorizontalAlignment="Center">
+                                    <Ellipse Width="132" Height="132" Stroke="{DynamicResource OverlayBrush}"
+                                             StrokeThickness="2" Opacity="0.7"/>
+                                    <Ellipse Width="132" Height="132" Stroke="{DynamicResource AccentBrush}"
+                                             StrokeThickness="3" StrokeDashArray="1.5 7" StrokeDashCap="Round">
+                                        <Ellipse.RenderTransform>
+                                            <RotateTransform CenterX="66" CenterY="66"/>
+                                        </Ellipse.RenderTransform>
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding YouTube.IsSearching}" Value="True">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard x:Name="SearchRingSpin">
+                                                                <Storyboard RepeatBehavior="Forever">
+                                                                    <DoubleAnimation
+                                                                        Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                        From="0" To="360" Duration="0:0:1.8"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                        <DataTrigger.ExitActions>
+                                                            <StopStoryboard BeginStoryboardName="SearchRingSpin"/>
+                                                        </DataTrigger.ExitActions>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock Text="♫" FontSize="34" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"
+                                               Opacity="0.85">
+                                        <TextBlock.RenderTransform>
+                                            <TranslateTransform X="0" Y="0"/>
+                                        </TextBlock.RenderTransform>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding YouTube.IsSearching}" Value="True">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard x:Name="SearchHeartbeat">
+                                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                        From="0.35" To="0.95" Duration="0:0:0.9"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                        <DataTrigger.ExitActions>
+                                                            <StopStoryboard BeginStoryboardName="SearchHeartbeat"/>
+                                                        </DataTrigger.ExitActions>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+
+                                <TextBlock Text="{DynamicResource L_YtSearching}" FontSize="13" Margin="0,12,0,0"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"/>
+
+                                <!-- A canvas instead of two stacked panels: the black keys sit on the
+                                     boundaries between white ones, which is what makes it read as a
+                                     keyboard rather than two rows of bars. -->
+                                <Canvas Width="176" Height="56" Margin="0,16,0,0" HorizontalAlignment="Center">
+                                    <Rectangle Canvas.Left="0" Width="20" Height="56" RadiusX="3" RadiusY="3"
+                                               Fill="{DynamicResource OverlayBrush}"
+                                               Stroke="{DynamicResource ControlBorderBrush}" StrokeThickness="1"/>
+                                    <Rectangle Canvas.Left="22" Width="20" Height="56" RadiusX="3" RadiusY="3"
+                                               Fill="{DynamicResource OverlayBrush}"
+                                               Stroke="{DynamicResource ControlBorderBrush}" StrokeThickness="1"/>
+                                    <Rectangle Canvas.Left="44" Width="20" Height="56" RadiusX="3" RadiusY="3"
+                                               Fill="{DynamicResource OverlayBrush}"
+                                               Stroke="{DynamicResource ControlBorderBrush}" StrokeThickness="1"/>
+                                    <Rectangle Canvas.Left="66" Width="20" Height="56" RadiusX="3" RadiusY="3"
+                                               Fill="{DynamicResource OverlayBrush}"
+                                               Stroke="{DynamicResource ControlBorderBrush}" StrokeThickness="1"/>
+                                    <Rectangle Canvas.Left="88" Width="20" Height="56" RadiusX="3" RadiusY="3"
+                                               Fill="{DynamicResource OverlayBrush}"
+                                               Stroke="{DynamicResource ControlBorderBrush}" StrokeThickness="1"/>
+                                    <Rectangle Canvas.Left="110" Width="20" Height="56" RadiusX="3" RadiusY="3"
+                                               Fill="{DynamicResource OverlayBrush}"
+                                               Stroke="{DynamicResource ControlBorderBrush}" StrokeThickness="1"/>
+                                    <Rectangle Canvas.Left="132" Width="20" Height="56" RadiusX="3" RadiusY="3"
+                                               Fill="{DynamicResource OverlayBrush}"
+                                               Stroke="{DynamicResource ControlBorderBrush}" StrokeThickness="1"/>
+                                    <Rectangle Canvas.Left="154" Width="20" Height="56" RadiusX="3" RadiusY="3"
+                                               Fill="{DynamicResource OverlayBrush}"
+                                               Stroke="{DynamicResource ControlBorderBrush}" StrokeThickness="1"/>
+
+                                    <!-- Two gaps on purpose: a keyboard without them is just a fence. -->
+                                    <Rectangle Canvas.Left="14" Width="12" Height="34" RadiusX="2" RadiusY="2"
+                                               Fill="{DynamicResource TextTertiaryBrush}"/>
+                                    <Rectangle Canvas.Left="36" Width="12" Height="34" RadiusX="2" RadiusY="2"
+                                               Fill="{DynamicResource TextTertiaryBrush}"/>
+                                    <Rectangle Canvas.Left="80" Width="12" Height="34" RadiusX="2" RadiusY="2"
+                                               Fill="{DynamicResource TextTertiaryBrush}"/>
+                                    <Rectangle Canvas.Left="102" Width="12" Height="34" RadiusX="2" RadiusY="2"
+                                               Fill="{DynamicResource TextTertiaryBrush}"/>
+                                    <Rectangle Canvas.Left="124" Width="12" Height="34" RadiusX="2" RadiusY="2"
+                                               Fill="{DynamicResource TextTertiaryBrush}"/>
+
+                                    <!-- One sweeping light instead of eight animations, and it reads as a
+                                         hand moving along the keys. -->
+                                    <Rectangle Width="26" Height="56" RadiusX="4" RadiusY="4"
+                                               Fill="{DynamicResource AccentBrush}" Opacity="0.5">
+                                        <Rectangle.RenderTransform>
+                                            <TranslateTransform X="-40"/>
+                                        </Rectangle.RenderTransform>
+                                        <Rectangle.Style>
+                                            <Style TargetType="Rectangle">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding YouTube.IsSearching}" Value="True">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard x:Name="SearchKeySweep">
+                                                                <Storyboard RepeatBehavior="Forever">
+                                                                    <DoubleAnimation
+                                                                        Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                        From="-30" To="180" Duration="0:0:2.6"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                        <DataTrigger.ExitActions>
+                                                            <StopStoryboard BeginStoryboardName="SearchKeySweep"/>
+                                                        </DataTrigger.ExitActions>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Rectangle.Style>
+                                    </Rectangle>
+                                </Canvas>
+
+                                <!-- Two notes drift up and fade, so the scene has a direction of motion. -->
+                                <Canvas Width="176" Height="30" Margin="0,2,0,0" HorizontalAlignment="Center">
+                                    <TextBlock Canvas.Left="52" Text="♪" FontSize="20"
+                                               Foreground="{DynamicResource AccentBrush}" Opacity="0">
+                                        <TextBlock.RenderTransform>
+                                            <TranslateTransform X="0" Y="6"/>
+                                        </TextBlock.RenderTransform>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding YouTube.IsSearching}" Value="True">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard x:Name="SearchNoteOne">
+                                                                <Storyboard RepeatBehavior="Forever">
+                                                                    <DoubleAnimation
+                                                                        Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                        From="10" To="-16" Duration="0:0:2.2"/>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                        From="0" To="1" Duration="0:0:0.9"
+                                                                        AutoReverse="True"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                        <DataTrigger.ExitActions>
+                                                            <StopStoryboard BeginStoryboardName="SearchNoteOne"/>
+                                                        </DataTrigger.ExitActions>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Canvas.Left="104" Canvas.Top="6" Text="♫" FontSize="15"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0">
+                                        <TextBlock.RenderTransform>
+                                            <TranslateTransform X="0" Y="6"/>
+                                        </TextBlock.RenderTransform>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding YouTube.IsSearching}" Value="True">
+                                                        <DataTrigger.EnterActions>
+                                                            <BeginStoryboard x:Name="SearchNoteTwo">
+                                                                <Storyboard RepeatBehavior="Forever" BeginTime="0:0:1.1">
+                                                                    <DoubleAnimation
+                                                                        Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                        From="10" To="-16" Duration="0:0:2.2"/>
+                                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                        From="0" To="0.9" Duration="0:0:1.0"
+                                                                        AutoReverse="True"/>
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </DataTrigger.EnterActions>
+                                                        <DataTrigger.ExitActions>
+                                                            <StopStoryboard BeginStoryboardName="SearchNoteTwo"/>
+                                                        </DataTrigger.ExitActions>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Canvas>
+                            </StackPanel>
+                        </Grid>
                         </Grid>
                     </Border>
                 </Grid>

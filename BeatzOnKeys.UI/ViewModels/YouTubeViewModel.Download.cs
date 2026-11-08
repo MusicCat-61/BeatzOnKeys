@@ -39,6 +39,12 @@ public sealed partial class YouTubeViewModel
         _cacheLoop = loop;
         try { await CacheResultsAsync(loop.Token).ConfigureAwait(true); }
         catch (OperationCanceledException) { }
+        // Fire-and-forget must not leave an unobserved task: a failure here is logged like any
+        // other, otherwise the pass would die silently and the rows would stay "caching".
+        catch (Exception exception)
+        {
+            AppLogger.Error("youtube", "The background cache pass failed.", exception);
+        }
         finally
         {
             if (ReferenceEquals(_cacheLoop, loop)) { _cacheLoop = null; }
@@ -229,26 +235,63 @@ public sealed partial class YouTubeViewModel
     private RelayCommand<YouTubeSearchItemViewModel>? _previewCommand;
 
     /// <summary>
+    /// How long one row may hold the background pass. A preview nobody asked for must not keep a
+    /// download slot for ten minutes: a deliberate click keeps the full service timeout instead.
+    /// </summary>
+    /// <summary>Mutable only so the smoke suite can shorten it; production never changes it.</summary>
+    internal static TimeSpan CachePassTimeout { get; set; } = TimeSpan.FromSeconds(60);
+
+    /// <summary>
     /// Fetches every result into the cache in the background, one after another. Sequential on
     /// purpose: the service already limits parallel work, and a burst of ten requests is exactly
-    /// what gets a client rate limited.
+    /// what gets a client rate limited. A row that takes too long is set aside and retried once
+    /// at the end, so one slow track cannot stall the rest of the list.
     /// </summary>
     private async Task CacheResultsAsync(CancellationToken cancellationToken)
     {
-        foreach (var item in Results.ToList())
+        var skipped = new List<YouTubeSearchItemViewModel>();
+        await CacheRowsAsync(Results.ToList(), skipped, cancellationToken).ConfigureAwait(true);
+        if (skipped.Count > 0 && !cancellationToken.IsCancellationRequested)
+        {
+            // One second chance, not a loop: a row that is slow twice is slow for a reason, and
+            // the buttons on it still download with the full timeout when the user asks.
+            foreach (var item in skipped) { item.Skipped = false; }
+            var stillSkipped = new List<YouTubeSearchItemViewModel>();
+            await CacheRowsAsync(skipped, stillSkipped, cancellationToken).ConfigureAwait(true);
+            foreach (var item in stillSkipped) { item.Skipped = true; }
+        }
+
+        await RefreshCacheSizeAsync().ConfigureAwait(true);
+        // The preview bytes are counted separately from the kept tracks.
+        await RefreshSearchCacheSizeAsync().ConfigureAwait(true);
+        RefreshBinaryState();
+    }
+
+    /// <summary>One sequential pass over the given rows, collecting the ones that timed out.</summary>
+    private async Task CacheRowsAsync(
+        IReadOnlyList<YouTubeSearchItemViewModel> rows,
+        List<YouTubeSearchItemViewModel> skipped,
+        CancellationToken cancellationToken)
+    {
+        foreach (var item in rows)
         {
             if (cancellationToken.IsCancellationRequested) { return; }
             // Only live streams are skipped here: CanDownload waits for the cache, so testing it
             // in the loop that creates the cache would skip every row forever.
             if (item.CanPlay || item.IsLive) { continue; }
+            // A separate token per row: the pass keeps going when one row gives up, and a real
+            // cancellation of the whole pass is still told apart from a slow row.
+            using var attempt = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            attempt.CancelAfter(CachePassTimeout);
             try
             {
                 item.IsDownloading = true;
                 item.Progress = 0;
                 var progress = new Progress<double>(value => item.Progress = value);
-                var result = await _service.DownloadAsync(item.VideoId, progress, cancellationToken).ConfigureAwait(true);
+                var result = await _service.DownloadAsync(item.VideoId, progress, attempt.Token).ConfigureAwait(true);
                 item.CachedPath = result.CachedPath;
                 item.CacheFailed = false;
+                item.Skipped = false;
                 // The row button is driven by the command, and a command re-checks only when it
                 // is told to: the binding on CanDownload alone leaves it disabled.
                 DownloadCommand.NotifyCanExecuteChanged();
@@ -256,7 +299,17 @@ public sealed partial class YouTubeViewModel
                 await RefreshCacheSizeAsync().ConfigureAwait(true);
                 await RefreshSearchCacheSizeAsync().ConfigureAwait(true);
             }
-            catch (OperationCanceledException) { return; }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                // Only this row ran out of time; the pass moves on and comes back to it later.
+                item.Skipped = true;
+                skipped.Add(item);
+                AppLogger.Info("youtube", $"Left {item.VideoId} for later: the preview took too long.");
+            }
             catch (Exception exception)
             {
                 item.CacheFailed = true;
@@ -270,11 +323,6 @@ public sealed partial class YouTubeViewModel
                 DownloadCommand.NotifyCanExecuteChanged();
             }
         }
-
-        await RefreshCacheSizeAsync().ConfigureAwait(true);
-        // The preview bytes are counted separately from the kept tracks.
-        await RefreshSearchCacheSizeAsync().ConfigureAwait(true);
-        RefreshBinaryState();
     }
 
     /// <summary>

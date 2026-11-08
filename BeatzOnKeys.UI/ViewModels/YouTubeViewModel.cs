@@ -366,18 +366,14 @@ public sealed partial class YouTubeViewModel : ObservableObject
     /// <summary>Pushes the user's YouTube preferences into the running service.</summary>
     private void ApplyOptions()
     {
-        var current = _service.Options;
-        _service.Options = new YouTubeOptions
+        // `with` instead of rebuilding the record by hand: a field added to YouTubeOptions
+        // later would be silently reset to its default by a hand-written literal.
+        _service.Options = _service.Options with
         {
             MusicDirectory = AppPaths.MusicDirectory,
-            DownloadDirectory = current.DownloadDirectory,
             CookiesFolder = string.IsNullOrWhiteSpace(CookiesFolderPath) ? null : CookiesFolderPath,
             ProxyUrl = string.IsNullOrWhiteSpace(ProxyUrl) ? null : ProxyUrl,
-            CacheEnabled = CacheEnabled,
-            MaxConcurrentDownloads = current.MaxConcurrentDownloads,
-            DownloadTimeout = current.DownloadTimeout,
-            SearchTimeout = current.SearchTimeout,
-            Mirrors = current.Mirrors
+            CacheEnabled = CacheEnabled
         };
     }
 
@@ -464,6 +460,10 @@ public sealed partial class YouTubeViewModel : ObservableObject
         // Rows saved before the duration was stored have none; the file itself knows it, so the
         // dash on the downloaded row goes away instead of staying forever.
         foreach (var track in Downloaded) { track.ReadDurationFromFile(); }
+        // The preview line was measured a few lines up, so it is published here instead of being
+        // measured a second time by every caller that wants both numbers.
+        OnPropertyChanged(nameof(SearchCacheSizeText));
+        ClearSearchCacheCommand.NotifyCanExecuteChanged();
     }
 
     private long _searchCacheBytes;
@@ -756,7 +756,6 @@ public sealed partial class YouTubeViewModel : ObservableObject
         // Every derived label is recomputed on a language switch, not just the status line.
         NotifyBinaryState();
         foreach (var item in Results) { item.RefreshLocalization(); }
-        _ = RefreshSearchCacheSizeAsync();
         RefreshCommands();
     }
 

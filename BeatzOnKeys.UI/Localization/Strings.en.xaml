@@ -190,6 +190,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtSearchHint">Type a name and press Search, or paste a link and press Download</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Search results</sys:String>
     <sys:String x:Key="L_YtIdle">Type a query or paste a link</sys:String>
+    <sys:String x:Key="L_YtCachingLater">Deferred — will retry</sys:String>
     <sys:String x:Key="L_YtSearching">Searching YouTube…</sys:String>
     <sys:String x:Key="L_YtFoundFormat">Found: {0}</sys:String>
     <sys:String x:Key="L_YtNotFound">Nothing found</sys:String>
@@ -252,7 +253,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_ZapretOpen">Open Zapret2UI</sys:String>
     <sys:String x:Key="Guide_SecYouTube">YouTube</sys:String>
     <sys:String x:Key="Guide_YouTubeSearchT">Search and download</sys:String>
-    <sys:String x:Key="Guide_YouTubeSearchX">The YouTube tab in the window title. Type a name and press Search for up to 10 results. The Add button next to a result keeps the track in your saved list. Paste a video link and the button beside the field becomes Download and fetches it directly, without searching. A search preview plays in full: idle pausing does not apply to it. Downloaded tracks keep the pause.</sys:String>
+    <sys:String x:Key="Guide_YouTubeSearchX">The YouTube tab in the window title. Type a name and press Search for up to 10 results, with a small piano scene playing in the empty area while it works. The Add button next to a result keeps the track in your saved list. Paste a video link and the button beside the field becomes Download and fetches it directly, without searching. The background cache waits at most a minute per row: a slow one is marked Deferred and retried once at the end. A search preview plays in full: idle pausing does not apply to it. Downloaded tracks keep the pause.</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadT">Links and limits</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadX">The Add button on a result row becomes active only once the track is cached, and then moves it into the downloaded list. Before that there is nothing to press: the file does not exist yet.</sys:String>
     <sys:String x:Key="Guide_YouTubeCacheT">Cache and folder</sys:String>

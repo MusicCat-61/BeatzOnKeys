@@ -20,6 +20,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using BeatzOnKeys.Core.Audio;
+
 using BeatzOnKeys.Core.YouTube;
 using BeatzOnKeys.Core.Input;
 using BeatzOnKeys.Core.Models;
@@ -1407,6 +1408,33 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             SmokeYouTubeRunner.Delay = TimeSpan.Zero;
         }
 
+        // A row that takes longer than the pass allows is set aside and retried once, so one slow
+        // track cannot hold the whole list. The fake download is delayed far beyond a shortened
+        // pass timeout, which is the same shape as a stalled yt-dlp.
+        var passTimeout = YouTubeViewModel.CachePassTimeout;
+        YouTubeViewModel.CachePassTimeout = TimeSpan.FromSeconds(1.5);
+        SmokeYouTubeRunner.Delay = TimeSpan.FromSeconds(30);
+        try
+        {
+            vm.YouTube.SearchQuery = "slow rows";
+            vm.YouTube.SearchCommand.Execute(null);
+            await UntilAsync(() => vm.YouTube.Results.Count == 2, 8000, "slow results");
+            await UntilAsync(() => vm.YouTube.Results.All(item => item.Skipped), 20000, "slow rows deferred");
+            Check("youtube.slowRowsDeferred", vm.YouTube.Results.All(item => item.Skipped && !item.CanPlay),
+                $"Skipped={vm.YouTube.Results.Count(item => item.Skipped)} of {vm.YouTube.Results.Count}.");
+            Check("youtube.slowRowsShowTheDeferredLabel",
+                vm.YouTube.Results.All(item => item.CacheStateText == Loc.T("L_YtCachingLater")),
+                $"State={vm.YouTube.Results[0].CacheStateText}, expected={Loc.T("L_YtCachingLater")}.");
+            Check("youtube.slowRowsReleaseThePass",
+                vm.YouTube.Results.All(item => !item.IsDownloading) && !vm.YouTube.IsSearching,
+                $"Still downloading={vm.YouTube.Results.Count(item => item.IsDownloading)}, searching={vm.YouTube.IsSearching}.");
+        }
+        finally
+        {
+            YouTubeViewModel.CachePassTimeout = passTimeout;
+            SmokeYouTubeRunner.Delay = TimeSpan.Zero;
+        }
+
         await vm.YouTube.ClearSearchCacheAsync();
        vm.YouTube.SearchQuery = string.Empty;
         vm.YouTube.Results.Clear();
@@ -1462,6 +1490,38 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
 
         // The page switch must really swap the rendered content, so it runs on the window's own
         // view model and is undone afterwards, keeping the rest of the suite on the playlist page.
+        // The search animation is pure XAML, so the only thing worth proving is that it is really
+        // up while a search runs and gone when the results arrive. A screenshot keeps it visible
+        // for a human eye as well.
+        {
+            var windowAnimation = (FrameworkElement)_window!.FindName("SearchAnimation")!;
+            var searching = _vm!.YouTube;
+            // The animation lives on the YouTube page, so the page is switched first; the suite
+            // switches it anyway a few lines down and the call is idempotent.
+            _vm!.ShowYouTubeCommand.Execute(null);
+            await SettleAsync();
+            // The window view model needs yt-dlp reported as present, or the search bails out
+            // before reaching the fake runner and the animation never shows.
+            SmokeYouTubeBinaries.YtDlpPresent = true;
+            searching.RefreshBinaryState();
+            SmokeYouTubeRunner.SearchDelay = TimeSpan.FromSeconds(6);
+            try
+            {
+                searching.SearchQuery = "animation";
+                searching.SearchCommand.Execute(null);
+                await UntilAsync(() => searching.IsSearching, 5000, "animation search started");
+                await SettleAsync();
+                Check("youtube.searchAnimationShown", windowAnimation.Visibility == Visibility.Visible,
+                    $"Visibility={windowAnimation.Visibility}.");
+                SaveScreenshot(_window!, $"youtube-searching-{Loc.CurrentCode}.png");
+                await UntilAsync(() => !searching.IsSearching, 25000, "animation search finished");
+                await SettleAsync();
+                Check("youtube.searchAnimationHidden", windowAnimation.Visibility != Visibility.Visible,
+                    $"Visibility={windowAnimation.Visibility}.");
+            }
+            finally { SmokeYouTubeRunner.SearchDelay = TimeSpan.Zero; }
+        }
+
         var windowViewModel = _vm!;
         windowViewModel.ShowYouTubeCommand.Execute(null);
         await SettleAsync();
@@ -1737,22 +1797,35 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         /// <summary>A real MP3 the fake download copies, so the cache holds decodable audio.</summary>
         public static string? FixturePath { get; set; }
 
-        /// <summary>
+/// <summary>
         /// Slows the fake download down so a second search can start while the first cache pass
         /// is still running: that overlap is exactly the bug that left later rows uncacheable.
         /// </summary>
         public static TimeSpan Delay { get; set; } = TimeSpan.Zero;
 
-        public Task<YouTubeProcessResult> RunAsync(
+        /// <summary>
+        /// Slows only the search itself, which is what keeps the "searching" state on screen long
+        /// enough to photograph. Kept apart from <see cref="Delay"/> so a slow download can be
+        /// tested without also delaying the results.
+        /// </summary>
+        public static TimeSpan SearchDelay { get; set; } = TimeSpan.Zero;
+
+public async Task<YouTubeProcessResult> RunAsync(
             YouTubeProcessRequest request, CancellationToken cancellationToken = default)
         {
             if (request.Arguments.Contains("--version"))
             {
-                return Task.FromResult(new YouTubeProcessResult(0, "2025.01.15\n", string.Empty, false));
+                return new YouTubeProcessResult(0, "2025.01.15\n", string.Empty, false);
             }
 
             if (request.Arguments.Any(argument => argument.StartsWith("ytsearch", StringComparison.Ordinal)))
             {
+                if (SearchDelay > TimeSpan.Zero)
+                {
+                    await Task.Delay(SearchDelay, cancellationToken).ConfigureAwait(false);
+                }
+                // The ids follow the query, so a second search really produces different rows: the
+                // bug was that the first pass kept caching its own results and starved the new ones.
                 // The ids follow the query, so a second search really produces different rows: the
                 // bug was that the first pass kept caching its own results and starved the new ones.
                 var query = string.Concat(request.Arguments
@@ -1762,25 +1835,31 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 var payload =
                     $"{{\"id\":\"preview{suffix:D4}\",\"title\":\"Never Gonna Give You Up\",\"uploader\":\"Rick Astley\",\"duration\":213}}" + "\n" +
                     $"{{\"id\":\"secondr{suffix:D4}\",\"title\":\"Despacito\",\"uploader\":\"Luis Fonsi\",\"duration\":282}}";
-                return Task.FromResult(new YouTubeProcessResult(0, payload, string.Empty, false));
+                return new YouTubeProcessResult(0, payload, string.Empty, false);
             }
 
             // A resolve call asks for metadata only.
             if (request.Arguments.Contains("--dump-single-json"))
             {
-                return Task.FromResult(new YouTubeProcessResult(0,
-                    """{"id":"previewAAAA","title":"Never Gonna Give You Up","is_live":false}""", string.Empty, false));
+                return new YouTubeProcessResult(0,
+                    """{"id":"previewAAAA","title":"Never Gonna Give You Up","is_live":false}""", string.Empty, false);
+            }
+
+            // Only the download is slowed here: the search has its own knob so a slow transfer
+            // can be tested without also holding back the results.
+            if (Delay > TimeSpan.Zero)
+            {
+                await Task.Delay(Delay, cancellationToken).ConfigureAwait(false);
             }
 
             // Otherwise it is a download: place a real file where -o points and print its path.
-            if (Delay > TimeSpan.Zero) { Thread.Sleep(Delay); }
             var template = request.Arguments.SkipWhile(a => a != "-o").Skip(1).FirstOrDefault();
             if (template is not null && FixturePath is not null)
             {
                 var target = template.Replace("%(ext)s", "mp3");
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 File.Copy(FixturePath, target, overwrite: true);
-                return Task.FromResult(new YouTubeProcessResult(0, target, string.Empty, false));
+                return new YouTubeProcessResult(0, target, string.Empty, false);
             }
 
             throw new InvalidOperationException($"The smoke never starts yt-dlp for: {string.Join(' ', request.Arguments)}");

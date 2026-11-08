@@ -6,7 +6,7 @@ using BeatzOnKeys.Core.Services;
 namespace BeatzOnKeys.Core.YouTube;
 
 /// <summary>Everything the service needs that the user can change while the app runs.</summary>
-public sealed class YouTubeOptions
+public sealed record YouTubeOptions
 {
     public string MusicDirectory { get; init; } = AppPaths.MusicDirectory;
     public string DownloadDirectory { get; init; } = AppPaths.DownloadDirectory;

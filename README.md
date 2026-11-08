@@ -166,6 +166,8 @@ BeatzOnKeys написана на C# с .NET 10 и WPF; NAudio отвечает 
 
 Разделы панели настроек: [«Громкость»](<assets/section-volume.png>) · [«Реакция на музыку»](<assets/section-reaction.png>) · [«Поведение»](<assets/section-behavior.png>) · [все свёрнуты](<assets/section-collapsed.png>)
 
+Вкладка TikTok: [пустой раздел](<assets/tiktok-empty-ru.png>) · [скачанный ролик](<assets/tiktok-track-ru.png>) · [скачивание с отменой](<assets/tiktok-cancel-ru.png>)
+
 Совпадающая документация доступна на [английском](<README.en.md>) и [русском](<README.md>).
 
 ## Приватность

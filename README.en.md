@@ -169,6 +169,8 @@ YouTube tab: [search with listening](<assets/youtube-search-ru.png>) · [downloa
 
 Settings sections: [Volume](<assets/section-volume.png>) · [Music reaction](<assets/section-reaction.png>) · [Behaviour](<assets/section-behavior.png>) · [all collapsed](<assets/section-collapsed.png>)
 
+TikTok tab: [empty section](<assets/tiktok-empty-ru.png>) · [a downloaded clip](<assets/tiktok-track-ru.png>) · [a download with cancel](<assets/tiktok-cancel-ru.png>)
+
 Matching documentation is available in [English](<README.en.md>) and [Russian](<README.md>).
 
 ## Privacy

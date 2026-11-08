@@ -1750,7 +1750,7 @@
                     </Grid.RowDefinitions>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="{DynamicResource L_TikTokTracksTitle}" FontSize="15" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                                   Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                         <Border Margin="10,0,0,0" Height="26" MinWidth="26" CornerRadius="13"
                                 Background="{DynamicResource DropAreaBrush}"
                                 BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">

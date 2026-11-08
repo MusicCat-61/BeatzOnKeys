@@ -143,6 +143,8 @@ internal static class Program
         ,("TikTok.TheHardCaseFitsInTheBudget", TikTokPageTests.TheHardCaseFitsInTheBudget)
         ,("TikTok.TheTitleAndPathArePulledApart", TikTokPageTests.TheTitleAndPathArePulledApart)
         ,("TikTok.ThePageStatusIsReadFromTiktokItself", TikTokPageTests.ThePageStatusIsReadFromTiktokItself)
+        ,("TikTok.TheEmbedPageYieldsTheClipWithoutThePuzzle", TikTokPageTests.TheEmbedPageYieldsTheClipWithoutThePuzzle)
+        ,("TikTok.UndecodableBytesNeverReachTheRow", TikTokPageTests.UndecodableBytesNeverReachTheRow)
     ];
 
     private static async Task<int> Main()

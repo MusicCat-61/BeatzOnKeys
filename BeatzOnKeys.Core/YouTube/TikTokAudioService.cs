@@ -34,7 +34,13 @@ public enum TikTokFailure
     /// to see it. Nothing is broken and nobody is blocking the site, so it gets a sentence of its
     /// own instead of being folded into a network failure.
     /// </summary>
-    RegionBlocked = 11
+    RegionBlocked = 11,
+
+    /// <summary>
+    /// TikTok itself said "ratelimit triggered": this address has asked too often and is being
+    /// told to wait. Retrying straight away only lengthens the wait, so it is named separately.
+    /// </summary>
+    RateLimited = 12
 }
 
 /// <summary>Carries the reason so the view model can translate it instead of guessing from text.</summary>
@@ -268,11 +274,18 @@ public sealed class TikTokAudioService : ITikTokAudioService
     /// </summary>
     private async Task<TikTokMedia?> ReadMediaAsync(string id, string originalUrl, CancellationToken cancellationToken)
     {
+        // The embed page first: it exists for third-party sites, so TikTok serves it without the
+        // puzzle and without the regional refusal, and it carries the clip's own text and its audio.
+        var embed = await ReadPageAsync($"https://www.tiktok.com/embed/v2/{id}", cancellationToken).ConfigureAwait(false);
+        RejectRateLimit(embed);
+        if (ParseEmbed(embed) is { } fromEmbed) { return fromEmbed; }
+
         var api = await TryReadJsonAsync(
             $"https://www.tiktok.com/api/item/detail/?aid=1988&itemId={id}", cancellationToken).ConfigureAwait(false);
         if (ParseMedia(api) is { } fromApi) { return fromApi; }
 
         var page = await ReadPageAsync($"https://www.tiktok.com/@i/video/{id}", cancellationToken).ConfigureAwait(false);
+        RejectRateLimit(page);
         if (ParsePage(page) is { } fromPage) { return fromPage; }
         _pageStatus = ReadPageStatus(page);
 
@@ -372,6 +385,88 @@ public sealed class TikTokAudioService : ITikTokAudioService
     /// Reads TikTok's own status code out of the page. The value decides the sentence the user gets,
     /// and it is TikTok's verdict rather than a guess made from another tool's wording.
     /// </summary>
+    /// <summary>
+    /// Reads the embed page: it keeps the clip's text and its audio under a JSON blob meant for the
+    /// sites that show TikTok videos. The route exists because third-party embeds cannot solve a
+    /// puzzle and are not served the regional refusal, which makes it the one that works here.
+    /// </summary>
+    internal static TikTokMedia? ParseEmbed(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) { return null; }
+        const string open = "<script id=\"__FRONTITY_CONNECT_STATE__\" type=\"application/json\">";
+        var start = html.IndexOf(open, StringComparison.Ordinal);
+        if (start < 0) { return null; }
+        start += open.Length;
+        var end = html.IndexOf("</script>", start, StringComparison.Ordinal);
+        if (end <= start) { return null; }
+        try
+        {
+            using var document = JsonDocument.Parse(html[start..end]);
+            if (!TryFindEmbedVideo(document.RootElement, out var video)) { return null; }
+
+            var title = ReadEmbedText(video, "itemInfos", "text");
+            string? audio = null;
+            if (video.TryGetProperty("musicInfos", out var music) && music.ValueKind == JsonValueKind.Object &&
+                music.TryGetProperty("playUrl", out var urls) && urls.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var candidate in urls.EnumerateArray())
+                {
+                    if (candidate.ValueKind == JsonValueKind.String && candidate.GetString() is { Length: > 0 } found)
+                    {
+                        audio = found;
+                        break;
+                    }
+                }
+            }
+
+            return audio is null && title is null ? null : new TikTokMedia(audio, null, title);
+        }
+        catch (JsonException) { return null; }
+    }
+
+    /// <summary>The embed blob keys its item by the route it was asked for, so the bag is searched.</summary>
+    private static bool TryFindEmbedVideo(JsonElement root, out JsonElement video)
+    {
+        video = default;
+        if (root.ValueKind != JsonValueKind.Object ||
+            !root.TryGetProperty("source", out var source) || source.ValueKind != JsonValueKind.Object ||
+            !source.TryGetProperty("data", out var bag) || bag.ValueKind != JsonValueKind.Object)
+        {
+            return false;
+        }
+
+        foreach (var entry in bag.EnumerateObject())
+        {
+            if (entry.Value.ValueKind == JsonValueKind.Object &&
+                entry.Value.TryGetProperty("videoData", out var found) && found.ValueKind == JsonValueKind.Object)
+            {
+                video = found;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string? ReadEmbedText(JsonElement node, string parent, string child) =>
+        node.TryGetProperty(parent, out var section) && section.ValueKind == JsonValueKind.Object &&
+        section.TryGetProperty(child, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
+    /// <summary>
+    /// TikTok says this when one address has asked too often. Waiting is the only real answer, so
+    /// the retry ladder stops rather than making the wait longer.
+    /// </summary>
+    private static void RejectRateLimit(string? body)
+    {
+        if (body is not null && body.Contains("ratelimit triggered", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new TikTokException(TikTokFailure.RateLimited,
+                "TikTok answered ratelimit triggered: this address has asked too often.");
+        }
+    }
+
     internal static int ReadPageStatus(string? html)
     {
         if (string.IsNullOrWhiteSpace(html)) { return 0; }
@@ -793,6 +888,12 @@ public sealed class TikTokAudioService : ITikTokAudioService
         // yt-dlp's "your IP address is blocked" is its wording for TikTok's own status 10204, which
         // is a regional decision by TikTok and has nothing to do with the provider. Keeping the two
         // apart is the point: one is fixed by trying again in a minute, the other is not.
+        if (text.Contains("ratelimit"))
+        {
+            return new TikTokException(TikTokFailure.RateLimited,
+                "TikTok asked this address to slow down: " + FirstLine(standardError));
+        }
+
         if (text.Contains("ip address is blocked") || text.Contains("not available in your region"))
         {
             return new TikTokException(TikTokFailure.RegionBlocked,
@@ -827,8 +928,31 @@ public sealed class TikTokAudioService : ITikTokAudioService
     private static string? Trim(string? text, int maximum)
     {
         if (string.IsNullOrWhiteSpace(text)) { return null; }
-        var flat = string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        var cleaned = RemoveUndecodable(text);
+        if (string.IsNullOrWhiteSpace(cleaned)) { return null; }
+        var flat = string.Join(' ', cleaned.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         return flat.Length <= maximum ? flat : flat[..maximum].TrimEnd() + "…";
+    }
+
+    /// <summary>
+    /// Drops replacement characters and control codes from a name. They only appear when a byte
+    /// stream was decoded with the wrong code page, and a row of diamonds tells the user nothing
+    /// except that something went wrong; a shorter honest name is better than that.
+    /// </summary>
+    internal static string RemoveUndecodable(string text)
+    {
+        var kept = new StringBuilder(text.Length);
+        foreach (var symbol in text)
+        {
+            if (symbol == '\uFFFD' || (char.IsControl(symbol) && symbol is not ('\t' or '\n' or '\r')))
+            {
+                continue;
+            }
+
+            kept.Append(symbol);
+        }
+
+        return kept.ToString();
     }
 
     private static void TryDelete(string path)

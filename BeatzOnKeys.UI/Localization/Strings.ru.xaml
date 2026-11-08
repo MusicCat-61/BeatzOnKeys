@@ -201,7 +201,8 @@
     <sys:String x:Key="L_TikTokFailureDownload">Не удалось скачать. Проверьте ссылку и попробуйте снова.</sys:String>
     <sys:String x:Key="L_TikTokFailureNetwork">Соединение с TikTok оборвалось. Попробуйте ещё раз через минуту.</sys:String>
 <sys:String x:Key="L_TikTokFailureRegion">TikTok не отдаёт этот ролик вашему подключению — его собственное ограничение. С другой сети он может открыться.</sys:String>
-    <sys:String x:Key="L_TikTokFailureChallenge">TikTok запросил проверку, которую не удалось пройти. Попробуйте ещё раз через минуту.</sys:String>
+    <sys:String x:Key="L_TikTokFailureRateLimited">TikTok просит подождать: с этого адреса слишком часто спрашивали. Попробуйте через пару минут.</sys:String>
+<sys:String x:Key="L_TikTokFailureChallenge">TikTok запросил проверку, которую не удалось пройти. Попробуйте ещё раз через минуту.</sys:String>
     <sys:String x:Key="L_TikTokNetworkTitle">Связь с TikTok обрывается</sys:String>
     <sys:String x:Key="L_TikTokNetworkBody">TikTok не ответил или соединение прервалось на середине. Это бывает и не при каждом ролике: подождите минуту и попробуйте снова. Если так повторяется — попробуйте другое подключение к интернету.</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Название трека или ссылка YouTube</sys:String>

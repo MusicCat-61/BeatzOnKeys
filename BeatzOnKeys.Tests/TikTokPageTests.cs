@@ -115,6 +115,49 @@ public static class TikTokPageTests
         return Task.CompletedTask;
     }
 
+    public static Task TheEmbedPageYieldsTheClipWithoutThePuzzle()
+    {
+        // The embed route is what makes a download possible without a VPN: TikTok serves it to the
+        // sites that show its videos, so it needs no solved puzzle and carries no 10204 refusal.
+        var html = EmbedPage("— сиксевен | трек в тгк: навеиваю музыку #музыка",
+            "https://v45.tiktokcdn-eu.com/audio/one.mp3");
+        var media = TikTokAudioService.ParseEmbed(html);
+
+        AssertEx.True(media is not null, "The embed page is understood.");
+        AssertEx.Equal("https://v45.tiktokcdn-eu.com/audio/one.mp3", media!.AudioUrl,
+            "The audio address is taken from musicInfos.");
+        AssertEx.Equal("— сиксевен | трек в тгк: навеиваю музыку #музыка", media.Title,
+            "The clip's own text becomes the row name, with the Cyrillic intact.");
+
+        // A page that is not an embed, or a broken one, is simply not this route.
+        AssertEx.True(TikTokAudioService.ParseEmbed("<html>nothing</html>") is null,
+            "A page without the blob is not mistaken for an embed.");
+        AssertEx.True(TikTokAudioService.ParseEmbed(null) is null, "A missing page yields nothing.");
+        return Task.CompletedTask;
+    }
+
+    public static Task UndecodableBytesNeverReachTheRow()
+    {
+        // The diamonds were real: Python wrote its console code page, the bytes were read as UTF-8,
+        // and every Cyrillic letter became U+FFFD. Cleaning at the end means a wrong code page can
+        // never put a row of diamonds in the list, whatever causes it.
+        AssertEx.Equal("NAVIA  elbrus", TikTokAudioService.RemoveUndecodable("NAVIA \uFFFD\uFFFD\uFFFD elbrus"),
+            "Replacement characters are dropped; the gap they leave is collapsed by Trim later.");
+        AssertEx.Equal("строка", TikTokAudioService.RemoveUndecodable("строка"),
+            "Real Cyrillic is untouched.");
+        AssertEx.Equal("a b", TikTokAudioService.RemoveUndecodable("a\u0007 b"),
+            "Control codes are dropped.");
+        AssertEx.True(string.IsNullOrWhiteSpace(TikTokAudioService.RemoveUndecodable("\uFFFD\uFFFD")),
+            "A name made of nothing but damage becomes empty rather than noise.");
+        return Task.CompletedTask;
+    }
+
+    private static string EmbedPage(string text, string audio) =>
+        "<html><script id=\"__FRONTITY_CONNECT_STATE__\" type=\"application/json\">" +
+        "{\"source\":{\"data\":{\"/embed/v2/123\":{\"videoData\":{" +
+        "\"itemInfos\":{\"id\":\"123\",\"text\":\"" + text.Replace("\"", "\\\"") + "\"}," +
+        "\"musicInfos\":{\"musicName\":\"original\",\"playUrl\":[\"" + audio + "\"]}}}}}}</script></html>";
+
     public static Task ThePageStatusIsReadFromTiktokItself()
     {
         // The status lives in the page TikTok sends, and it is the difference between "the video is

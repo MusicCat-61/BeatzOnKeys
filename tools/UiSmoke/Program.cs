@@ -1532,6 +1532,28 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             finally { SmokeYouTubeRunner.SearchDelay = TimeSpan.Zero; }
         }
 
+        // The primary YouTube button once had no label at all, and nobody saw it for four
+        // releases: a Cancel button nested inside it outranked the style's content setter, so the
+        // setter was dead code. The label is now checked, not just photographed.
+        {
+            var tabsForLabel = _vm!;
+            tabsForLabel.ShowYouTubeCommand.Execute(null);
+            tabsForLabel.YouTube.SearchQuery = "https://youtu.be/3LzyxUDVfZw?si=7qLRovDN86qQNT5e";
+            await SettleAsync();
+            var primary = Descendants<Button>(_window!)
+                .Where(button => button.IsVisible && button.Content is string)
+                .Select(button => (string)button.Content)
+                .ToList();
+            Check("youtube.primaryButtonHasALabel",
+                primary.Contains(Loc.T("L_YtDownloadNow")),
+                $"Кнопки со словами: {string.Join(" | ", primary)}.");
+            Check("youtube.noButtonSwallowsAnother",
+                !Descendants<Button>(_window!).Any(outer => outer.Content is Button),
+                "Ни одна кнопка не содержит другую вместо текста.");
+            tabsForLabel.YouTube.SearchQuery = string.Empty;
+            tabsForLabel.ShowPlaylistCommand.Execute(null);
+            await SettleAsync();
+        }
         // --- The three tabs and the TikTok page ------------------------------------------------
         // The page switch is a single field now, so exactly one of the three can be active.
         {

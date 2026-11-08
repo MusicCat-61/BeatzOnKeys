@@ -301,6 +301,8 @@ public sealed class TikTokViewModel : ObservableObject
         TikTokFailure.TooLarge => "L_TikTokFailureTooLarge",
         TikTokFailure.Timeout => "L_TikTokFailureTimeout",
         TikTokFailure.Cancelled => "L_TikTokCancelled",
+        TikTokFailure.RegionBlocked => "L_TikTokFailureRegion",
+        TikTokFailure.RateLimited => "L_TikTokFailureRateLimited",
         TikTokFailure.NetworkBlocked => "L_TikTokFailureNetwork",
         TikTokFailure.ChallengeFailed => "L_TikTokFailureChallenge",
         _ => "L_TikTokFailureDownload"

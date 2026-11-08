@@ -201,7 +201,8 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_TikTokFailureDownload">Could not download. Check the link and try again.</sys:String>
     <sys:String x:Key="L_TikTokFailureNetwork">The connection to TikTok broke. Try again in a minute.</sys:String>
 <sys:String x:Key="L_TikTokFailureRegion">TikTok will not serve this clip to your connection — that is its own restriction. Another network may open it.</sys:String>
-    <sys:String x:Key="L_TikTokFailureChallenge">TikTok asked for a check this program could not pass. Try again in a minute.</sys:String>
+    <sys:String x:Key="L_TikTokFailureRateLimited">TikTok asks you to wait: this address has asked too often. Try again in a couple of minutes.</sys:String>
+<sys:String x:Key="L_TikTokFailureChallenge">TikTok asked for a check this program could not pass. Try again in a minute.</sys:String>
     <sys:String x:Key="L_TikTokNetworkTitle">The connection to TikTok keeps breaking</sys:String>
     <sys:String x:Key="L_TikTokNetworkBody">TikTok did not answer, or the connection broke halfway. It does not happen with every clip: wait a minute and try again. If it keeps happening, try another internet connection.</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Track name or a YouTube link</sys:String>

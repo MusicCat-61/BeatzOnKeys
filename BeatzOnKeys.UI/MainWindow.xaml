@@ -889,14 +889,10 @@
                     <Border Style="{StaticResource CardStyle}" Padding="14">
                         <StackPanel>
                             <DockPanel>
+                                <!-- The label lives in the style, so the button must not hold any content of
+                                     its own: a local child would outrank the setter and leave the button
+                                     empty, which is exactly what a nested Cancel button did. -->
                                 <Button DockPanel.Dock="Right" MinWidth="112" Margin="8,0,0,0">
-                                <!-- Cancel appears only while something runs: a search, the
-                                     background cache pass or a link download. -->
-                                <Button DockPanel.Dock="Right" MinWidth="96" Margin="8,0,0,0"
-                                        Content="{DynamicResource L_Cancel}"
-                                        Style="{StaticResource SubtleButtonStyle}"
-                                        Command="{Binding YouTube.CancelCommand}"
-                                        Visibility="{Binding YouTube.CancelVisible}"/>
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
                                             <Setter Property="Content" Value="{DynamicResource L_YtSearch}"/>
@@ -912,6 +908,14 @@
                                         </Style>
                                     </Button.Style>
                                 </Button>
+                                <!-- Cancel is a neighbour of that button, not its content: it appears only
+                                     while something runs — a search, the background cache pass or a link
+                                     download — and must not take the label away when it hides. -->
+                                <Button DockPanel.Dock="Right" MinWidth="96" Margin="8,0,0,0"
+                                        Content="{DynamicResource L_Cancel}"
+                                        Style="{StaticResource SubtleButtonStyle}"
+                                        Command="{Binding YouTube.CancelCommand}"
+                                        Visibility="{Binding YouTube.CancelVisible}"/>
                                 <TextBox Text="{Binding YouTube.SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource InputBoxStyle}"
                                          AutomationProperties.Name="{DynamicResource L_YtSearchPlaceholder}"/>

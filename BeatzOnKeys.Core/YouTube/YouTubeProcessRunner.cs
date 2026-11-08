@@ -28,6 +28,13 @@ public sealed class YouTubeProcessRunner : IYouTubeProcessRunner
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8
         };
+
+        // yt-dlp is Python, and on Windows its stdout follows the console code page rather than
+        // UTF-8. Decoding those bytes as UTF-8 turned every Cyrillic letter into a replacement
+        // character, which reached the user as rows of diamonds. Asking for UTF-8 at the source is
+        // the only fix that keeps the name intact instead of guessing at the damage.
+        startInfo.Environment["PYTHONIOENCODING"] = "utf-8";
+        startInfo.Environment["PYTHONUTF8"] = "1";
         foreach (var argument in request.Arguments)
         {
             if (!string.IsNullOrEmpty(argument)) { startInfo.ArgumentList.Add(argument); }

@@ -162,6 +162,13 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             var unresolvedStorage = storageKeys.Where(key => Loc.T(key) == key).ToArray();
             // With the mode pinned the question must stay off, or a headless run would hang on a
             // dialog nobody can answer.
+            // The question method existed but was never called, so the prompt silently never
+            // appeared. Calling it here proves it runs and returns at once when nothing is pending.
+            Invoke(app, "OfferStorageFolder");
+            Check("storage.questionMethodRuns", typeof(App).GetMethod("OfferStorageFolder",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic) is not null &&
+                GetField<bool>(app, "_storageChoicePending") == false,
+                "OfferStorageFolder is present and does nothing while the mode is pinned.");
             Check("storage.noPromptWhenPinned", GetField<bool>(app, "_storageChoicePending") == false,
                 "A pinned storage mode must never open the folder question.");
             Check("storage.dialogTextLocalized", unresolvedStorage.Length == 0,

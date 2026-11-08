@@ -20,6 +20,20 @@ internal static class StorageTests
     }
 
     /// <summary>The user profile root is not a place to drop application folders.</summary>
+    /// <summary>
+    /// The shell is the only trustworthy source for the desktop, and this asserts the lookup
+    /// actually answers: a silent empty result would make every desktop copy look portable.
+    /// </summary>
+    public static Task DesktopIsResolvedAndRecognized()
+    {
+        var desktop = AppPaths.DesktopDirectory();
+        AssertEx.True(!string.IsNullOrWhiteSpace(desktop), "The shell must report the desktop folder.");
+        AssertEx.True(Directory.Exists(desktop), $"The desktop folder exists: {desktop}");
+        AssertEx.True(AppPaths.IsDesktop(desktop), $"IsDesktop must recognize {desktop}.");
+        AssertEx.Equal(StorageMode.ChosenDirectory, AppPaths.DetectMode(desktop));
+        return Task.CompletedTask;
+    }
+
     public static Task ProfileRootIsUnsuitable()
     {
         var profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);

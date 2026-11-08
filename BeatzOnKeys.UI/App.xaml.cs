@@ -138,6 +138,8 @@ public partial class App : System.Windows.Application
             await _viewModel.InitializeAsync().ConfigureAwait(true);
             _mainWindow.Show();
             _mainWindow.Activate();
+            // Asked after the window is up, so the question has context and a theme.
+            OfferStorageFolder();
             // Hiding the window must not end the process; only an explicit exit does.
             ShutdownMode = ShutdownMode.OnLastWindowClose;
             NotifyStartupHints();

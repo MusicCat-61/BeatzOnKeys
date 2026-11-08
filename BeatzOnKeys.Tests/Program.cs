@@ -71,6 +71,7 @@ internal static class Program
         ("UpdateService.UpdateDownloadKeepsItsBytesWhenCancelled", UpdateServiceTests.UpdateDownloadKeepsItsBytesWhenCancelled),
         ("YouTube.CacheMovesToTheChosenFolder", YouTubeTests.CacheMovesToTheChosenFolder),
         ("Storage.PortableFolderKeepsDataBesideTheExecutable", StorageTests.PortableFolderKeepsDataBesideTheExecutable),
+        ("Storage.DesktopIsResolvedAndRecognized", StorageTests.DesktopIsResolvedAndRecognized),
         ("Storage.ProfileRootIsUnsuitable", StorageTests.ProfileRootIsUnsuitable),
         ("Storage.MissingFolderIsNotWritable", StorageTests.MissingFolderIsNotWritable),
         ("Storage.PathsFollowTheRoot", StorageTests.PathsFollowTheRoot),

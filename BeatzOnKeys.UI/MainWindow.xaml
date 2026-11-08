@@ -884,7 +884,8 @@
                                             <Style.Triggers>
                                                 <!-- A pasted link can only be downloaded, words can only be searched. -->
                                                 <DataTrigger Binding="{Binding YouTube.QueryIsLink}" Value="True">
-                                                    <Setter Property="Content" Value="{DynamicResource L_YtDownloadLink}"/>
+                                                    <!-- The hint says "press Download", so the button must say the same. -->
+                                                    <Setter Property="Content" Value="{DynamicResource L_YtDownloadNow}"/>
                                                     <Setter Property="Command" Value="{Binding YouTube.DownloadFromQueryCommand}"/>
                                                 </DataTrigger>
                                             </Style.Triggers>

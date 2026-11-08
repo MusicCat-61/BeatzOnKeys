@@ -1330,6 +1330,14 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("youtube.previewPlaysCachedFile",
             vm.IsRunning && player.IsPlaying && vm.NowPlayingText.Contains(firstResult.Title, StringComparison.Ordinal),
             $"Running={vm.IsRunning}, playing={player.IsPlaying}, now='{vm.NowPlayingText}'.");
+
+        // A preview is the user asking to hear the track, so the idle pause must stay away even
+        // though the setting is on. The player is watched past the timeout to catch a stale timer.
+        Check("youtube.previewKeepsSettingOn", vm.PauseOnIdle, "The saved setting itself must stay on.");
+        await Task.Delay(TimeSpan.FromSeconds(vm.IdleTimeout + 1.5));
+        Check("youtube.previewSurvivesIdleTimeout",
+            vm.IsRunning && player.IsPlaying && !player.IsIdlePaused,
+            $"Running={vm.IsRunning}, playing={player.IsPlaying}, idlePaused={player.IsIdlePaused}.");
         await StopAsync(vm);
          // Previews occupy space and can be cleared without touching the kept tracks.
         await UntilAsync(() => vm.YouTube.ClearSearchCacheCommand.CanExecute(null), 5000, "preview cache measured");

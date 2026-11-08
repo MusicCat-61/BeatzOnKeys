@@ -167,6 +167,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtSearchPlaceholder">Track name or a YouTube link</sys:String>
     <sys:String x:Key="L_YtSearch">Search</sys:String>
     <sys:String x:Key="L_YtDownloadLink">Add</sys:String>
+    <sys:String x:Key="L_YtDownloadNow">Download</sys:String>
     <sys:String x:Key="L_YtTabSearch">Search</sys:String>
     <sys:String x:Key="L_YtTabDownloaded">Downloaded tracks</sys:String>
     <sys:String x:Key="L_YtPreview">Listen</sys:String>
@@ -248,7 +249,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_ZapretOpen">Open Zapret2UI</sys:String>
     <sys:String x:Key="Guide_SecYouTube">YouTube</sys:String>
     <sys:String x:Key="Guide_YouTubeSearchT">Search and download</sys:String>
-    <sys:String x:Key="Guide_YouTubeSearchX">The YouTube tab in the title bar. Type a name and press Search to get up to ten results; the Download button on a row saves that track. Paste a video link and Search or Download will fetch it directly, without searching.</sys:String>
+    <sys:String x:Key="Guide_YouTubeSearchX">The YouTube tab in the window title. Type a name and press Search for up to 10 results. The Add button next to a result keeps the track in your saved list. Paste a video link and the button beside the field becomes Download and fetches it directly, without searching. Previews and downloaded tracks play in full: idle pausing does not apply to them.</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadT">Links and limits</sys:String>
     <sys:String x:Key="Guide_YouTubeDownloadX">The Add button on a result row becomes active only once the track is cached, and then moves it into the downloaded list. Before that there is nothing to press: the file does not exist yet.</sys:String>
     <sys:String x:Key="Guide_YouTubeCacheT">Cache and folder</sys:String>

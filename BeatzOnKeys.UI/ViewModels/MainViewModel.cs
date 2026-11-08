@@ -26,6 +26,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     // Which tracks came from the YouTube cache, so the player card can name the source instead of
     // leaving the user guessing where the sound came from.
     private readonly HashSet<Guid> _youTubeTracks = [];
+    /// <summary>
+    /// True while a YouTube track is playing, which suspends the idle pause: a preview is the user
+    /// asking to hear the track properly, not the typing background this setting exists for.
+    /// </summary>
+    private bool _idlePauseSuppressed;
     private string _playingTrackText = string.Empty;
     private string _playingSourceText = string.Empty;
     private bool _isYouTubePage;
@@ -299,8 +304,29 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public bool PauseOnIdle
     {
         get => _pauseOnIdle;
-        set { if (SetProperty(ref _pauseOnIdle, value)) { _audioPlayer.PauseOnIdle = value; QueueSave(); } }
+        set { if (SetProperty(ref _pauseOnIdle, value)) { SyncIdlePause(); QueueSave(); } }
     }
+    /// <summary>
+    /// The idle pause exists for the typing background. A YouTube track — a search preview or a
+    /// saved one — is the user asking to hear it properly, so the pause stays out of the way.
+    /// Called from the progress tick, so an auto-advance back to a local track restores the setting
+    /// by itself without a second code path to forget.
+    /// </summary>
+    private void SyncIdlePauseFor(PlaybackTrack? playing)
+    {
+        var suppressed = playing is not null && _youTubeTracks.Contains(playing.Id);
+        if (suppressed == _idlePauseSuppressed) { return; }
+        _idlePauseSuppressed = suppressed;
+        SyncIdlePause();
+    }
+
+    /// <summary>The setting is kept as the user left it; only the effective value is suspended.</summary>
+    private void SyncIdlePause()
+    {
+        var effective = _pauseOnIdle && !_idlePauseSuppressed;
+        if (_audioPlayer.PauseOnIdle != effective) { _audioPlayer.PauseOnIdle = effective; }
+    }
+
     public bool AutoAdvance
     {
         get => _autoAdvance;
@@ -849,6 +875,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             OnPropertyChanged(nameof(PlaybackProgress));
         }
         var playing = _playbackController.CurrentTrack;
+        SyncIdlePauseFor(playing);
         var playingName = playing is null ? string.Empty :
             _friendlyNames.TryGetValue(playing.Id, out var friendly) ? friendly : playing.Name;
         NowPlayingText = playing is null ? string.Empty :
@@ -936,6 +963,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             // The controller holds the playback order; a YouTube file joins it for this run only,
             // and Reorder keeps it at the end when the local playlist changes.
             _playbackController.UpsertTrack(playback);
+            // Suspended before the first note: otherwise a short idle time would already be armed.
+            SyncIdlePauseFor(playback);
             if (!_typingPlayback.SelectTrack(playback.Id, restart: true)) { return; }
             if (!IsRunning)
             {

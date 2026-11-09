@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
@@ -27,6 +28,7 @@ using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.Core.Services;
 using BeatzOnKeys.Core.Updates;
 using BeatzOnKeys.UI;
+using BeatzOnKeys.UI.Infrastructure;
 using BeatzOnKeys.UI.Localization;
 using BeatzOnKeys.UI.Theming;
 using BeatzOnKeys.UI.ViewModels;
@@ -247,6 +249,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             await Section("playlist", PlaylistManagementAsync);
             await Section("missingTrack", MissingTrackAsync);
             await Section("youtube", YouTubeSectionAsync);
+            await Section("queueAndFields", QueueAndFieldsAsync);
         await Section("settings.roundtrip", SettingsRoundtripAsync);
         }
         catch (Exception error) { Check("harness.exception", false, error.ToString()); }
@@ -1763,8 +1766,9 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         windowViewModel.ShowPlaylistCommand.Execute(null);
         await SettleAsync();
         Check("youtube.pageSwitchBack", windowViewModel.IsPlaylistPage &&
-            Descendants<TextBox>(_window!).All(box => !box.IsVisible),
-            $"IsPlaylistPage={windowViewModel.IsPlaylistPage}, visible text boxes={Descendants<TextBox>(_window!).Count(box => box.IsVisible)}.");
+            Descendants<TextBox>(_window!).Count(box => box.IsVisible) == 1 &&
+            Descendants<TextBox>(_window!).Where(box => box.IsVisible).All(box => box.MaxLength == 200),
+            $"IsPlaylistPage={windowViewModel.IsPlaylistPage}, visible text boxes={Descendants<TextBox>(_window!).Count(box => box.IsVisible)} (the filter field is the only one).");
 
         await vm.DisposeAsync();
         _ownedModels.Remove(vm);
@@ -1902,6 +1906,385 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         _checks.Add(new Assertion(name, passed, detail));
         Console.WriteLine($"{(passed ? "PASS" : "FAIL")} {name}: {detail}");
     }
+    /// <summary>
+    /// The 1.4.0.6 batch, checked together because the pieces touch the same three lists: the queue
+    /// follows the page, every list can be filtered and its field cleared, a TikTok row can be
+    /// renamed and dragged, and the window remembers how large it was.
+    /// </summary>
+    private async Task QueueAndFieldsAsync()
+    {
+        var music = AppPaths.MusicDirectory;
+        Directory.CreateDirectory(music);
+        var shortClip = Path.Combine(music, "queue-first.mp3");
+        File.Copy(_fixtures[3], shortClip, overwrite: true);
+        var longClip = Path.Combine(music, "queue-second.mp3");
+        File.Copy(_fixtures[0], longClip, overwrite: true);
+
+        var hook = new FakeKeyboardHook();
+        var player = new ContinuousAudioPlayer();
+        var vm = Own(new MainViewModel(new AppSettings
+        {
+            Language = "en",
+            // No idle pause: the point here is the queue, and a pause would blur when a track ended.
+            PauseOnIdle = false,
+            AutoAdvance = true,
+            Loop = false,
+            YouTubeTracks =
+            [
+                new YouTubeTrackState
+                {
+                    VideoId = "cachedFirst", Title = "Cached first", CachedPath = shortClip,
+                    Duration = TimeSpan.FromSeconds(0.36), Status = YouTubeTrackStatus.Ready
+                },
+                new YouTubeTrackState
+                {
+                    VideoId = "cachedSecond", Title = "Cached second", CachedPath = longClip,
+                    Duration = TimeSpan.FromSeconds(142), Status = YouTubeTrackStatus.Ready
+                }
+            ],
+            TikTokTracks =
+            [
+                new YouTubeTrackState
+                {
+                    VideoId = "queueFirst", Title = "Queue first", CachedPath = shortClip,
+                    Duration = TimeSpan.FromSeconds(0.36), Status = YouTubeTrackStatus.Ready
+                },
+                new YouTubeTrackState
+                {
+                    VideoId = "queueSecond", Title = "Queue second", CachedPath = longClip,
+                    Duration = TimeSpan.FromSeconds(142), Status = YouTubeTrackStatus.Ready
+                }
+            ]
+        }, MakeSettingsService(Path.Combine(session, "queue-settings.json")), hook, player));
+        vm.UserMessageRequested += message => _messages.Add("Queue: " + message);
+        await vm.InitializeAsync();
+        await vm.AddFilesAsync(new[] { _fixtures[3], _fixtures[1] });
+        // The short local clip first, so a natural end has a row below it to advance into.
+        var localTrack = vm.Tracks[0];
+
+        // --- 1. the queue follows the page -------------------------------------------------
+        vm.ShowTikTokCommand.Execute(null);
+        await SettleAsync();
+        var firstRow = vm.TikTok.Tracks[0];
+        var secondRow = vm.TikTok.Tracks[1];
+        vm.TikTok.SelectTrack(firstRow);
+        vm.TikTok.PlayCommand.Execute(firstRow);
+        await UntilAsync(() => vm.IsRunning && player.IsPlaying, 5000, "tiktok playback");
+        await UntilAsync(() => ReferenceEquals(vm.TikTok.SelectedTrack, secondRow) && player.IsPlaying, 8000,
+            "next tiktok row playing");
+        Check("queue.nextStaysOnThePage",
+            ReferenceEquals(vm.TikTok.SelectedTrack, secondRow) && vm.IsTikTokPage && player.IsPlaying &&
+            vm.PlayingSourceText.Contains(Loc.T("L_SourceTikTok"), StringComparison.Ordinal) &&
+            !vm.PlayingSourceText.Contains(Loc.T("L_SourceLocal"), StringComparison.Ordinal),
+            $"Selected='{vm.TikTok.SelectedTrackTitle}', page=TikTok, source='{vm.PlayingSourceText}', " +
+            $"local selection='{vm.SelectedTrackText}'.");
+        Check("queue.localPlaylistIsNotPulledIn",
+            ReferenceEquals(vm.SelectedTrack, localTrack) && vm.SelectedTrack is not null,
+            $"The local playlist still points at '{vm.SelectedTrackText}' while TikTok plays.");
+        await StopAsync(vm);
+
+        // --- 1 again, on the other two pages: "по всем вкладкам" ---------------------------
+        // The local playlist has the short clip first, so its end must move to the row below and
+        // stay in the playlist, not wander into a cached list.
+        vm.ShowPlaylistCommand.Execute(null);
+        await SettleAsync();
+        await vm.PlayPlaylistTrackAsync(vm.Tracks[0]);
+        // The track-changed notification arrives before the worker starts the audio, so both are
+        // waited for together: otherwise the assertion races the player for a few milliseconds.
+        await UntilAsync(() => ReferenceEquals(vm.SelectedTrack, vm.Tracks[1]) && player.IsPlaying, 9000,
+            "next local row playing");
+        Check("queue.localNextStaysInThePlaylist",
+            vm.IsPlaylistPage && player.IsPlaying &&
+            vm.PlayingSourceText.Contains(Loc.T("L_SourceLocal"), StringComparison.Ordinal),
+            $"Selected='{vm.SelectedTrackText}', source='{vm.PlayingSourceText}'.");
+        await StopAsync(vm);
+
+        // The same on the YouTube page, whose rows are its own collection.
+        vm.ShowYouTubeCommand.Execute(null);
+        await SettleAsync();
+        var cachedFirst = vm.YouTube.Downloaded.First(track => track.Title == "Cached first");
+        var cachedSecond = vm.YouTube.Downloaded.First(track => track.Title == "Cached second");
+        vm.YouTube.SelectTrack(cachedFirst);
+        vm.YouTube.PlayCommand.Execute(cachedFirst);
+        await UntilAsync(() => ReferenceEquals(vm.YouTube.SelectedTrack, cachedSecond) && player.IsPlaying, 9000,
+            "next youtube row playing");
+        Check("queue.youtubeNextStaysOnThePage",
+            vm.IsYouTubePage && player.IsPlaying &&
+            vm.PlayingSourceText.Contains(Loc.T("L_SourceYouTube"), StringComparison.Ordinal),
+            $"Selected='{vm.YouTube.SelectedTrackTitle}', source='{vm.PlayingSourceText}'.");
+        await StopAsync(vm);
+
+        // A tab switch must neither restart nor rename what is being heard: the playing track is
+        // kept in front of the new page's queue for exactly this reason.
+        vm.ShowTikTokCommand.Execute(null);
+        await SettleAsync();
+        var longTikTokRow = vm.TikTok.Tracks.First(track => track.Title == "Queue second");
+        vm.TikTok.SelectTrack(longTikTokRow);
+        vm.TikTok.PlayCommand.Execute(longTikTokRow);
+        await UntilAsync(() => vm.IsRunning && player.IsPlaying, 5000, "cross-page playback");
+        await Task.Delay(350);
+        var positionBeforeSwitch = player.Position;
+        vm.ShowPlaylistCommand.Execute(null);
+        await Task.Delay(450);
+        Check("queue.pageSwitchKeepsPlaying",
+            vm.IsPlaylistPage && player.IsPlaying && player.Position > positionBeforeSwitch &&
+            vm.PlayingTrackText == longTikTokRow.Title,
+            $"After switching to the local page: playing={player.IsPlaying}, " +
+            $"{positionBeforeSwitch.TotalSeconds:F2}s -> {player.Position.TotalSeconds:F2}s, " +
+            $"now='{vm.PlayingTrackText}'.");
+        await StopAsync(vm);
+
+        // --- 2 and 3. one filter per list, each with a cross -------------------------------
+        vm.TrackFilter = "nothing matches this";
+        await SettleAsync();
+        Check("filter.localNarrowsTheView",
+            vm.HasTrackFilter && vm.FilteredTracks.Count == 0 && vm.Tracks.Count == 2 &&
+            vm.TrackFilteredEmptyVisibility == Visibility.Visible,
+            $"Tracks={vm.Tracks.Count}, shown={vm.FilteredTracks.Count}, empty hint=" +
+            $"{vm.TrackFilteredEmptyVisibility}.");
+        vm.ClearTrackFilterCommand.Execute(null);
+        await SettleAsync();
+        Check("filter.localCrossClears",
+            !vm.HasTrackFilter && vm.FilteredTracks.Count == 2 &&
+            vm.TrackFilterClearVisible == Visibility.Collapsed,
+            $"Shown={vm.FilteredTracks.Count}, cross={vm.TrackFilterClearVisible}.");
+
+        vm.YouTube.FilterText = "cached second";
+        await SettleAsync();
+        Check("filter.youtubeMatchesAndKeepsTheCounter",
+            vm.YouTube.FilteredDownloaded.Count == 1 &&
+            vm.YouTube.FilteredDownloaded.Cast<YouTubeTrackViewModel>().First().Title == "Cached second" &&
+            vm.YouTube.TrackCount == 2,
+            $"Shown={vm.YouTube.FilteredDownloaded.Count}, counter={vm.YouTube.TrackCount}.");
+        vm.YouTube.ClearFilterCommand.Execute(null);
+        await SettleAsync();
+        Check("filter.youtubeCrossClears",
+            vm.YouTube.FilteredDownloaded.Count == 2 && !vm.YouTube.HasFilter, "The cross restores the whole list.");
+
+        vm.TikTok.FilterText = "queue second";
+        await SettleAsync();
+        Check("filter.tiktokMatches",
+            vm.TikTok.FilteredTracks.Count == 1 &&
+            vm.TikTok.FilteredTracks.Cast<YouTubeTrackViewModel>().First().Title == "Queue second",
+            $"Shown={vm.TikTok.FilteredTracks.Count}.");
+        vm.TikTok.ClearFilterCommand.Execute(null);
+        await SettleAsync();
+
+        // --- 5. one rule for every field --------------------------------------------------
+        vm.YouTube.SearchQuery = "line one\nline two";
+        Check("fields.queryIsOneLine", vm.YouTube.SearchQuery == "line one line two",
+            $"Query='{vm.YouTube.SearchQuery}'.");
+        vm.YouTube.SearchQuery = new string('x', 260);
+        Check("fields.queryLengthIsCapped", vm.YouTube.SearchQuery.Length == TextInput.MaxLength &&
+            TextInput.MaxLength == 200, $"Length={vm.YouTube.SearchQuery.Length}.");
+        vm.YouTube.SearchQuery = string.Empty;
+        vm.TikTok.InputUrl = "https://www.tiktok.com/@a/video/1\r\n2";
+        Check("fields.linkIsOneLine", !vm.TikTok.InputUrl.Contains('\n') && !vm.TikTok.InputUrl.Contains('\r'),
+            $"Link='{vm.TikTok.InputUrl}'.");
+        Check("fields.crossFollowsTheText",
+            vm.TikTok.InputClearVisible == Visibility.Visible && vm.TikTok.ClearInputCommand.CanExecute(null),
+            "A non-empty link shows its cross.");
+        vm.TikTok.ClearInputCommand.Execute(null);
+        Check("fields.crossClearsTheLink",
+            vm.TikTok.InputUrl.Length == 0 && vm.TikTok.InputClearVisible == Visibility.Collapsed,
+            "The cross empties the field and disappears.");
+
+        // --- 4. the pencil renames the row, nothing on disk -------------------------------
+        firstRow.BeginEdit();
+        Check("rename.fieldOpens",
+            firstRow.IsEditing && firstRow.EditTitle == firstRow.Title &&
+            firstRow.EditVisibility == Visibility.Visible && firstRow.TitleVisibility == Visibility.Collapsed,
+            $"Editing={firstRow.IsEditing}, draft='{firstRow.EditTitle}'.");
+        firstRow.EditTitle = "Renamed row";
+        firstRow.CommitEdit();
+        Check("rename.commitKeepsTheName",
+            !firstRow.IsEditing && firstRow.Title == "Renamed row" && File.Exists(firstRow.CachedPath),
+            $"Title='{firstRow.Title}', file kept='{Path.GetFileName(firstRow.CachedPath)}'.");
+        firstRow.BeginEdit();
+        firstRow.EditTitle = "   ";
+        firstRow.CommitEdit();
+        Check("rename.blankIsRefused", firstRow.Title == "Renamed row",
+            "A name of spaces leaves the old title in place.");
+        firstRow.BeginEdit();
+        firstRow.EditTitle = "temporary";
+        firstRow.CancelEdit();
+        Check("rename.cancelKeepsTheOldName", firstRow.Title == "Renamed row" && !firstRow.IsEditing,
+            $"Title='{firstRow.Title}'.");
+        firstRow.BeginEdit();
+        firstRow.EditTitle = "two\r\nlines";
+        firstRow.CommitEdit();
+        Check("rename.isOneLine", firstRow.Title == "two lines", $"Title='{firstRow.Title}'.");
+        await vm.SaveAsync();
+        var libraryPath = LibraryService.LibraryFileFor(Path.Combine(session, "queue-settings.json"));
+        var libraryJson = await File.ReadAllTextAsync(libraryPath);
+        Check("rename.survivesRestart", libraryJson.Contains("two lines", StringComparison.Ordinal),
+            $"library.json at '{Friendly(libraryPath)}' carries the new name.");
+
+        // --- 6. dragging a TikTok row -----------------------------------------------------
+        vm.TikTok.SetDropTarget(secondRow, above: true);
+        await SettleAsync();
+        Check("tiktok.dropIndicator",
+            secondRow.IsDropTarget && secondRow.IsDropTargetAbove &&
+            vm.TikTok.Tracks.Count(track => track.IsDropTarget) == 1,
+            "One row shows the insertion line.");
+        vm.TikTok.SetDropTarget(null, above: true);
+        Check("tiktok.dropIndicatorCleared", vm.TikTok.Tracks.All(track => !track.IsDropTarget),
+            "Clearing the target removes every indicator.");
+        var reordered = vm.TikTok.MoveTrackTo(firstRow, 1);
+        await SettleAsync();
+        Check("tiktok.dragReorders",
+            reordered && ReferenceEquals(vm.TikTok.Tracks[1], firstRow) && firstRow.IsLast &&
+            ReferenceEquals(vm.TikTok.Tracks[0], secondRow),
+            $"Order: {string.Join(" | ", vm.TikTok.Tracks.Select(track => track.Title))}.");
+        Check("tiktok.dragNoOp", !vm.TikTok.MoveTrackTo(firstRow, 1),
+            "Dropping a row onto its own position changes nothing.");
+
+        // --- 7. the clear dialogs say what they clear -------------------------------------
+        // The generic "clear the cache" title is the one the downloaded dialog used to borrow; it stays
+        // in the dictionaries as the baseline this check compares against.
+        var downloadedTitle = Loc.T("L_YtClearDownloadedTitle");
+        var searchCacheTitle = Loc.T("L_YtClearSearchCacheTitle");
+        var cacheTitle = Loc.T("L_YtClearCacheTitle");
+        Check("dialogs.downloadedTitleIsNotTheCacheOne",
+            downloadedTitle != "L_YtClearDownloadedTitle" && downloadedTitle != cacheTitle &&
+            searchCacheTitle != cacheTitle && searchCacheTitle != "L_YtClearSearchCacheTitle",
+            $"downloaded='{downloadedTitle}', search cache='{searchCacheTitle}', cache='{cacheTitle}'.");
+        vm.SetLanguageCommand.Execute("ru");
+        Check("dialogs.titlesAreTranslated",
+            Loc.T("L_YtClearDownloadedTitle") != "L_YtClearDownloadedTitle" &&
+            Loc.T("L_YtClearSearchCacheTitle") != "L_YtClearSearchCacheTitle" &&
+            Loc.T("L_YtClearDownloadedTitle") != Loc.T("L_YtClearCacheTitle"),
+            $"ru: '{Loc.T("L_YtClearDownloadedTitle")}' / '{Loc.T("L_YtClearSearchCacheTitle")}'.");
+        vm.SetLanguageCommand.Execute("en");
+
+        // --- 8. the window size is remembered, only growing -------------------------------
+        vm.RememberWindowSize(1400, 900);
+        vm.RememberWindowSize(1000, 700);
+        Check("window.remembersOnlyGrowth", Near(vm.WindowWidth, 1400) && Near(vm.WindowHeight, 900),
+            $"After shrinking to 1000x700 the remembered size is {vm.WindowWidth}x{vm.WindowHeight}.");
+        vm.RememberWindowSize(1500, 1200);
+        await vm.SaveAsync();
+        var savedSettings = await MakeSettingsService(Path.Combine(session, "queue-settings.json")).LoadAsync();
+        Check("window.sizeSurvivesRestart",
+            Near(savedSettings.WindowWidth, 1500) && Near(savedSettings.WindowHeight, 1200),
+            $"Saved {savedSettings.WindowWidth}x{savedSettings.WindowHeight}.");
+        await vm.DisposeAsync();
+        _ownedModels.Remove(vm);
+
+        // --- the fields and crosses really exist in the window, not only in the view model --
+        var window = _window ?? throw new InvalidOperationException("The window is required for the field checks.");
+        var shell = _vm ?? throw new InvalidOperationException("The window's view model is required here.");
+        shell.ShowPlaylistCommand.Execute(null);
+        shell.TrackFilter = string.Empty;
+        shell.YouTube.FilterText = string.Empty;
+        shell.TikTok.FilterText = string.Empty;
+        shell.YouTube.SearchQuery = string.Empty;
+        await SettleAsync();
+        var localFields = Descendants<TextBox>(window).Where(box => box.IsVisible && box.MaxLength == 200).ToArray();
+        Check("fields.localFilterRendered",
+            localFields.Length == 1 && !localFields[0].AcceptsReturn,
+            $"{localFields.Length} visible one-line field(s) on the playlist page.");
+        shell.ShowYouTubeCommand.Execute(null);
+        await SettleAsync();
+        var youTubeFields = Descendants<TextBox>(window).Where(box => box.IsVisible && box.MaxLength == 200).ToArray();
+        Check("fields.youTubeFieldsRendered",
+            youTubeFields.Length >= 1 && youTubeFields.All(box => !box.AcceptsReturn),
+            $"{youTubeFields.Length} visible one-line field(s) on the YouTube page.");
+        shell.ShowTikTokCommand.Execute(null);
+        await SettleAsync();
+        var tikTokFields = Descendants<TextBox>(window).Where(box => box.IsVisible && box.MaxLength == 200).ToArray();
+        Check("fields.tikTokFieldsRendered",
+            tikTokFields.Length >= 2 && tikTokFields.All(box => !box.AcceptsReturn),
+            $"{tikTokFields.Length} visible one-line field(s) on the TikTok page.");
+        shell.TrackFilter = "zzz";
+        shell.ShowPlaylistCommand.Execute(null);
+        await SettleAsync();
+        var cross = Descendants<Button>(window)
+            .FirstOrDefault(button => ReferenceEquals(button.Command, shell.ClearTrackFilterCommand));
+        Check("fields.crossIsWiredToTheFilter",
+            cross is { IsVisible: true, IsEnabled: true } && shell.ClearTrackFilterCommand.CanExecute(null) &&
+            shell.TrackFilterClearVisible == Visibility.Visible,
+            cross is null
+                ? "No cross button was found."
+                : $"Cross visible={cross.IsVisible}, enabled={cross.IsEnabled}, " +
+                  $"canExecute={shell.ClearTrackFilterCommand.CanExecute(null)}.");
+        // The cross is deliberately bigger than a generic icon button; a fixed size asserted here is
+        // what stops it from shrinking back unnoticed.
+        Check("fields.crossIsBigEnough",
+            cross is not null && cross.ActualWidth >= 28 && cross.ActualHeight >= 28,
+            cross is null ? "No cross button was found." : $"Cross is {cross.ActualWidth}x{cross.ActualHeight}.");
+        shell.ClearTrackFilterCommand.Execute(null);
+        // The same class of bug — a bound command that never becomes executable — is checked on every
+        // field with a cross, because one missed NotifyCanExecuteChanged leaves a dead button.
+        shell.YouTube.FilterText = "anything";
+        Check("fields.youtubeFilterCrossCanBePressed",
+            shell.YouTube.ClearFilterCommand.CanExecute(null) && shell.YouTube.FilterClearVisible == Visibility.Visible,
+            "The YouTube filter cross becomes pressable as soon as the field has text.");
+        shell.YouTube.ClearFilterCommand.Execute(null);
+        Check("fields.youtubeFilterCrossClears", shell.YouTube.FilterText.Length == 0,
+            "It empties the field it belongs to.");
+        shell.TikTok.FilterText = "anything";
+        Check("fields.tikTokFilterCrossCanBePressed", shell.TikTok.ClearFilterCommand.CanExecute(null),
+            "The TikTok filter cross is pressable with text in the field.");
+        shell.TikTok.ClearFilterCommand.Execute(null);
+        shell.YouTube.SearchQuery = "anything";
+        Check("fields.searchCrossCanBePressed", shell.YouTube.ClearQueryCommand.CanExecute(null),
+            "The YouTube search cross is pressable with text in the field.");
+        shell.YouTube.ClearQueryCommand.Execute(null);
+        shell.TikTok.InputUrl = "https://example.com/clip";
+        Check("fields.linkCrossCanBePressed", shell.TikTok.ClearInputCommand.CanExecute(null),
+            "The link cross is pressable with text in the field.");
+        shell.TikTok.ClearInputCommand.Execute(null);
+        shell.ShowTikTokCommand.Execute(null);
+        await SettleAsync();
+        Check("fields.renamingCrossCleared", !shell.HasTrackFilter, "The cross emptied the local filter.");
+
+        // The pencil is an icon-only button, the shape that once shipped blank. It renders only
+        // with a row present, so a row is added for the length of this check and removed after.
+        var pencilClip = Path.Combine(AppPaths.MusicDirectory, "pencil-check.mp3");
+        File.Copy(_fixtures[3], pencilClip, overwrite: true);
+        var pencilRow = new YouTubeTrackViewModel(new YouTubeTrackState
+        {
+            VideoId = "pencilCheck", Title = "Pencil check", CachedPath = pencilClip,
+            Duration = TimeSpan.FromSeconds(0.36), Status = YouTubeTrackStatus.Ready
+        });
+        shell.TikTok.Tracks.Add(pencilRow);
+        shell.ShowTikTokCommand.Execute(null);
+        await SettleAsync();
+        var pencil = Descendants<Button>(window).FirstOrDefault(button =>
+            AutomationProperties.GetName(button) == Loc.T("L_RenameTrack") && button.IsVisible);
+        var pencilGlyph = pencil is null
+            ? string.Empty
+            : string.Concat(Descendants<TextBlock>(pencil).Select(text => text.Text));
+        Check("tiktok.pencilRendered",
+            pencil is { IsEnabled: true } && pencilGlyph.Length > 0,
+            pencil is null ? "No pencil button was rendered." : $"Pencil visible, glyph='{pencilGlyph}'.");
+        shell.TikTok.Tracks.Remove(pencilRow);
+        await SettleAsync();
+
+        // The saved size has to reach the window itself, not only the view model. A second window
+        // is constructed but never shown, so this checks the restore path without a visible flash.
+        var sizedService = MakeSettingsService(Path.Combine(session, "sized-settings.json"));
+        var sizedVm = Own(new MainViewModel(
+            new AppSettings { Language = "en", WindowWidth = 1000, WindowHeight = 700 },
+            sizedService, new FakeKeyboardHook(), new ContinuousAudioPlayer()));
+        await sizedVm.InitializeAsync();
+        var sizedWindow = new MainWindow(sizedVm);
+        try
+        {
+            Check("window.restoresSavedSize",
+                Near(sizedWindow.Width, 1000) && Near(sizedWindow.Height, 700),
+                $"A window built from saved 1000x700 opened at {sizedWindow.Width}x{sizedWindow.Height}.");
+        }
+        finally
+        {
+            sizedWindow.AllowClose = true;
+            sizedWindow.Close();
+            await sizedVm.DisposeAsync();
+            _ownedModels.Remove(sizedVm);
+        }
+    }
+
     private async Task Section(string name, Func<Task> action)
     {
         try { await action(); }

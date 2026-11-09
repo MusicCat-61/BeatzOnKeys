@@ -27,6 +27,12 @@ public partial class MainWindow : Window
 {
     private bool _micaApplied;
 
+    /// <summary>Recording starts after the first layout: the startup size is not a user choice.</summary>
+    private bool _sizeTracking;
+
+    /// <summary>The height the settings panel fitted for itself, so it is not remembered as a choice.</summary>
+    private double _contentFittedHeight = double.NaN;
+
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
@@ -39,8 +45,47 @@ public partial class MainWindow : Window
         viewModel.YouTube.ConfirmRequested =
             (message, title) => MessageDialog.Ask(this, message, title);
         Theme.Changed += OnThemeChanged;
-        Loaded += (_, _) => FitToContent();
+        // The remembered size is applied before the window is ever shown, so it cannot appear at one
+        // size and jump to another a moment later.
+        ApplySavedSize();
+        Loaded += (_, _) =>
+        {
+            FitToContent();
+            _sizeTracking = true;
+        };
+        SizeChanged += MainWindow_SizeChanged;
         viewModel.FitRequested += FitToContent;
+    }
+
+    /// <summary>
+    /// Restores the size the user last left. Only the size is remembered, never the position: the
+    /// window still opens in the middle of the screen, and the work area wins over a stale value
+    /// remembered on a larger monitor.
+    /// </summary>
+    private void ApplySavedSize()
+    {
+        if (ViewModel.WindowWidth <= 0 || ViewModel.WindowHeight <= 0) { return; }
+        var workArea = SystemParameters.WorkArea;
+        Width = Math.Clamp(ViewModel.WindowWidth, MinWidth, Math.Max(MinWidth, workArea.Width));
+        Height = Math.Clamp(ViewModel.WindowHeight, MinHeight, Math.Max(MinHeight, workArea.Height));
+    }
+
+    /// <summary>
+    /// Only a normal window has a size the user chose: a maximised window reports the screen and a
+    /// minimised one a strip, and neither is worth remembering. The height this window gave itself
+    /// to fit the settings panel is skipped for the same reason.
+    /// </summary>
+    private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs eventArgs)
+    {
+        if (!_sizeTracking || WindowState != WindowState.Normal) { return; }
+        // A height that matches the one the settings panel asked for is the window growing itself,
+        // not a decision of the user. The mark is cleared either way, so a stale value can never
+        // swallow a later real resize.
+        var fitted = !double.IsNaN(_contentFittedHeight) && Math.Abs(Height - _contentFittedHeight) < 1;
+        _contentFittedHeight = double.NaN;
+        if (fitted) { return; }
+
+        ViewModel.RememberWindowSize(ActualWidth, ActualHeight);
     }
 
     /// <summary>
@@ -83,6 +128,9 @@ public partial class MainWindow : Window
         // the panel scrolls on its own when the window is shorter than its content.
         if (wanted <= Height + 1) { return; }
         Height = Math.Round(wanted);
+        // Remember which height the panel asked for, so the resize handler does not mistake the
+        // window's own growth for a size the user chose.
+        _contentFittedHeight = Height;
         AppLogger.Info("ui", $"Window fitted to content: settings need {neededContent:F0} px, height set to {Height:F0} px.");
     }
 
@@ -374,7 +422,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            var container = YouTubeContainerOf(row);
+            var container = ContainerAt(eventArgs.OriginalSource as DependencyObject);
             var above = container is null || eventArgs.GetPosition(container).Y < container.ActualHeight / 2;
             ViewModel.YouTube.SetDropTarget(row, above);
         }
@@ -405,7 +453,7 @@ public partial class MainWindow : Window
             var from = list.IndexOf(dragged);
             var targetIndex = list.IndexOf(target);
             var above = row is not null &&
-                        YouTubeContainerOf(row) is { } container &&
+                        ContainerAt(eventArgs.OriginalSource as DependencyObject) is { } container &&
                         eventArgs.GetPosition(container).Y < container.ActualHeight / 2;
             if (row is not null && !above) { targetIndex++; }
             if (from >= 0 && from < targetIndex) { targetIndex--; }
@@ -421,23 +469,176 @@ public partial class MainWindow : Window
 
     private YouTubeTrackViewModel? _tikTokClickCandidate;
 
-    private void TikTokList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs eventArgs) =>
+    private void TikTokList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs eventArgs)
+    {
+        _tikTokDragging = false;
+        _tikTokDragOrigin = eventArgs.GetPosition(this);
         _tikTokClickCandidate = TikTokRowAt(eventArgs.OriginalSource as DependencyObject);
+        _tikTokDragCandidate = _tikTokClickCandidate;
+    }
 
     private void TikTokList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
     {
         var candidate = _tikTokClickCandidate;
+        var dragged = _tikTokDragging;
         _tikTokClickCandidate = null;
+        _tikTokDragCandidate = null;
 
-        // Кнопки внутри строки — стрелки и корзина — обрабатывают свой клик сами, иначе нажатие
-        // на корзину заодно запускало бы трек.
-        if (candidate is null || candidate is { CanPlay: false }) { return; }
+        // Кнопки внутри строки — карандаш, стрелки и корзина — обрабатывают свой клик сами, иначе
+        // нажатие на корзину заодно запускало бы трек. Перетаскивание тоже не играет строку.
+        if (dragged || candidate is null || candidate is { CanPlay: false }) { return; }
         if (eventArgs.OriginalSource is DependencyObject source && IsInsideButton(source)) { return; }
         ViewModel.TikTok.SelectTrack(candidate);
         ViewModel.TikTok.PlayCommand.Execute(candidate);
     }
 
-    private static YouTubeTrackViewModel? TikTokRowAt(DependencyObject? source)
+    // ---- TikTok list drag-and-drop ------------------------------------------------------------
+    // The same model as the local playlist and the downloaded YouTube list: one drag format, an
+    // insertion line, and moves that go through the view model so the saved order follows.
+
+    private const string TikTokDragFormat = "BeatzOnKeys.TikTokTrack";
+
+    private Point _tikTokDragOrigin;
+    private YouTubeTrackViewModel? _tikTokDragCandidate;
+    private bool _tikTokDragging;
+
+    private void TikTokList_PreviewMouseMove(object sender, MouseEventArgs eventArgs)
+    {
+        if (eventArgs.LeftButton != MouseButtonState.Pressed || _tikTokDragCandidate is null || _tikTokDragging) { return; }
+        var moved = eventArgs.GetPosition(this) - _tikTokDragOrigin;
+        if (Math.Abs(moved.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(moved.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return;
+        }
+
+        var track = _tikTokDragCandidate;
+        _tikTokDragCandidate = null;
+        // A row being renamed keeps its pointer: dragging it away mid-edit would throw the typing out.
+        if (track.IsEditing) { return; }
+        _tikTokDragging = true;
+        try
+        {
+            DragDrop.DoDragDrop((DependencyObject)sender, new DataObject(TikTokDragFormat, track), DragDropEffects.Move);
+        }
+        finally
+        {
+            ViewModel.TikTok.SetDropTarget(null, above: true);
+            _tikTokDragging = false;
+        }
+    }
+
+    private void TikTokList_DragOver(object sender, DragEventArgs eventArgs)
+    {
+        if (!eventArgs.Data.GetDataPresent(TikTokDragFormat))
+        {
+            eventArgs.Effects = DragDropEffects.None;
+            eventArgs.Handled = true;
+            return;
+        }
+
+        var row = TikTokRowAt(eventArgs.OriginalSource as DependencyObject);
+        if (row is null)
+        {
+            ViewModel.TikTok.SetDropTarget(null, above: true);
+        }
+        else
+        {
+            var container = ContainerAt(eventArgs.OriginalSource as DependencyObject);
+            var above = container is null || eventArgs.GetPosition(container).Y < container.ActualHeight / 2;
+            ViewModel.TikTok.SetDropTarget(row, above);
+        }
+
+        eventArgs.Effects = DragDropEffects.Move;
+        eventArgs.Handled = true;
+    }
+
+    private void TikTokList_DragLeave(object sender, DragEventArgs eventArgs) =>
+        ViewModel.TikTok.SetDropTarget(null, above: true);
+
+    private void TikTokList_Drop(object sender, DragEventArgs eventArgs)
+    {
+        ViewModel.TikTok.SetDropTarget(null, above: true);
+        if (!eventArgs.Data.GetDataPresent(TikTokDragFormat) ||
+            eventArgs.Data.GetData(TikTokDragFormat) is not YouTubeTrackViewModel dragged)
+        {
+            eventArgs.Effects = DragDropEffects.None;
+            eventArgs.Handled = true;
+            return;
+        }
+
+        // Indexes come from the real collection, not from the filtered view: the row object is the
+        // same one, so a filtered list still moves the track to the place the user pointed at.
+        var list = ViewModel.TikTok.Tracks;
+        var row = TikTokRowAt(eventArgs.OriginalSource as DependencyObject);
+        var target = row ?? list.LastOrDefault();
+        if (target is not null)
+        {
+            var from = list.IndexOf(dragged);
+            var targetIndex = list.IndexOf(target);
+            var above = row is not null &&
+                        ContainerAt(eventArgs.OriginalSource as DependencyObject) is { } container &&
+                        eventArgs.GetPosition(container).Y < container.ActualHeight / 2;
+            if (row is not null && !above) { targetIndex++; }
+            if (from >= 0 && from < targetIndex) { targetIndex--; }
+            ViewModel.TikTok.MoveTrackTo(dragged, Math.Clamp(targetIndex, 0, list.Count - 1));
+        }
+
+        eventArgs.Effects = DragDropEffects.Move;
+        eventArgs.Handled = true;
+    }
+
+    // ---- Renaming a TikTok row ----------------------------------------------------------------
+
+    /// <summary>The pencil opens the field; the pointer goes straight into it, ready to type.</summary>
+    private void TikTokEditClick(object sender, RoutedEventArgs eventArgs)
+    {
+        if (sender is not FrameworkElement { DataContext: YouTubeTrackViewModel row }) { return; }
+        row.BeginEdit();
+        var box = ContainerAt(sender as DependencyObject) is { } container
+            ? DescendantsOfType<System.Windows.Controls.TextBox>(container).FirstOrDefault(candidate => candidate.Name == "RenameBox")
+            : null;
+        if (box is null) { return; }
+        box.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input, () =>
+        {
+            box.Focus();
+            box.SelectAll();
+        });
+    }
+
+    /// <summary>Enter keeps the name, Escape gives the old one back; both close the field.</summary>
+    private void RenameBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs eventArgs)
+    {
+        if (sender is not FrameworkElement { DataContext: YouTubeTrackViewModel row }) { return; }
+        if (eventArgs.Key == Key.Enter)
+        {
+            eventArgs.Handled = true;
+            row.CommitEdit();
+        }
+        else if (eventArgs.Key == Key.Escape)
+        {
+            eventArgs.Handled = true;
+            row.CancelEdit();
+        }
+    }
+
+    /// <summary>A click elsewhere is a decision too, so it keeps what was typed.</summary>
+    private void RenameBox_LostFocus(object sender, RoutedEventArgs eventArgs)
+    {
+        if (sender is FrameworkElement { DataContext: YouTubeTrackViewModel row } && row.IsEditing) { row.CommitEdit(); }
+    }
+
+    private static YouTubeTrackViewModel? TikTokRowAt(DependencyObject? source) =>
+        ContainerAt(source)?.DataContext as YouTubeTrackViewModel;
+
+    private static YouTubeTrackViewModel? YouTubeRowAt(DependencyObject? source) =>
+        ContainerAt(source)?.DataContext as YouTubeTrackViewModel;
+
+    /// <summary>
+    /// The row container under the pointer. Taken from the visual tree rather than from a list
+    /// lookup, because the lists now show a filtered copy and an item index would mean nothing.
+    /// </summary>
+    private static ListBoxItem? ContainerAt(DependencyObject? source)
     {
         var element = source;
         while (element is not null and not ListBoxItem)
@@ -445,31 +646,7 @@ public partial class MainWindow : Window
             element = VisualTreeHelper.GetParent(element);
         }
 
-        return (element as ListBoxItem)?.DataContext as YouTubeTrackViewModel;
-    }
-
-    private static YouTubeTrackViewModel? YouTubeRowAt(DependencyObject? source)
-    {
-        var element = source;
-        while (element is not null and not ListBoxItem)
-        {
-            element = VisualTreeHelper.GetParent(element);
-        }
-
-        return (element as ListBoxItem)?.DataContext as YouTubeTrackViewModel;
-    }
-
-    private ListBoxItem? YouTubeContainerOf(YouTubeTrackViewModel track)
-    {
-        foreach (var list in DescendantsOfType<ListBox>(this))
-        {
-            if (ReferenceEquals(list.ItemsSource, ViewModel.YouTube.Downloaded))
-            {
-                return list.ItemContainerGenerator.ContainerFromItem(track) as ListBoxItem;
-            }
-        }
-
-        return null;
+        return element as ListBoxItem;
     }
 
     private static IEnumerable<T> DescendantsOfType<T>(DependencyObject root) where T : DependencyObject

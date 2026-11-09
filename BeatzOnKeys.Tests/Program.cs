@@ -8,6 +8,7 @@ internal static class Program
         ("PlaybackController.NaturalEndModeMatrix", PlaybackControllerTests.NaturalEndModeMatrix),
         ("PlaybackController.SelectionUpsertRemoveAndClear", PlaybackControllerTests.SelectionUpsertRemoveAndClear),
         ("PlaybackController.EventsRunOutsidePlaylistLock", PlaybackControllerTests.EventsRunOutsidePlaylistLock),
+        ("PlaybackController.ReplaceMakesThePageTheQueue", PlaybackControllerTests.ReplaceMakesThePageTheQueue),
         ("PlaylistOrder.MoveTrackStepsAndRespectsEdges", PlaylistOrderTests.MoveTrackStepsAndRespectsEdges),
         ("PlaylistOrder.ReorderFollowsVisualOrderAndKeepsSelection", PlaylistOrderTests.ReorderFollowsVisualOrderAndKeepsSelection),
         ("PlaylistOrder.NaturalEndFollowsReorderedList", PlaylistOrderTests.NaturalEndFollowsReorderedList),
@@ -90,6 +91,7 @@ internal static class Program
         ("YouTube.CacheMoveToTheSameFolderDoesNothing", YouTubeTests.CacheMoveToTheSameFolderDoesNothing),
         ("UpdateService.ReleaseNotesRenderMarkdownInsteadOfPrintingIt", UpdateServiceTests.ReleaseNotesRenderMarkdownInsteadOfPrintingIt),
         ("Settings.DefaultsAndNormalization", SettingsTests.DefaultsAndNormalization),
+        ("Settings.WindowSizeIsRememberedButBounded", SettingsTests.WindowSizeIsRememberedButBounded),
         ("Settings.RoundTripAllFieldsAndDelete", SettingsTests.RoundTripAllFieldsAndDelete),
         ("Settings.LegacyVolumeMigratesAndNewFieldsTakePrecedence", SettingsTests.LegacyVolumeMigratesAndNewFieldsTakePrecedence),
         ("Settings.MissingAndCorruptJsonUseDefaults", SettingsTests.MissingAndCorruptJsonUseDefaults),
@@ -126,7 +128,12 @@ internal static class Program
         ,("Media.TikTokServiceReportsAnEmptyBody", MediaTests.TikTokServiceReportsAnEmptyBody)
         ,("Media.TikTokServiceRefusesOversizedFiles", MediaTests.TikTokServiceRefusesOversizedFiles)
         ,("Media.TikTokServiceMapsForbiddenToRestricted", MediaTests.TikTokServiceMapsForbiddenToRestricted)
-        ,("Media.TikTokServiceFollowsAShortLink", MediaTests.TikTokServiceFollowsAShortLink)
+        ,("Media.TikTokRelayParsesTheTrackName", MediaTests.TikTokRelayParsesTheTrackName)
+    ,("Media.TikTokRelayDropsTheOriginalSoundName", MediaTests.TikTokRelayDropsTheOriginalSoundName)
+    ,("Media.TikTokRelayRefusesForeignMediaHosts", MediaTests.TikTokRelayRefusesForeignMediaHosts)
+    ,("Media.TikTokRelayLimitIsRetriedOnce", MediaTests.TikTokRelayLimitIsRetriedOnce)
+    ,("Media.TikTokServiceNamesTheRegionalRefusal", MediaTests.TikTokServiceNamesTheRegionalRefusal)
+    ,("Media.TikTokServiceFollowsAShortLink", MediaTests.TikTokServiceFollowsAShortLink)
         ,("Media.TikTokServiceConvertsAVideoToWav", MediaTests.TikTokServiceConvertsAVideoToWav)
         ,("Media.LibraryRoundTripsAndSurvivesCorruption", MediaTests.LibraryRoundTripsAndSurvivesCorruption)
         ,("Media.LibraryMigratesTracksOutOfSettings", MediaTests.LibraryMigratesTracksOutOfSettings)

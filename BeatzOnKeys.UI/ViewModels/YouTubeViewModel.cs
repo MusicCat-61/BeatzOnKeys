@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Data;
 using System.IO;
 using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.Core.Services;
@@ -67,6 +68,12 @@ public sealed partial class YouTubeViewModel : ObservableObject
         // Empty means "nothing to report", so the line does not repeat the hint under the field.
         _statusText = string.Empty;
         Downloaded.CollectionChanged += OnDownloadedChanged;
+        // One view, filtered in place: rebuilding a list on every change made the ListBox drop its
+        // selection, and the selection is what "Старт" plays.
+        FilteredDownloaded = new ListCollectionView(Downloaded)
+        {
+            Filter = row => row is YouTubeTrackViewModel track && MatchesFilter(track)
+        };
 
         foreach (var state in savedTracks)
         {
@@ -81,7 +88,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
             item => item is { CanDownload: true } && CanStartAnotherDownload);
         InstallYtDlpCommand = new AsyncRelayCommand(InstallYtDlpAsync, () => !IsInstalling);
         PlayCommand = new RelayCommand<YouTubeTrackViewModel>(
-            track => { if (track is not null) { PlayRequested?.Invoke(track.CachedPath, track.Title, false); } },
+            track => { if (track is not null) { PlayRequested?.Invoke(track); } },
             track => track is { CanPlay: true });
         RemoveCachedCommand = new RelayCommand<YouTubeTrackViewModel>(RemoveCached, track => track is not null);
         // Two different caches live in one folder: previews made by the search, and the tracks the
@@ -97,6 +104,9 @@ public sealed partial class YouTubeViewModel : ObservableObject
             track => MoveTrack(track, -1), track => CanMove(track, -1));
         MoveTrackDownCommand = new RelayCommand<YouTubeTrackViewModel>(
             track => MoveTrack(track, 1), track => CanMove(track, 1));
+        // The cross in a field clears it and nothing else: no confirmation, no side effect.
+        ClearFilterCommand = new RelayCommand(() => FilterText = string.Empty, () => HasFilter);
+        ClearQueryCommand = new RelayCommand(() => SearchQuery = string.Empty, () => SearchQuery.Length > 0);
 
         RefreshPositions();
         ApplyOptions();
@@ -104,10 +114,20 @@ public sealed partial class YouTubeViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Raised when the user asks to listen to a cached file; the window plays it. The flag marks
-    /// a search preview, which is the one case where the idle pause stands aside.
+    /// Raised when the user asks to listen to a saved track; the window plays it. The row travels
+    /// with the request, so the player can use its stable id: the page list is the queue, and an
+    /// id invented on every click would make the same row look like a different track.
     /// </summary>
-    public event Action<string, string, bool>? PlayRequested;
+    public event Action<YouTubeTrackViewModel>? PlayRequested;
+
+    /// <summary>
+    /// A search preview is not in any list, so it has no row: it is played by path and never
+    /// becomes part of the page queue.
+    /// </summary>
+    public event Action<string, string>? PreviewRequested;
+
+    /// <summary>Raised when the downloaded list gains, loses or reorders a row.</summary>
+    public event Action? QueueChanged;
 
     /// <summary>
     /// Asks the user to confirm a destructive step. Both clear buttons go through it, so neither
@@ -148,6 +168,51 @@ public sealed partial class YouTubeViewModel : ObservableObject
     public ObservableCollection<YouTubeSearchItemViewModel> Results { get; } = [];
     public ObservableCollection<YouTubeTrackViewModel> Downloaded { get; } = [];
 
+    /// <summary>
+    /// The filter over the downloaded list. It only narrows what is shown: the counters, the cache
+    /// size and both clear buttons keep counting the whole list, because those are facts about the
+    /// collection and not about the view.
+    /// </summary>
+    public string FilterText
+    {
+        get => _filterText;
+        set
+        {
+            var clean = TextInput.Sanitize(value);
+            if (!SetProperty(ref _filterText, clean)) { return; }
+            FilteredDownloaded.Refresh();
+            OnPropertyChanged(nameof(FilterClearVisible));
+            OnPropertyChanged(nameof(HasFilter));
+            OnPropertyChanged(nameof(FilteredEmptyVisibility));
+            // The cross is bound to a command whose CanExecute depends on this text. Without this
+            // call nothing tells WPF to ask again, so the button stayed disabled and a click on it
+            // did nothing at all.
+            ClearFilterCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private string _filterText = string.Empty;
+
+    public bool HasFilter => !string.IsNullOrWhiteSpace(_filterText);
+
+    public Visibility FilterClearVisible => HasFilter ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// The rows the list actually shows. A view instead of a fresh list: a new list on every
+    /// change would make the ListBox rebuild its items and drop the selection, which silently
+    /// deselected the track that was playing.
+    /// </summary>
+    public ListCollectionView FilteredDownloaded { get; }
+
+    /// <summary>True when the filter hid the whole list; the hint differs from an empty list.</summary>
+    public bool ShowFilteredEmpty => HasFilter && Downloaded.Count > 0 && !Downloaded.Any(MatchesFilter);
+
+    public Visibility FilteredEmptyVisibility => ShowFilteredEmpty ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Title-only substring match, ignoring case: that is what "поиск по названию" means.</summary>
+    private bool MatchesFilter(YouTubeTrackViewModel row) =>
+        !HasFilter || row.Title.Contains(_filterText, StringComparison.CurrentCultureIgnoreCase);
+
     public AsyncRelayCommand SearchCommand { get; }
     public RelayCommand<YouTubeSearchItemViewModel> DownloadCommand { get; }
     public AsyncRelayCommand InstallYtDlpCommand { get; }
@@ -159,19 +224,27 @@ public sealed partial class YouTubeViewModel : ObservableObject
     public RelayCommand OpenMusicFolderCommand { get; }
     public RelayCommand<YouTubeTrackViewModel> MoveTrackUpCommand { get; }
     public RelayCommand<YouTubeTrackViewModel> MoveTrackDownCommand { get; }
+    public RelayCommand ClearFilterCommand { get; }
+    public RelayCommand ClearQueryCommand { get; }
 
     public string SearchQuery
     {
         get => _searchQuery;
         set
         {
-            if (!SetProperty(ref _searchQuery, value)) { return; }
+            // One line, 200 characters: the same rule every field follows.
+            if (!SetProperty(ref _searchQuery, TextInput.Sanitize(value))) { return; }
             SearchCommand.NotifyCanExecuteChanged();
             DownloadFromQueryCommand.NotifyCanExecuteChanged();
+            ClearQueryCommand.NotifyCanExecuteChanged();
             OnPropertyChanged(nameof(CanSearch));
             OnPropertyChanged(nameof(QueryIsLink));
+            OnPropertyChanged(nameof(QueryClearVisible));
         }
     }
+
+    /// <summary>The cross shows only while there is something to clear.</summary>
+    public Visibility QueryClearVisible => _searchQuery.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
     public bool CanSearch => !IsBusy && !string.IsNullOrWhiteSpace(SearchQuery);
 
@@ -543,7 +616,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
     public async Task ClearSearchCacheAsync()
     {
         if (ConfirmRequested is { } confirm &&
-            !confirm(Loc.T("L_YtClearSearchCacheConfirm"), Loc.T("L_YtClearCacheTitle")))
+            !confirm(Loc.T("L_YtClearSearchCacheConfirm"), Loc.T("L_YtClearSearchCacheTitle")))
         {
             return;
         }
@@ -573,7 +646,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
     public async Task ClearDownloadedAsync()
     {
         if (ConfirmRequested is { } confirm &&
-            !confirm(Loc.T("L_YtClearDownloadedConfirm"), Loc.T("L_YtClearCacheTitle")))
+            !confirm(Loc.T("L_YtClearDownloadedConfirm"), Loc.T("L_YtClearDownloadedTitle")))
         {
             return;
         }
@@ -683,6 +756,9 @@ public sealed partial class YouTubeViewModel : ObservableObject
         OnPropertyChanged(nameof(TrackCount));
         OnPropertyChanged(nameof(TrackCountNumber));
         OnPropertyChanged(nameof(HasDownloaded));
+        // The view follows the collection by itself; only the "nothing matched" hint needs a word.
+        OnPropertyChanged(nameof(FilteredEmptyVisibility));
+        QueueChanged?.Invoke();
     }
 
     /// <summary>Refreshes the badge next to the heading after any add or remove.</summary>
@@ -788,6 +864,8 @@ public sealed partial class YouTubeViewModel : ObservableObject
         PreviewCommand.NotifyCanExecuteChanged();
         PlayCommand.NotifyCanExecuteChanged();
         ClearDownloadedCommand.NotifyCanExecuteChanged();
+        ClearFilterCommand.NotifyCanExecuteChanged();
+        ClearQueryCommand.NotifyCanExecuteChanged();
     }
 
     public void Dispose()

@@ -88,6 +88,19 @@ public sealed class TikTokAudioService : ITikTokAudioService
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " +
         "Chrome/119.0.0.0 Safari/537.36";
 
+    /// <summary>
+    /// The relay asked last. It answers with a direct address on TikTok's own media host, which is
+    /// the part of TikTok that stays reachable on a connection whose web endpoints are refused.
+    /// </summary>
+    private const string TikWmEndpoint = "https://tikwm.com/api/?url=";
+
+    /// <summary>
+    /// Hosts a media address may live on. A relay is free to answer with any URL at all, and this
+    /// program must not become a downloader for whatever address a third party names.
+    /// </summary>
+    private static readonly string[] AllowedMediaHosts =
+        ["tiktokcdn.com", "tiktokcdn-us.com", "tiktokcdn-eu.com", "tiktokcdn-va.com", "tiktokv.com", "tikwm.com"];
+
     private readonly HttpClient _http;
     private readonly IYtDlpBinaryProvider _binaries;
     private readonly IYouTubeProcessRunner _runner;
@@ -271,11 +284,16 @@ public sealed class TikTokAudioService : ITikTokAudioService
     /// <summary>
     /// The three HTTP paths in order of reliability, each returning the same shape. A page that
     /// answers with the interception puzzle is unlocked and read again rather than written off.
+    /// A route that simply refuses this connection is not a puzzle and cannot be solved here.
     /// </summary>
     private async Task<TikTokMedia?> ReadMediaAsync(string id, string originalUrl, CancellationToken cancellationToken)
     {
-        // The embed page first: it exists for third-party sites, so TikTok serves it without the
-        // puzzle and without the regional refusal, and it carries the clip's own text and its audio.
+        // Four public addresses, tried in the order that usually answers first. None of them is a
+        // bypass: measured on a connection TikTok refuses (09.11.2026) the embed page answered
+        // HTTP 400 and the API answered 200 with an empty body, while the watch page came back as
+        // the generic shell with verification markers and no media address at all. A regional
+        // refusal is TikTok's own decision, so the route is best effort and the caller reports the
+        // truth instead of pretending the wall was opened.
         var embed = await ReadPageAsync($"https://www.tiktok.com/embed/v2/{id}", cancellationToken).ConfigureAwait(false);
         RejectRateLimit(embed);
         if (ParseEmbed(embed) is { } fromEmbed) { return fromEmbed; }
@@ -289,6 +307,14 @@ public sealed class TikTokAudioService : ITikTokAudioService
         if (ParsePage(page) is { } fromPage) { return fromPage; }
         _pageStatus = ReadPageStatus(page);
 
+        // A relay, asked only after our own addresses said no. It is the route that works from a
+        // connection TikTok refuses, because it hands back a direct address on TikTok's media host,
+        // which stays reachable when the web endpoints do not.
+        if (await TryReadTikWmAsync(id, originalUrl, cancellationToken).ConfigureAwait(false) is { } fromRelay)
+        {
+            return fromRelay;
+        }
+
         // Only the title is recoverable here, so the caller still gets a sensible row name when the
         // media addresses are behind a wall.
         var oembed = await TryReadJsonAsync(
@@ -300,6 +326,150 @@ public sealed class TikTokAudioService : ITikTokAudioService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Asks the relay for a direct address. Measured on a connection TikTok refuses this is the only
+    /// route that still produces a file, and it works because the media host is not the host that
+    /// refuses.
+    ///
+    /// <para>
+    /// It is a relay, not a bypass: the clip link leaves this machine for tikwm.com, the free tier
+    /// allows one request per second, and it is asked only after every address of our own failed.
+    /// </para>
+    /// </summary>
+    private async Task<TikTokMedia?> TryReadTikWmAsync(string id, string originalUrl, CancellationToken cancellationToken)
+    {
+        var link = string.IsNullOrWhiteSpace(originalUrl)
+            ? $"https://www.tiktok.com/@i/video/{id}"
+            : originalUrl.Trim();
+        using var document = await ReadTikWmDocumentAsync(link, cancellationToken).ConfigureAwait(false);
+        if (document is null) { return null; }
+
+        var media = ParseTikWm(document.RootElement);
+        if (media is not null)
+        {
+            AppLogger.Info("tiktok", $"TikWM found a {(media.AudioUrl is null ? "video" : "audio")} address.");
+        }
+
+        return media;
+    }
+
+    /// <summary>
+    /// Reads the relay's answer. Split out from the request so the rules — a validated https media
+    /// host, and a name that is a name and not "original sound" — are testable without a network.
+    /// </summary>
+    internal static TikTokMedia? ParseTikWm(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object ||
+            !root.TryGetProperty("data", out var data) ||
+            data.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        var audio = ReadAllowedMediaAddress(data, "music");
+        var video = ReadAllowedMediaAddress(data, "play");
+        var caption = ReadNestedString(data, "title");
+        var trackName = ReadNestedString(data, "music_info", "title");
+        // "original sound - someone" is not a track name, it is a statement that the clip uses its
+        // own audio. Taking it would fill the list with identical rows.
+        var title = LooksLikeOriginalSound(trackName)
+            ? (string.IsNullOrWhiteSpace(caption) ? null : caption)
+            : trackName;
+        if (audio is null && video is null) { return null; }
+        return new TikTokMedia(audio, video, title);
+    }
+
+    /// <summary>
+    /// The relay's own JSON, with the one-per-second limit handled. A refusal here is a codified
+    /// answer with a message, not a broken page, so it is read rather than guessed at.
+    /// </summary>
+    private async Task<JsonDocument?> ReadTikWmDocumentAsync(string link, CancellationToken cancellationToken)
+    {
+        var url = TikWmEndpoint + Uri.EscapeDataString(link);
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            var document = await TryReadJsonAsync(url, cancellationToken).ConfigureAwait(false);
+            if (document is null) { return null; }
+            var code = document.RootElement.TryGetProperty("code", out var codeElement) &&
+                       codeElement.TryGetInt32(out var parsedCode)
+                ? parsedCode
+                : -1;
+            if (code == 0) { return document; }
+
+            var message = document.RootElement.TryGetProperty("msg", out var messageElement) &&
+                          messageElement.ValueKind == JsonValueKind.String
+                ? messageElement.GetString()
+                : null;
+            var limited = message?.Contains("limit", StringComparison.OrdinalIgnoreCase) == true;
+            if (limited && attempt == 1)
+            {
+                // "Free Api Limit: 1 request/second" is an instruction: wait and ask once more.
+                AppLogger.Info("tiktok", "TikWM asked to slow down; retrying once.");
+                document.Dispose();
+                await Task.Delay(TimeSpan.FromMilliseconds(1200), cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            AppLogger.Info("tiktok", $"TikWM did not answer with a file ({code}): {message ?? "no message"}.");
+            document.Dispose();
+            return null;
+        }
+
+        return null;
+    }
+
+    private static string? ReadNestedString(JsonElement node, params string[] path)
+    {
+        var current = node;
+        foreach (var name in path)
+        {
+            if (current.ValueKind != JsonValueKind.Object || !current.TryGetProperty(name, out current))
+            {
+                return null;
+            }
+        }
+
+        return current.ValueKind == JsonValueKind.String ? current.GetString() : null;
+    }
+
+    /// <summary>The address as a validated https URL on a host TikTok media really lives on.</summary>
+    private static string? ReadAllowedMediaAddress(JsonElement data, string property)
+    {
+        var value = ReadNestedString(data, property);
+        if (string.IsNullOrWhiteSpace(value)) { return null; }
+        if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri)) { return null; }
+        if (uri.Scheme != Uri.UriSchemeHttps) { return null; }
+        foreach (var host in AllowedMediaHosts)
+        {
+            if (uri.Host.Equals(host, StringComparison.OrdinalIgnoreCase) ||
+                uri.Host.EndsWith("." + host, StringComparison.OrdinalIgnoreCase))
+            {
+                return uri.AbsoluteUri;
+            }
+        }
+
+        AppLogger.Warning("tiktok", $"The relay named a host this program does not download from: {uri.Host}.");
+        return null;
+    }
+
+    /// <summary>
+    /// True for the placeholder TikTok writes when a clip has no separate track of its own. Names
+    /// vary by interface language, so the list is a list and not one string comparison.
+    /// </summary>
+    internal static bool LooksLikeOriginalSound(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title)) { return true; }
+        var text = title.ToLowerInvariant();
+        return text.Contains("original sound", StringComparison.Ordinal) ||
+               text.Contains("original audio", StringComparison.Ordinal) ||
+               text.Contains("original music", StringComparison.Ordinal) ||
+               text.Contains("оригинальный звук", StringComparison.Ordinal) ||
+               text.Contains("оригинальный саунд", StringComparison.Ordinal) ||
+               text.Contains("оригинальная музыка", StringComparison.Ordinal) ||
+               text.Contains("son original", StringComparison.Ordinal) ||
+               text.Contains("audio original", StringComparison.Ordinal);
     }
 
     /// <summary>

@@ -581,6 +581,16 @@
     </Style>
 
     <!-- Text input: the search field and the two optional YouTube settings. -->
+    <!--
+        The cross inside a field. Deliberately larger than a generic icon button: it sits on top of
+        the text, so a small target was hard to hit and read as a decoration rather than a control.
+    -->
+    <Style x:Key="FieldClearButtonStyle" TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="FontSize" Value="13"/>
+    </Style>
+
     <Style x:Key="InputBoxStyle" TargetType="TextBox">
         <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>

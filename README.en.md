@@ -4,7 +4,7 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.4.0.5-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Version](https://img.shields.io/badge/version-1.4.0.6-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#requirements)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
@@ -112,7 +112,7 @@ Choosing another track starts that track from its beginning.
 
 Only one copy can run at a time: launching it again restores the window of the running copy.
 
-No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.4.0.5 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
+No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.4.0.6 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
 
 ### Requirements
 
@@ -130,11 +130,16 @@ No installer, administrator rights, or separate .NET runtime are required. **Upg
 
 **Reset** removes imported entries and saved settings. It never deletes the original audio files.
 
+**The queue belongs to the tab.** A track started on YouTube advances to the next YouTube track, not into the local playlist; **Loop** wraps inside the tab, and switching tabs never stops what is playing. A preview never joins the queue.
+
+**The window remembers its size**: it reopens at the size you dragged it to. The size only ever grows — a temporarily smaller window does not become permanent, and a maximised window is not recorded as a size.
+
 ## YouTube
 
 The **YouTube** tab in the title bar opens a section of its own: downloaded tracks live there and **never enter the local playlist**.
 
 - **Search.** Type a name and press **Search** for up to ten results; the **Download** button on a row saves that track.
+- **Filter in the downloaded list.** The field above the list searches the tracks you already saved, and its cross clears the field. The filter only hides rows: the counter, clearing and the queue keep working on the full list.
 - **Direct link.** Paste `https://youtube.com/watch?v=…` and press **Download** — the app recognises the link and fetches it without searching.
 - **Where the files live.** `%LOCALAPPDATA%\BeatzOnKeys\Music`, which survives a reinstall. **Open the music folder** launches Explorer there.
 - **How much is used.** The YouTube cache block shows the size in KB, MB or GB.
@@ -153,6 +158,8 @@ The **TikTok** tab opens a third section: one field, one button. Paste a link to
 - **Cancel.** While a download runs, **Cancel** appears next to the field and stops exactly that download.
 - **Its own cache.** TikTok files sit apart from the YouTube cache, the counter counts only them, and **Clear TikTok cache** removes only them.
 - **Its own list.** Downloaded from TikTok is a separate collection, not the Local playlist: counters and clearing are never shared.
+- **Filter and order.** The field above the list filters the downloaded tracks and its cross clears it. A row can be dragged to change the order, and the pencil in a row renames the track: `Enter` confirms, `Esc` cancels. Only the name in the list changes — the file on disk keeps its own name.
+- **When TikTok refuses the clip.** The last attempt is the relay `tikwm.com`: the clip link leaves for that third-party service, which returns a direct address of the track, and the file is downloaded from TikTok's own servers. The service allows one request per second, so the program waits and retries once.
 - **No ffmpeg.** When TikTok serves a video container, the audio is unwrapped with the Media Foundation decoder and stored as WAV.
 
 There is no search by words here: TikTok does not hand out a list for a query without an account. No cookies, tokens or sign-in are used — only what TikTok serves openly. Private, deleted and sign-in-only clips are refused with an explanation.
@@ -185,6 +192,8 @@ The keyboard hook follows the privacy-preserving approach used by MusicCatRGB:
 
 The hook is active only after **Start** and is removed on **Stop** or exit. It runs in a **separate headless watcher process** (`BeatzOnKeys.exe --watcher`, the same approach as MusicCatRGB), so hiding, minimising, or a busy window cannot delay or silence typing. The watcher reports readiness and real key deliveries to the app, and a dropped connection is logged instead of failing silently. Keep the application folder together: the watcher is the same executable.
 
+**Network.** Nothing leaves the machine except what your own action requires: searches and downloads go to YouTube, TikTok and GitHub (updates). When TikTok refuses a clip, the last attempt uses the third-party service `tikwm.com`, and the clip link is sent there; the file itself is downloaded from TikTok's servers. There is no telemetry and no reporting.
+
 ## About and updates
 
 **About** is available from the footer and tray menu. It shows the installed version, developer, project/license/support links, and update controls. MusicCatRGB attribution remains in [Credits & License](#credits--license) and the third-party notices.
@@ -214,14 +223,14 @@ dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Create the **1.4.0.5** portable self-contained folder in Windows **cmd**:
+Create the **1.4.0.6** portable self-contained folder in Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.4.0.5
+set BOK_VERSION=1.4.0.6
 publish.bat
 ```
 
-The publisher now defaults to `BOK_VERSION=1.4.0.5`; setting it explicitly makes the intended release version clear.
+The publisher now defaults to `BOK_VERSION=1.4.0.6`; setting it explicitly makes the intended release version clear.
 
 The publisher validates its `Build_Output` cleanup target, publishes `BeatzOnKeys.UI` self-contained for `win-x64`, and copies both READMEs, release notes, screenshots, the license, and third-party notices. It stops on any required publish/copy failure. The resulting `Build_Output` directory is the portable product.
 

@@ -1,4 +1,5 @@
 using System.IO;
+using System.Windows;
 using BeatzOnKeys.UI.Infrastructure;
 using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.UI.Localization;
@@ -308,6 +309,73 @@ public sealed class YouTubeTrackViewModel : ObservableObject
             _state.Title = value;
             OnPropertyChanged();
         }
+    }
+
+    /// <summary>
+    /// True while the row's name is being typed. The list shows a field instead of the label, and
+    /// nothing else about the row changes: the file on disk keeps its own name.
+    /// </summary>
+    public bool IsEditing
+    {
+        get => _isEditing;
+        private set
+        {
+            if (!SetProperty(ref _isEditing, value)) { return; }
+            OnPropertyChanged(nameof(TitleVisibility));
+            OnPropertyChanged(nameof(EditVisibility));
+        }
+    }
+
+    private bool _isEditing;
+    private string _editTitle = string.Empty;
+
+    /// <summary>Visibility helpers, so the XAML needs no converter, as everywhere else here.</summary>
+    public Visibility TitleVisibility => _isEditing ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility EditVisibility => _isEditing ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The draft the field edits; committed only on Enter or on losing focus.</summary>
+    public string EditTitle
+    {
+        get => _editTitle;
+        set => SetProperty(ref _editTitle, TextInput.Sanitize(value));
+    }
+
+    /// <summary>Raised after a rename, accepted or not, so the owner can save and refilter.</summary>
+    public event Action<YouTubeTrackViewModel>? EditFinished;
+
+    /// <summary>Opens the field with the current name in it.</summary>
+    public void BeginEdit()
+    {
+        if (_isEditing) { return; }
+        _editTitle = Title;
+        OnPropertyChanged(nameof(EditTitle));
+        IsEditing = true;
+    }
+
+    /// <summary>
+    /// Keeps the typed name. A blank one is not a name, so the old title simply stays; either way
+    /// the editor closes and the owner is told, because the list may need a new order or filter.
+    /// </summary>
+    public bool CommitEdit()
+    {
+        if (!_isEditing) { return false; }
+        var name = TextInput.Sanitize(_editTitle).Trim();
+        var changed = name.Length > 0 && name != Title;
+        if (changed) { Title = name; }
+        IsEditing = false;
+        EditFinished?.Invoke(this);
+        return changed;
+    }
+
+    /// <summary>Closes the field without touching the name.</summary>
+    public void CancelEdit()
+    {
+        if (!_isEditing) { return; }
+        IsEditing = false;
+        _editTitle = Title;
+        OnPropertyChanged(nameof(EditTitle));
+        EditFinished?.Invoke(this);
     }
 
     public YouTubeTrackStatus Status

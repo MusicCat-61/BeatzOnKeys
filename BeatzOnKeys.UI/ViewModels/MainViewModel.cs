@@ -3,6 +3,8 @@ using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Windows;
+using System.Windows.Data;
 using System.Windows.Threading;
 using BeatzOnKeys.Core.Audio;
 using BeatzOnKeys.Core.Input;
@@ -30,12 +32,6 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private readonly TypingPlaybackService _typingPlayback;
     private readonly YouTubeTrackService _youTube;
     private readonly Dictionary<Guid, string> _friendlyNames = [];
-    // Which tracks came from the YouTube cache, so the player card can name the source instead of
-    // leaving the user guessing where the sound came from.
-    private readonly HashSet<Guid> _youTubeTracks = [];
-    // The TikTok ones get their own set: the player card must be able to name the source, and
-    // mixing the two would make every TikTok file claim to be a YouTube download.
-    private readonly HashSet<Guid> _tikTokTracks = [];
     /// <summary>
     /// The search preview currently playing, if any. Only a preview suspends the idle pause: the
     /// user asked to hear that track properly. A downloaded track from the list is ordinary
@@ -106,6 +102,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _bassReactiveGain = Math.Clamp(settings.BassReactiveGain, 0, 0.3);
         _stereoPulseEnabled = settings.StereoPulseEnabled;
         _adaptiveVolumeEnabled = settings.AdaptiveVolumeEnabled;
+        _windowWidth = settings.WindowWidth;
+        _windowHeight = settings.WindowHeight;
         _statusText = Loc.T("L_StatusRestoring");
         _playbackController = new PlaybackController { AutoAdvance = _autoAdvance, Loop = _loop };
         _audioPlayer = audioPlayer ?? new ContinuousAudioPlayer();
@@ -147,13 +145,22 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         SetLanguageCommand = new RelayCommand<string>(code => Loc.SetLanguage(Loc.Parse(code)));
         ToggleThemeCommand = new RelayCommand(Theme.Toggle);
         OpenLogsCommand = new RelayCommand(OpenLogs);
+        ClearTrackFilterCommand = new RelayCommand(() => TrackFilter = string.Empty, () => HasTrackFilter);
         Tracks.CollectionChanged += OnTracksChanged;
+        // Created once and filtered in place, so the playlist keeps its selection and its scroll
+        // position while a filter is typed.
+        FilteredTracks = new ListCollectionView(Tracks)
+        {
+            Filter = row => row is TrackViewModel track && MatchesTrackFilter(track)
+        };
         // The YouTube section keeps its own list; only the audio player is shared.
         _youTube = youTubeService ?? CreateDefaultYouTubeService();
         YouTube = new YouTubeViewModel(_youTube, settings.YouTubeTracks, settings.YouTubeCacheEnabled,
             settings.CookiesFolderPath, settings.ProxyUrl, QueueSave,
             message => UserMessageRequested?.Invoke(message));
         YouTube.PlayRequested += OnYouTubePlayRequested;
+        YouTube.PreviewRequested += OnYouTubePreviewRequested;
+        YouTube.QueueChanged += OnPageQueueChanged;
         YouTube.PropertyChanged += OnYouTubePropertyChanged;
         YouTube.OpenMusicFolderRequested += OpenMusicFolder;
         // The row button doubles as pause: the section cannot reach the player, so it asks here.
@@ -165,6 +172,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             QueueSave,
             message => UserMessageRequested?.Invoke(message));
         TikTok.PlayRequested += OnTikTokPlayRequested;
+        TikTok.QueueChanged += OnPageQueueChanged;
         TikTok.PropertyChanged += OnTikTokPropertyChanged;
         TikTok.OpenMusicFolderRequested += OpenMusicFolder;
         Loc.LanguageChanged += OnLanguageChanged;
@@ -173,6 +181,82 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     }
 
     public ObservableCollection<TrackViewModel> Tracks { get; } = [];
+
+    /// <summary>
+    /// The filter over the local playlist. Like the other two, it narrows the view only: the
+    /// counter, the drag order and every command still speak about the whole list.
+    /// </summary>
+    public string TrackFilter
+    {
+        get => _trackFilter;
+        set
+        {
+            var clean = TextInput.Sanitize(value);
+            if (!SetProperty(ref _trackFilter, clean)) { return; }
+            ClearTrackFilterCommand.NotifyCanExecuteChanged();
+            FilteredTracks.Refresh();
+            OnPropertyChanged(nameof(HasTrackFilter));
+            OnPropertyChanged(nameof(TrackFilterClearVisible));
+            OnPropertyChanged(nameof(TrackFilteredEmptyVisibility));
+        }
+    }
+
+    private string _trackFilter = string.Empty;
+
+    public bool HasTrackFilter => !string.IsNullOrWhiteSpace(_trackFilter);
+
+    public Visibility TrackFilterClearVisible => HasTrackFilter ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// The rows the playlist shows. A view, not a fresh list: the list rebuilt itself on every
+    /// change, which made the ListBox drop its selection and quietly lose the playing track.
+    /// </summary>
+    public ListCollectionView FilteredTracks { get; }
+
+    /// <summary>Name-only substring match, ignoring case — the rule all three lists share.</summary>
+    private bool MatchesTrackFilter(TrackViewModel track) =>
+        !HasTrackFilter || track.FileName.Contains(_trackFilter, StringComparison.CurrentCultureIgnoreCase);
+
+    /// <summary>True when the filter hid everything; the hint says so instead of "нет треков".</summary>
+    public bool ShowTrackFilteredEmpty =>
+        HasTrackFilter && Tracks.Count > 0 && !Tracks.Any(MatchesTrackFilter);
+
+    public Visibility TrackFilteredEmptyVisibility =>
+        ShowTrackFilteredEmpty ? Visibility.Visible : Visibility.Collapsed;
+
+    public RelayCommand ClearTrackFilterCommand { get; }
+
+    /// <summary>
+    /// The size the user last chose. Zero means "never set", so the window keeps its XAML size;
+    /// this is deliberately not a preference the window offers, it is only remembered.
+    /// </summary>
+    public double WindowWidth => _windowWidth;
+
+    /// <inheritdoc cref="WindowWidth"/>
+    public double WindowHeight => _windowHeight;
+
+    private double _windowWidth;
+    private double _windowHeight;
+
+    /// <summary>
+    /// Remembers a size the user chose. Only a size that is not smaller in either direction is
+    /// recorded: shrinking a window is usually a moment, not a preference, and the remembered size
+    /// must not decay every time the window is made narrow for a minute. Fitting the window to the
+    /// settings panel is not the user's word either, so the window suppresses that call itself.
+    /// </summary>
+    public void RememberWindowSize(double width, double height)
+    {
+        if (!double.IsFinite(width) || !double.IsFinite(height) || width <= 0 || height <= 0) { return; }
+        width = Math.Round(width);
+        height = Math.Round(height);
+        if (width < _windowWidth || height < _windowHeight) { return; }
+        if (width == _windowWidth && height == _windowHeight) { return; }
+        _windowWidth = width;
+        _windowHeight = height;
+        OnPropertyChanged(nameof(WindowWidth));
+        OnPropertyChanged(nameof(WindowHeight));
+        QueueSave();
+    }
 
     /// <summary>The separate YouTube section: its own search, cache and settings.</summary>
     public YouTubeViewModel YouTube { get; }
@@ -215,6 +299,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(IsYouTubePage));
         OnPropertyChanged(nameof(IsTikTokPage));
         OnPropertyChanged(nameof(SelectedTrackText));
+        // The queue follows the page: "next" is the row below in the list the user is looking at.
+        SyncPlaybackQueue();
         RefreshCommands();
     }
 
@@ -593,7 +679,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         SelectedTrack = saved ?? Tracks.FirstOrDefault(track => track.IsAvailable) ?? Tracks.FirstOrDefault();
         _initializing = false;
         RefreshTrackPositions();
-        SyncPlaybackOrder();
+        SyncPlaybackQueue();
         RefreshPlaybackProgress();
         StatusText = Loc.T("L_ReadyToType");
         RefreshCommands();
@@ -704,7 +790,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
                 : YouTube.Downloaded.FirstOrDefault(item => item.CanPlay);
             if (cached is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
             YouTube.SelectTrack(cached);
-            await PlayYouTubeAsync(cached.CachedPath, cached.Title, isPreview: false).ConfigureAwait(true);
+            await PlayCachedAsync(cached, isPreview: false).ConfigureAwait(true);
             return;
         }
 
@@ -715,7 +801,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
                 : TikTok.Tracks.FirstOrDefault(item => item.CanPlay);
             if (cached is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
             TikTok.SelectTrack(cached);
-            await PlayYouTubeAsync(cached.CachedPath, cached.Title, isPreview: false, isTikTok: true).ConfigureAwait(true);
+            await PlayCachedAsync(cached, isPreview: false).ConfigureAwait(true);
             return;
         }
 
@@ -843,9 +929,60 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         Tracks.Move(index, target);
     }
 
-    /// <summary>Playback order follows the visible order, so "next at the end" is the row below.</summary>
-    private void SyncPlaybackOrder() =>
-        _playbackController.Reorder(Tracks.Select(track => track.Id).ToArray());
+    /// <summary>
+    /// The playback queue is the list of the active page. "Next" therefore means the row below in
+    /// the list the user is looking at, and Loop closes inside that page: a TikTok track no longer
+    /// hands over to a local file, which is what the old single flat order did.
+    /// </summary>
+    private void SyncPlaybackQueue()
+    {
+        // A track that is already playing but belongs to another page keeps its place at the front,
+        // so switching tabs never restarts it and never loses its name.
+        var playing = _playbackController.CurrentTrack;
+        _playbackController.Replace(BuildQueue(), playing);
+    }
+
+    private List<PlaybackTrack> BuildQueue()
+    {
+        var queue = new List<PlaybackTrack>();
+        switch (_page)
+        {
+            case AppPage.YouTube:
+                AddCached(queue, YouTube.Downloaded);
+                break;
+            case AppPage.TikTok:
+                AddCached(queue, TikTok.Tracks);
+                break;
+            default:
+                foreach (var track in Tracks)
+                {
+                    if (track.IsAvailable && track.Duration > TimeSpan.Zero) { queue.Add(track.ToPlaybackTrack()); }
+                }
+
+                break;
+        }
+
+        return queue;
+    }
+
+    /// <summary>
+    /// Both cached lists share one shape, so one loop covers them. A row joins the queue only when
+    /// it can really play and its length is known: the controller refuses a zero-length track, and
+    /// a row whose length is still unknown gets it from the decoder when it is played.
+    /// </summary>
+    private static void AddCached(List<PlaybackTrack> queue, IEnumerable<YouTubeTrackViewModel> rows)
+    {
+        foreach (var row in rows)
+        {
+            if (row.CanPlay && row.State.Duration > TimeSpan.Zero)
+            {
+                queue.Add(new PlaybackTrack(row.Id, row.Title, row.CachedPath, row.State.Duration));
+            }
+        }
+    }
+
+    /// <summary>Any add, remove or reorder in a cached list reshapes the queue of that page.</summary>
+    private void OnPageQueueChanged() => SyncPlaybackQueue();
 
     /// <summary>
     /// Drops a dragged row at a target position. Unlike <see cref="MoveTrack"/> it may travel any
@@ -928,6 +1065,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         {
             MinVolume = MinVolume, MaxVolume = MaxVolume, IdleTimeout = IdleTimeout, PauseOnIdle = PauseOnIdle,
             AutoAdvance = AutoAdvance, Loop = Loop,
+            // The window size is remembered, not offered: it is written with the other preferences
+            // so it survives a restart like they do.
+            WindowWidth = _windowWidth, WindowHeight = _windowHeight,
             PunchResponseEnabled = PunchResponseEnabled, BassReactiveGain = BassReactiveGain,
             StereoPulseEnabled = StereoPulseEnabled, AdaptiveVolumeEnabled = AdaptiveVolumeEnabled,
             SelectedTrackId = SelectedTrack?.Id, Language = Loc.CurrentCode, Theme = Theme.CurrentCode,
@@ -1027,13 +1167,12 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         NowPlayingText = playing is null ? string.Empty :
             Loc.F("L_NowPlayingFormat", playingName, FormatPosition(position), FormatPosition(duration));
         PlayingTrackText = playing is null ? Loc.T("L_NothingPlaying") : playingName;
+        // The source is read from the lists themselves, not remembered per click: an auto-advance
+        // never passes through the play path, so a remembered set would call the next TikTok row a
+        // local file. A preview belongs to no list and is named after the section it came from.
         PlayingSourceText = playing is null
             ? Loc.T("L_NowPlayingCard")
-            : Loc.F("L_NowPlayingCard", _tikTokTracks.Contains(playing.Id)
-                ? Loc.T("L_SourceTikTok")
-                : _youTubeTracks.Contains(playing.Id)
-                    ? Loc.T("L_SourceYouTube")
-                    : Loc.T("L_SourceLocal"));
+            : Loc.F("L_NowPlayingCard", SourceNameFor(playing.Id));
         if (IsRunning)
         {
             // A paused run is not an ended one: the position stays short of the duration.
@@ -1047,6 +1186,24 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private void OnPlaybackTrackChanged(PlaybackTrackChangedEventArgs args) => RunOnUiThread(() =>
     {
         if (_closing || args.TrackId != _playbackController.SelectedTrackId) { return; }
+        // The highlight follows the page that owns the queue: an advance inside the TikTok list
+        // must move the selection down that list, not into the local playlist.
+        switch (_page)
+        {
+            case AppPage.YouTube:
+            {
+                var row = YouTube.Downloaded.FirstOrDefault(item => item.Id == args.TrackId);
+                if (row is not null && !ReferenceEquals(row, YouTube.SelectedTrack)) { YouTube.SelectTrack(row); }
+                return;
+            }
+            case AppPage.TikTok:
+            {
+                var row = TikTok.Tracks.FirstOrDefault(item => item.Id == args.TrackId);
+                if (row is not null && !ReferenceEquals(row, TikTok.SelectedTrack)) { TikTok.SelectTrack(row); }
+                return;
+            }
+        }
+
         var track = Tracks.FirstOrDefault(item => item.Id == args.TrackId);
         if (track is null || ReferenceEquals(track, SelectedTrack)) { return; }
         _selectionFromPlayback = true;
@@ -1076,6 +1233,16 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         else if (!dispatcher.HasShutdownStarted) { _ = dispatcher.BeginInvoke(action, DispatcherPriority.Background); }
     }
 
+    /// <summary>
+    /// Where the sound comes from, decided by which list holds the track. The lists are the source
+    /// of truth, so a row that arrived by auto-advance is named as correctly as a clicked one.
+    /// </summary>
+    private string SourceNameFor(Guid id) =>
+        id == _previewTrackId ? Loc.T("L_SourceYouTube")
+        : TikTok.Tracks.Any(track => track.Id == id) ? Loc.T("L_SourceTikTok")
+        : YouTube.Downloaded.Any(track => track.Id == id) ? Loc.T("L_SourceYouTube")
+        : Loc.T("L_SourceLocal");
+
     private static string FormatPosition(double seconds)
     {
         var time = TimeSpan.FromSeconds(Math.Max(0, double.IsFinite(seconds) ? seconds : 0));
@@ -1098,20 +1265,43 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private static YouTubeTrackService CreateDefaultYouTubeService() =>
         YouTubeServiceFactory?.Invoke() ?? new(new YtDlpBinaryManager(), new YouTubeProcessRunner());
 
-    /// <summary>Plays a cached file through the same player, without touching the playlist.</summary>
-    private void OnYouTubePlayRequested(string path, string title, bool isPreview) =>
-        _ = PlayYouTubeAsync(path, title, isPreview);
+    /// <summary>
+    /// Plays a saved row of the YouTube page. The queue is that page's list, so the track that
+    /// follows is the row below it, never a file from another tab.
+    /// </summary>
+    private void OnYouTubePlayRequested(YouTubeTrackViewModel track) =>
+        _ = PlayCachedAsync(track, isPreview: false);
 
-    private async Task PlayYouTubeAsync(string path, string title, bool isPreview, bool isTikTok = false)
+    /// <summary>Plays a saved row of the TikTok page, with the same rule.</summary>
+    private void OnTikTokPlayRequested(YouTubeTrackViewModel track) =>
+        _ = PlayCachedAsync(track, isPreview: false);
+
+    /// <summary>
+    /// A search preview belongs to no list, so it never joins the page queue: it is heard once and
+    /// stops, which is what a preview is.
+    /// </summary>
+    private void OnYouTubePreviewRequested(string path, string title) => _ = PlayPreviewAsync(path, title);
+
+    private Task PlayCachedAsync(YouTubeTrackViewModel track, bool isPreview) =>
+        string.IsNullOrEmpty(track.CachedPath)
+            ? Task.CompletedTask
+            : PlayFileAsync(track.Id, track.CachedPath, track.Title, isPreview, track);
+
+    private Task PlayPreviewAsync(string path, string title) =>
+        PlayFileAsync(Guid.NewGuid(), path, title, isPreview: true, track: null);
+
+    private async Task PlayFileAsync(Guid id, string path, string title, bool isPreview,
+        YouTubeTrackViewModel? track)
     {
         try
         {
-            var playback = AudioTrackLoader.Load(Guid.NewGuid(), path);
+            var playback = AudioTrackLoader.Load(id, path);
+            // A row that never learned its length learns it here, so it can join the queue too.
+            if (track is not null && track.State.Duration <= TimeSpan.Zero) { track.SetDuration(playback.Duration); }
             _friendlyNames[playback.Id] = string.IsNullOrWhiteSpace(title) ? playback.Name : title;
-            if (isTikTok) { _tikTokTracks.Add(playback.Id); }
-            else { _youTubeTracks.Add(playback.Id); }
-            // The controller holds the playback order; a YouTube file joins it for this run only,
-            // and Reorder keeps it at the end when the local playlist changes.
+            // Rebuild before the upsert: the page list is the queue, and the row below it is what
+            // plays next. A preview stays outside the queue on purpose.
+            if (!isPreview) { SyncPlaybackQueue(); }
             _playbackController.UpsertTrack(playback);
             // The preview is remembered before the first note, so a short idle time cannot be armed
             // and fire a moment later; a downloaded track clears it and keeps the pause working.
@@ -1147,10 +1337,12 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     private void OnTracksChanged(object? sender, NotifyCollectionChangedEventArgs args)
     {
         RefreshTrackPositions();
-        SyncPlaybackOrder();
+        SyncPlaybackQueue();
         OnPropertyChanged(nameof(HasTracks));
         OnPropertyChanged(nameof(TrackCountText));
         OnPropertyChanged(nameof(TrackCountNumber));
+        // The view follows the collection by itself; only the "nothing matched" hint needs a word.
+        OnPropertyChanged(nameof(TrackFilteredEmptyVisibility));
         RefreshCommands();
         QueueSave();
     }
@@ -1221,13 +1413,6 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         RefreshCommands();
     }
 
-    /// <summary>
-    /// A TikTok file plays like a downloaded one, not like a preview: it came from the user's own
-    /// list, so the idle pause keeps working on it.
-    /// </summary>
-    private void OnTikTokPlayRequested(string path, string title) =>
-        _ = PlayYouTubeAsync(path, title, isPreview: false, isTikTok: true);
-
     public async ValueTask DisposeAsync()
     {
         if (_disposed || _closing) { return; }
@@ -1246,11 +1431,14 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _playbackController.CurrentTrackChanged -= OnPlaybackTrackChanged;
         _typingPlayback.PlaybackFailed -= OnPlaybackFailed;
         YouTube.PlayRequested -= OnYouTubePlayRequested;
+        YouTube.PreviewRequested -= OnYouTubePreviewRequested;
+        YouTube.QueueChanged -= OnPageQueueChanged;
         YouTube.PropertyChanged -= OnYouTubePropertyChanged;
         YouTube.OpenMusicFolderRequested -= OpenMusicFolder;
         YouTube.PauseToggleRequested -= TogglePause;
         YouTube.Dispose();
         TikTok.PlayRequested -= OnTikTokPlayRequested;
+        TikTok.QueueChanged -= OnPageQueueChanged;
         TikTok.PropertyChanged -= OnTikTokPropertyChanged;
         TikTok.OpenMusicFolderRequested -= OpenMusicFolder;
         TikTok.Dispose();

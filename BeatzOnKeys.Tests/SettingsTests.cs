@@ -6,6 +6,33 @@ namespace BeatzOnKeys.Tests;
 
 internal static class SettingsTests
 {
+    /// <summary>
+    /// The window size is remembered, never offered as a setting. An unusable value means "never
+    /// set" so the XAML size stands, and a real one is clamped to a size the window can have.
+    /// </summary>
+    public static Task WindowSizeIsRememberedButBounded()
+    {
+        var defaults = new AppSettings();
+        AssertEx.NearlyEqual(0, defaults.WindowWidth);
+        AssertEx.NearlyEqual(0, defaults.WindowHeight);
+
+        var tiny = new AppSettings { WindowWidth = 400, WindowHeight = 200 };
+        tiny.Normalize();
+        AssertEx.NearlyEqual(AppSettings.MinWindowWidth, tiny.WindowWidth);
+        AssertEx.NearlyEqual(AppSettings.MinWindowHeight, tiny.WindowHeight);
+
+        var broken = new AppSettings { WindowWidth = double.NaN, WindowHeight = double.PositiveInfinity };
+        broken.Normalize();
+        AssertEx.NearlyEqual(0, broken.WindowWidth);
+        AssertEx.NearlyEqual(0, broken.WindowHeight);
+
+        var huge = new AppSettings { WindowWidth = 99999, WindowHeight = 99999 };
+        huge.Normalize();
+        AssertEx.NearlyEqual(16000, huge.WindowWidth);
+        AssertEx.NearlyEqual(16000, huge.WindowHeight);
+        return Task.CompletedTask;
+    }
+
     public static Task DefaultsAndNormalization()
     {
         AssertDefaults(new AppSettings());
@@ -26,7 +53,7 @@ internal static class SettingsTests
         };
         settings.Normalize();
         AssertEx.Equal(AppSettings.CurrentSchemaVersion, settings.SchemaVersion);
-        AssertEx.Equal(6, settings.SchemaVersion);
+        AssertEx.Equal(7, settings.SchemaVersion);
         AssertEx.NearlyEqual(0.2, settings.MinVolume);
         AssertEx.NearlyEqual(1, settings.MaxVolume);
         AssertEx.NearlyEqual(3, settings.IdleTimeout);

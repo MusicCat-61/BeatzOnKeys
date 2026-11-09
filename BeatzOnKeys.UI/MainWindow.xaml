@@ -242,10 +242,11 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <DockPanel Margin="2,0,4,9" VerticalAlignment="Center" LastChildFill="False">
+                        <DockPanel Grid.Row="0" Margin="2,0,4,9" VerticalAlignment="Center" LastChildFill="False">
                             <Button DockPanel.Dock="Right" Click="ClearPlaylistClick" Style="{StaticResource SubtleButtonStyle}"
                                     Padding="8,3" Margin="8,0,0,0" ToolTip="{DynamicResource L_ClearPlaylistHint}"
                                     IsEnabled="{Binding CanClearPlaylist}"
@@ -270,8 +271,29 @@
                             </Border>
                         </DockPanel>
 
-                        <Grid Grid.Row="1">
-                            <ListBox ItemsSource="{Binding Tracks}" SelectedItem="{Binding SelectedTrack, Mode=TwoWay}"
+                        <!-- The filter narrows the view only: the counter above keeps counting every
+                             track, and the drag order still works on the real list. -->
+                        <Grid Grid.Row="1" Margin="2,0,4,10">
+                            <TextBox Text="{Binding TrackFilter, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource InputBoxStyle}" MaxLength="200"
+                                     AcceptsReturn="False" Padding="34,5,34,5"
+                                     AutomationProperties.Name="{DynamicResource L_SearchTracksHint}"/>
+                            <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                                       Foreground="{DynamicResource TextTertiaryBrush}"
+                                       HorizontalAlignment="Left" VerticalAlignment="Center"
+                                       Margin="11,0,0,0" IsHitTestVisible="False"/>
+                            <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,3,0"
+                                    Style="{StaticResource FieldClearButtonStyle}"
+                                    Command="{Binding ClearTrackFilterCommand}"
+                                    Visibility="{Binding TrackFilterClearVisible}"
+                                    ToolTip="{DynamicResource L_ClearInput}"
+                                    AutomationProperties.Name="{DynamicResource L_ClearInput}">
+                                <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE711;"/>
+                            </Button>
+                        </Grid>
+
+                        <Grid Grid.Row="2">
+                            <ListBox ItemsSource="{Binding FilteredTracks}" SelectedItem="{Binding SelectedTrack, Mode=TwoWay}"
                                      Background="Transparent" BorderThickness="0" Padding="0"
                                      ItemContainerStyle="{StaticResource TrackListItemStyle}"
                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -450,6 +472,16 @@
                                 <TextBlock Text="{DynamicResource L_EmptyTracksHint}" FontSize="13" Margin="0,4,0,0"
                                            TextAlignment="Center" TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
+                            </StackPanel>
+
+                            <!-- A filter that hides everything is not an empty playlist, and the
+                                 hint says which of the two happened. -->
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20"
+                                        Visibility="{Binding TrackFilteredEmptyVisibility}">
+                                <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="26"
+                                           Foreground="{DynamicResource TextTertiaryBrush}"/>
+                                <TextBlock Text="{DynamicResource L_SearchNoMatch}" FontSize="16" Margin="0,8,0,0"
+                                           HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
                         </Grid>
                     </Grid>
@@ -916,9 +948,21 @@
                                         Style="{StaticResource SubtleButtonStyle}"
                                         Command="{Binding YouTube.CancelCommand}"
                                         Visibility="{Binding YouTube.CancelVisible}"/>
-                                <TextBox Text="{Binding YouTube.SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource InputBoxStyle}"
-                                         AutomationProperties.Name="{DynamicResource L_YtSearchPlaceholder}"/>
+                                <Grid>
+                                    <TextBox Text="{Binding YouTube.SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource InputBoxStyle}" MaxLength="200"
+                                             AcceptsReturn="False" Padding="10,6,36,6"
+                                             AutomationProperties.Name="{DynamicResource L_YtSearchPlaceholder}"/>
+                                    <!-- The cross clears the field itself; nothing else happens. -->
+                                    <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"
+                                            Style="{StaticResource FieldClearButtonStyle}"
+                                            Command="{Binding YouTube.ClearQueryCommand}"
+                                            Visibility="{Binding YouTube.QueryClearVisible}"
+                                            ToolTip="{DynamicResource L_ClearInput}"
+                                            AutomationProperties.Name="{DynamicResource L_ClearInput}">
+                                        <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE711;"/>
+                                    </Button>
+                                </Grid>
                             </DockPanel>
                             <TextBlock Text="{DynamicResource L_YtSearchHint}" FontSize="14" TextWrapping="Wrap"
                                        Margin="0,10,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -1352,6 +1396,7 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
@@ -1368,7 +1413,27 @@
                                            VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                             </Border>
                         </StackPanel>
-                        <ListBox Grid.Row="1" ItemsSource="{Binding YouTube.Downloaded}" Background="Transparent"
+                        <!-- The filter narrows the view only: the counter above keeps counting every
+                             downloaded track, and clearing still clears them all. -->
+                        <Grid Grid.Row="1" Margin="2,0,0,8">
+                            <TextBox Text="{Binding YouTube.FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource InputBoxStyle}" MaxLength="200"
+                                     AcceptsReturn="False" Padding="34,5,34,5"
+                                     AutomationProperties.Name="{DynamicResource L_SearchTracksHint}"/>
+                            <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                                       Foreground="{DynamicResource TextTertiaryBrush}"
+                                       HorizontalAlignment="Left" VerticalAlignment="Center"
+                                       Margin="11,0,0,0" IsHitTestVisible="False"/>
+                            <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,3,0"
+                                    Style="{StaticResource FieldClearButtonStyle}"
+                                    Command="{Binding YouTube.ClearFilterCommand}"
+                                    Visibility="{Binding YouTube.FilterClearVisible}"
+                                    ToolTip="{DynamicResource L_ClearInput}"
+                                    AutomationProperties.Name="{DynamicResource L_ClearInput}">
+                                <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE711;"/>
+                            </Button>
+                        </Grid>
+                        <ListBox Grid.Row="2" ItemsSource="{Binding YouTube.FilteredDownloaded}" Background="Transparent"
                                  SelectedItem="{Binding YouTube.SelectedTrack, Mode=TwoWay}"
                                  BorderThickness="0" Padding="0"
                                  ItemContainerStyle="{StaticResource TrackListItemStyle}"
@@ -1544,7 +1609,7 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
-                            <TextBlock Grid.Row="2" Text="{DynamicResource L_YtEmpty}" FontSize="13" TextWrapping="Wrap"
+                            <TextBlock Grid.Row="3" Text="{DynamicResource L_YtEmpty}" FontSize="13" TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextTertiaryBrush}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -1557,6 +1622,11 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
+                            <!-- A filter that hides everything says so, instead of showing the
+                                 "nothing downloaded yet" line, which would be a lie. -->
+                            <TextBlock Grid.Row="3" Text="{DynamicResource L_SearchNoMatch}" FontSize="15"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"
+                                       Visibility="{Binding YouTube.FilteredEmptyVisibility}"/>
                     </Grid>
                 </Border>
             </Grid>
@@ -1685,9 +1755,21 @@
                                 Content="{DynamicResource L_TikTokDownload}"
                                 Style="{StaticResource AccentButtonStyle}"
                                 Command="{Binding TikTok.AddLinkCommand}"/>
-                        <TextBox Text="{Binding TikTok.InputUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource InputBoxStyle}"
-                                 AutomationProperties.Name="{DynamicResource L_TikTokInputHint}"/>
+                        <Grid>
+                            <TextBox Text="{Binding TikTok.InputUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource InputBoxStyle}" MaxLength="200"
+                                     AcceptsReturn="False" Padding="10,6,36,6"
+                                     AutomationProperties.Name="{DynamicResource L_TikTokInputHint}"/>
+                            <!-- The cross clears the field itself; nothing else happens. -->
+                            <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0"
+                                    Style="{StaticResource FieldClearButtonStyle}"
+                                    Command="{Binding TikTok.ClearInputCommand}"
+                                    Visibility="{Binding TikTok.InputClearVisible}"
+                                    ToolTip="{DynamicResource L_ClearInput}"
+                                    AutomationProperties.Name="{DynamicResource L_ClearInput}">
+                                <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE711;"/>
+                            </Button>
+                        </Grid>
                     </DockPanel>
                     <TextBlock Text="{DynamicResource L_TikTokSearchHint}" FontSize="16" TextWrapping="Wrap"
                                Margin="0,10,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
@@ -1760,7 +1842,7 @@
                     <!-- The cross sits in the corner the eye checks first, the way every other
                          dismissible panel in the window does it. -->
                     <DockPanel Grid.Row="0">
-                        <Button DockPanel.Dock="Right" Style="{StaticResource IconButtonStyle}" Width="24" Height="24"
+                        <Button DockPanel.Dock="Right" Style="{StaticResource FieldClearButtonStyle}"
                                 Command="{Binding TikTok.DismissNetworkHintCommand}"
                                 ToolTip="{DynamicResource L_CloseDialog}"
                                 AutomationProperties.Name="{DynamicResource L_CloseDialog}">
@@ -1780,7 +1862,9 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                         <TextBlock Text="{DynamicResource L_TikTokTracksTitle}" FontSize="15" FontWeight="SemiBold"
@@ -1793,14 +1877,39 @@
                                        VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                         </Border>
                     </StackPanel>
-                    <ListBox Grid.Row="1" ItemsSource="{Binding TikTok.Tracks}" Background="Transparent"
+                    <!-- The filter narrows the view only: the counter stays a fact about the whole
+                         list, and the drag order is still applied to the real collection. -->
+                    <Grid Grid.Row="1" Margin="0,0,0,8">
+                        <TextBox Text="{Binding TikTok.FilterText, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource InputBoxStyle}" MaxLength="200"
+                                 AcceptsReturn="False" Padding="34,5,34,5"
+                                 AutomationProperties.Name="{DynamicResource L_SearchTracksHint}"/>
+                        <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                                   Foreground="{DynamicResource TextTertiaryBrush}"
+                                   HorizontalAlignment="Left" VerticalAlignment="Center"
+                                   Margin="11,0,0,0" IsHitTestVisible="False"/>
+                        <Button HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,3,0"
+                                Style="{StaticResource FieldClearButtonStyle}"
+                                Command="{Binding TikTok.ClearFilterCommand}"
+                                Visibility="{Binding TikTok.FilterClearVisible}"
+                                ToolTip="{DynamicResource L_ClearInput}"
+                                AutomationProperties.Name="{DynamicResource L_ClearInput}">
+                            <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE711;"/>
+                        </Button>
+                    </Grid>
+                    <ListBox Grid.Row="2" ItemsSource="{Binding TikTok.FilteredTracks}" Background="Transparent"
                              SelectedItem="{Binding TikTok.SelectedTrack, Mode=TwoWay}"
                              BorderThickness="0" Padding="0"
                              ItemContainerStyle="{StaticResource TrackListItemStyle}"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             AllowDrop="True"
                              PreviewMouseLeftButtonDown="TikTokList_PreviewMouseLeftButtonDown"
-                             PreviewMouseLeftButtonUp="TikTokList_PreviewMouseLeftButtonUp">
+                             PreviewMouseMove="TikTokList_PreviewMouseMove"
+                             PreviewMouseLeftButtonUp="TikTokList_PreviewMouseLeftButtonUp"
+                             DragOver="TikTokList_DragOver"
+                             DragLeave="TikTokList_DragLeave"
+                             Drop="TikTokList_Drop">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Grid ToolTip="{Binding TooltipText}" MinHeight="42">
@@ -1812,7 +1921,46 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
+
+                                    <!-- Insertion line shown while a row is dragged over this one. -->
+                                    <Border Grid.ColumnSpan="8" Height="2" CornerRadius="1"
+                                            VerticalAlignment="Top" Margin="-8,-6,-8,0"
+                                            Background="{DynamicResource AccentBrush}" IsHitTestVisible="False">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding IsDropTarget}" Value="True"/>
+                                                            <Condition Binding="{Binding IsDropTargetAbove}" Value="True"/>
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </MultiDataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                    </Border>
+                                    <Border Grid.ColumnSpan="8" Height="2" CornerRadius="1"
+                                            VerticalAlignment="Bottom" Margin="-8,0,-8,-6"
+                                            Background="{DynamicResource AccentBrush}" IsHitTestVisible="False">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <MultiDataTrigger>
+                                                        <MultiDataTrigger.Conditions>
+                                                            <Condition Binding="{Binding IsDropTarget}" Value="True"/>
+                                                            <Condition Binding="{Binding IsDropTargetAbove}" Value="False"/>
+                                                        </MultiDataTrigger.Conditions>
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </MultiDataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                    </Border>
 
                                     <Border Width="34" Height="34" CornerRadius="8" VerticalAlignment="Center"
                                             Background="{DynamicResource OverlayBrush}">
@@ -1829,9 +1977,19 @@
                                             <RowDefinition Height="Auto"/>
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
+                                        <!-- The pencil swaps the label for a field: the name changes in
+                                             this list only, the file on disk keeps its own name. -->
                                         <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                                   TextTrimming="CharacterEllipsis"/>
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Visibility="{Binding TitleVisibility}"/>
+                                        <TextBox x:Name="RenameBox" Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource InputBoxStyle}" MaxLength="200"
+                                                 AcceptsReturn="False" FontSize="14" Padding="6,2"
+                                                 Visibility="{Binding EditVisibility}"
+                                                 KeyDown="RenameBox_KeyDown"
+                                                 LostFocus="RenameBox_LostFocus"
+                                                 AutomationProperties.Name="{DynamicResource L_RenameTrack}"/>
                                         <TextBlock Grid.Row="1" Text="{Binding SubtitleText}" FontSize="12"
                                                    Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
                                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
@@ -1855,7 +2013,23 @@
                                     <!-- Play lives in the row header of the whole list, exactly as in the
                                          playlist: a click on the row already starts it, so a second button
                                          inside the row would only ask the same question twice. -->
-                                    <Button Grid.Column="4" Margin="0,0,2,0"
+                                    <Button Grid.Column="4" Margin="0,0,2,0" Click="TikTokEditClick"
+                                            ToolTip="{DynamicResource L_RenameTrack}"
+                                            AutomationProperties.Name="{DynamicResource L_RenameTrack}">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                                <Setter Property="Width" Value="26"/>
+                                                <Setter Property="Height" Value="26"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                                                        <Setter Property="IsEnabled" Value="False"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12" Text="&#xE70F;"/>
+                                    </Button>
+                                    <Button Grid.Column="5" Margin="0,0,2,0"
                                             Command="{Binding DataContext.TikTok.MoveTrackUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}" ToolTip="{DynamicResource L_MoveUp}"
                                             AutomationProperties.Name="{DynamicResource L_MoveUp}">
@@ -1872,7 +2046,7 @@
                                         </Button.Style>
                                         <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70E;"/>
                                     </Button>
-                                    <Button Grid.Column="5" Margin="0,0,6,0"
+                                    <Button Grid.Column="6" Margin="0,0,6,0"
                                             Command="{Binding DataContext.TikTok.MoveTrackDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             CommandParameter="{Binding}" ToolTip="{DynamicResource L_MoveDown}"
                                             AutomationProperties.Name="{DynamicResource L_MoveDown}">
@@ -1889,7 +2063,7 @@
                                         </Button.Style>
                                         <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70D;"/>
                                     </Button>
-                                    <Button Grid.Column="6" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
+                                    <Button Grid.Column="7" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
                                             CommandParameter="{Binding}"
                                             Command="{Binding DataContext.TikTok.RemoveCachedCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             ToolTip="{DynamicResource L_Remove}"
@@ -1900,7 +2074,7 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock Grid.Row="1" Text="{DynamicResource L_TikTokEmpty}" FontSize="15"
+                    <TextBlock Grid.Row="3" Text="{DynamicResource L_TikTokEmpty}" FontSize="15"
                                TextWrapping="Wrap" VerticalAlignment="Top" Margin="0,10,0,0"
                                Foreground="{DynamicResource TextTertiaryBrush}">
                         <TextBlock.Style>
@@ -1914,6 +2088,10 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
+                    <TextBlock Grid.Row="3" Text="{DynamicResource L_SearchNoMatch}" FontSize="15"
+                               TextWrapping="Wrap" VerticalAlignment="Top" Margin="0,10,0,0"
+                               Foreground="{DynamicResource TextTertiaryBrush}"
+                               Visibility="{Binding TikTok.FilteredEmptyVisibility}"/>
                 </Grid>
             </Border>
         </Grid>

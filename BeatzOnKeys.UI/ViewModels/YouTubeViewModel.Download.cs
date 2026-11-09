@@ -421,7 +421,7 @@ public sealed partial class YouTubeViewModel
         _activePreview = item;
         item.IsPlaying = true;
         item.IsPaused = false;
-        PlayRequested?.Invoke(item.CachedPath!, item.Title, true);
+        PreviewRequested?.Invoke(item.CachedPath!, item.Title);
         StatusText = Loc.F("L_YtPreviewingFormat", item.Title);
     }
 

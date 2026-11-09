@@ -135,6 +135,31 @@ public sealed class PlaybackController
             _tracks.AddRange(reordered);
         }
     }
+    /// <summary>
+    /// Swaps the whole order for the list of one page. The selected track survives when its id is
+    /// in the new order; a track that is playing but belongs to another page is kept at the front,
+    /// so switching tabs never loses the name of what is currently heard. No event is raised,
+    /// because a rebuild is not a transition: the playing track must not restart.
+    /// </summary>
+    public void Replace(IReadOnlyList<PlaybackTrack> tracks, PlaybackTrack? keepFirst = null)
+    {
+        ArgumentNullException.ThrowIfNull(tracks);
+        lock (_gate)
+        {
+            _tracks.Clear();
+            if (keepFirst is not null && tracks.All(track => track.Id != keepFirst.Id))
+            {
+                _tracks.Add(keepFirst);
+            }
+
+            _tracks.AddRange(tracks);
+            if (_selectedTrackId is Guid selected && _tracks.All(track => track.Id != selected))
+            {
+                _selectedTrackId = null;
+            }
+        }
+    }
+
     public void Deselect() { lock (_gate) { _selectedTrackId = null; } }
     public void Clear() { lock (_gate) { _tracks.Clear(); _selectedTrackId = null; } }
 }

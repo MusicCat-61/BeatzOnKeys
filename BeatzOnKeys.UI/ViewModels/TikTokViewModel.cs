@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
+using System.Windows.Data;
 using BeatzOnKeys.Core.Models;
 using BeatzOnKeys.Core.Services;
 using BeatzOnKeys.Core.YouTube;
@@ -36,12 +37,16 @@ public sealed class TikTokViewModel : ObservableObject
         _service = service;
         _requestSave = requestSave;
         _userMessage = userMessage;
-        foreach (var state in savedTracks) { Tracks.Add(new YouTubeTrackViewModel(state)); }
+        FilteredTracks = new ListCollectionView(Tracks)
+        {
+            Filter = row => row is YouTubeTrackViewModel track && MatchesFilter(track)
+        };
+        foreach (var state in savedTracks) { Tracks.Add(Attach(new YouTubeTrackViewModel(state))); }
 
         AddLinkCommand = new AsyncRelayCommand(AddLinkAsync, () => !IsBusy && !string.IsNullOrWhiteSpace(InputUrl));
         CancelDownloadCommand = new RelayCommand(CancelDownload, () => IsBusy);
         PlayCommand = new RelayCommand<YouTubeTrackViewModel>(
-            track => { if (track is not null) { PlayRequested?.Invoke(track.CachedPath, track.Title); } },
+            track => { if (track is not null) { PlayRequested?.Invoke(track); } },
             track => track is { CanPlay: true });
         RemoveCachedCommand = new RelayCommand<YouTubeTrackViewModel>(RemoveCached, track => track is not null);
         ClearCacheCommand = new RelayCommand(() => _ = ClearCacheAsync(), () => !IsBusy && Tracks.Count > 0);
@@ -50,14 +55,23 @@ public sealed class TikTokViewModel : ObservableObject
         MoveTrackDownCommand = new RelayCommand<YouTubeTrackViewModel>(
             track => MoveTrack(track, 1), track => CanMove(track, 1));
         OpenMusicFolderCommand = new RelayCommand(() => OpenMusicFolderRequested?.Invoke());
+        // The cross in a field clears it and nothing else.
+        ClearFilterCommand = new RelayCommand(() => FilterText = string.Empty, () => HasFilter);
+        ClearInputCommand = new RelayCommand(() => InputUrl = string.Empty, () => InputUrl.Length > 0);
         // The plate is advice, not a modal: it can be put away without acting on it.
         DismissNetworkHintCommand = new RelayCommand(() => ShowNetworkHint = false);
         Tracks.CollectionChanged += (_, _) => NotifyCountChanged();
         RefreshPositions();
     }
 
-    /// <summary>Raised with the path and title of a file to play; the window owns the player.</summary>
-    public event Action<string, string>? PlayRequested;
+    /// <summary>
+    /// Raised with the row the user wants to hear. The row travels, not just its path: the list on
+    /// the page is the playback queue, and "next" has to mean the row below this one.
+    /// </summary>
+    public event Action<YouTubeTrackViewModel>? PlayRequested;
+
+    /// <summary>Raised when this list gains, loses or reorders a row.</summary>
+    public event Action? QueueChanged;
 
     public event Action? OpenMusicFolderRequested;
 
@@ -65,6 +79,44 @@ public sealed class TikTokViewModel : ObservableObject
     public Func<string, string, bool>? ConfirmRequested { get; set; }
 
     public ObservableCollection<YouTubeTrackViewModel> Tracks { get; } = [];
+
+    /// <summary>
+    /// The filter over the saved list. It narrows the view only: counters, the cache size and both
+    /// clear buttons keep speaking about the whole list.
+    /// </summary>
+    public string FilterText
+    {
+        get => _filterText;
+        set
+        {
+            var clean = TextInput.Sanitize(value);
+            if (!SetProperty(ref _filterText, clean)) { return; }
+            FilteredTracks.Refresh();
+            OnPropertyChanged(nameof(FilterClearVisible));
+            OnPropertyChanged(nameof(HasFilter));
+            OnPropertyChanged(nameof(FilteredEmptyVisibility));
+            // Same reason as the YouTube filter: the cross must be told that it can be pressed.
+            ClearFilterCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private string _filterText = string.Empty;
+
+    public bool HasFilter => !string.IsNullOrWhiteSpace(_filterText);
+
+    public Visibility FilterClearVisible => HasFilter ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The rows the list actually shows: a view, so the selection survives every change.</summary>
+    public ListCollectionView FilteredTracks { get; }
+
+    /// <summary>True when the filter hid the whole list, which is not the same as an empty list.</summary>
+    public bool ShowFilteredEmpty => HasFilter && Tracks.Count > 0 && !Tracks.Any(MatchesFilter);
+
+    public Visibility FilteredEmptyVisibility => ShowFilteredEmpty ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>Title-only substring match, ignoring case: the rule the other lists follow too.</summary>
+    private bool MatchesFilter(YouTubeTrackViewModel row) =>
+        !HasFilter || row.Title.Contains(_filterText, StringComparison.CurrentCultureIgnoreCase);
 
     public AsyncRelayCommand AddLinkCommand { get; }
     public RelayCommand CancelDownloadCommand { get; }
@@ -75,17 +127,25 @@ public sealed class TikTokViewModel : ObservableObject
     public RelayCommand<YouTubeTrackViewModel> MoveTrackDownCommand { get; }
     public RelayCommand OpenMusicFolderCommand { get; }
     public RelayCommand DismissNetworkHintCommand { get; }
+    public RelayCommand ClearFilterCommand { get; }
+    public RelayCommand ClearInputCommand { get; }
 
     public string InputUrl
     {
         get => _inputUrl;
         set
         {
-            if (!SetProperty(ref _inputUrl, value ?? string.Empty)) { return; }
+            // One line, 200 characters: the same rule every field in the window follows.
+            if (!SetProperty(ref _inputUrl, TextInput.Sanitize(value))) { return; }
             AddLinkCommand.NotifyCanExecuteChanged();
+            ClearInputCommand.NotifyCanExecuteChanged();
             OnPropertyChanged(nameof(CanDownload));
+            OnPropertyChanged(nameof(InputClearVisible));
         }
     }
+
+    /// <summary>The cross shows only while there is something to clear.</summary>
+    public Visibility InputClearVisible => _inputUrl.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
     public string InputHint => Loc.T("L_TikTokInputHint");
 
@@ -248,7 +308,7 @@ public sealed class TikTokViewModel : ObservableObject
                     Title = string.IsNullOrWhiteSpace(result.Title) ? result.VideoId : result.Title,
                     Status = YouTubeTrackStatus.Pending
                 });
-                Tracks.Insert(0, row);
+                Tracks.Insert(0, Attach(row));
             }
 
             row.Title = result.Title;
@@ -415,10 +475,55 @@ public sealed class TikTokViewModel : ObservableObject
     /// </summary>
     internal void ReplaceTracks(IEnumerable<YouTubeTrackState> tracks)
     {
+        foreach (var row in Tracks) { row.EditFinished -= OnTrackEdited; }
         Tracks.Clear();
-        foreach (var state in tracks) { Tracks.Add(new YouTubeTrackViewModel(state)); }
+        foreach (var state in tracks) { Tracks.Add(Attach(new YouTubeTrackViewModel(state))); }
         SelectTrack(null);
         RefreshPositions();
+    }
+
+    /// <summary>Every row reports a rename, so the list can save it and refilter itself.</summary>
+    private YouTubeTrackViewModel Attach(YouTubeTrackViewModel row)
+    {
+        row.EditFinished += OnTrackEdited;
+        return row;
+    }
+
+    /// <summary>
+    /// A committed or cancelled rename changes nothing on disk, so all that is owed is the saved
+    /// library and, when the new name no longer matches, a refreshed view.
+    /// </summary>
+    private void OnTrackEdited(YouTubeTrackViewModel row)
+    {
+        StatusText = Loc.T("L_TikTokRenamed");
+        // The new name may no longer match the filter, so the view is asked again; the row itself
+        // and the file on disk are untouched.
+        FilteredTracks.Refresh();
+        OnPropertyChanged(nameof(FilteredEmptyVisibility));
+        _requestSave();
+    }
+
+    /// <summary>Drops a dragged row at a target position; unlike the arrows it may travel far.</summary>
+    public bool MoveTrackTo(YouTubeTrackViewModel? track, int targetIndex)
+    {
+        if (track is null) { return false; }
+        var index = Tracks.IndexOf(track);
+        if (index < 0 || targetIndex < 0 || targetIndex >= Tracks.Count || index == targetIndex) { return false; }
+        Tracks.Move(index, targetIndex);
+        RefreshPositions();
+        _requestSave();
+        return true;
+    }
+
+    /// <summary>Shows where a drop would land; null clears every indicator.</summary>
+    public void SetDropTarget(YouTubeTrackViewModel? target, bool above)
+    {
+        foreach (var track in Tracks)
+        {
+            var isTarget = target is not null && ReferenceEquals(track, target);
+            track.IsDropTarget = isTarget;
+            track.IsDropTargetAbove = isTarget && above;
+        }
     }
 
     private bool CanMove(YouTubeTrackViewModel? track, int offset)
@@ -455,7 +560,9 @@ public sealed class TikTokViewModel : ObservableObject
         OnPropertyChanged(nameof(HasTracks));
         OnPropertyChanged(nameof(TrackCount));
         OnPropertyChanged(nameof(TrackCountNumber));
+        OnPropertyChanged(nameof(FilteredEmptyVisibility));
         ClearCacheCommand.NotifyCanExecuteChanged();
+        QueueChanged?.Invoke();
     }
 
     public void RefreshLocalization()

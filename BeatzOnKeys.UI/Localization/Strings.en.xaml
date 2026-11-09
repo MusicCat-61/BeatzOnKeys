@@ -165,6 +165,11 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_TabPlaylist">Local</sys:String>
     <sys:String x:Key="L_TabYouTube">YouTube</sys:String>
     <sys:String x:Key="L_TabTikTok">TikTok</sys:String>
+    <!-- Fields: one rule for every one of them -->
+    <sys:String x:Key="L_ClearInput">Clear the field</sys:String>
+    <sys:String x:Key="L_SearchTracksHint">Search by track name</sys:String>
+    <sys:String x:Key="L_SearchNoMatch">Nothing matched. Change the query or clear the field.</sys:String>
+    <sys:String x:Key="L_RenameTrack">Rename</sys:String>
     <sys:String x:Key="L_SourceTikTok">TikTok</sys:String>
     <sys:String x:Key="L_Cancel">Cancel</sys:String>
     <sys:String x:Key="L_YtPreviewPause">Pause</sys:String>
@@ -185,6 +190,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_TikTokCleared">TikTok cache cleared</sys:String>
     <sys:String x:Key="L_TikTokClearPartialFormat">Files that could not be deleted: {0}</sys:String>
     <sys:String x:Key="L_TikTokRemoved">Track removed from the list</sys:String>
+    <sys:String x:Key="L_TikTokRenamed">The name was changed</sys:String>
     <sys:String x:Key="L_TikTokDeleteFailedFormat">Could not delete the file: {0}</sys:String>
     <sys:String x:Key="L_TikTokCancelled">Cancelled</sys:String>
     <sys:String x:Key="L_TikTokTracksTitle">Downloaded from TikTok</sys:String>
@@ -253,6 +259,8 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtClearDownloadedConfirm">Delete all downloaded tracks? The search cache and the local playlist stay.</sys:String>
     <sys:String x:Key="L_YtDownloadedCleared">Downloaded tracks deleted</sys:String>
     <sys:String x:Key="L_YtClearCacheTitle">Clear the cache</sys:String>
+    <sys:String x:Key="L_YtClearDownloadedTitle">Clear downloaded tracks</sys:String>
+    <sys:String x:Key="L_YtClearSearchCacheTitle">Clear the search cache</sys:String>
     <sys:String x:Key="L_YtCacheCleared">The cache is empty</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Open the music folder</sys:String>
     <sys:String x:Key="L_YtCacheEnabled">Cache tracks</sys:String>
@@ -312,7 +320,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="Guide_TikTokCacheT">Its own cache and its own list</sys:String>
     <sys:String x:Key="Guide_TikTokCacheX">TikTok files sit apart from the YouTube cache, and Clear TikTok cache removes only those. The downloaded-from-TikTok list is its own collection, separate from the Local playlist: counters and clearing are never shared.</sys:String>
     <sys:String x:Key="Guide_TikTokLimitsT">What may not work</sys:String>
-    <sys:String x:Key="Guide_TikTokLimitsX">If a clip is private, deleted or requires signing in, the program says so in plain words and adds nothing to the list. No cookies, tokens or sign-in are used: only what TikTok serves openly.</sys:String>
+    <sys:String x:Key="Guide_TikTokLimitsX">If a clip is private, deleted or requires signing in, the program says so in plain words and adds nothing to the list. No cookies, tokens or sign-in are used: only what TikTok serves openly. If TikTok itself does not serve the clip to your connection, the last attempt asks the third-party service tikwm.com, so the clip link leaves for that service; it returns a direct address of the track and the file is downloaded from TikTok's own servers.</sys:String>
     <sys:String x:Key="Guide_WindowTitle">BeatzOnKeys guide</sys:String>
     <sys:String x:Key="L_Guide">Guide</sys:String>
     <sys:String x:Key="Guide_SecQuick">Quick start</sys:String>

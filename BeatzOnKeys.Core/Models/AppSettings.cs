@@ -6,11 +6,24 @@ namespace BeatzOnKeys.Core.Models;
 /// </summary>
 public sealed class AppSettings
 {
-    public const int CurrentSchemaVersion = 6;
+    public const int CurrentSchemaVersion = 7;
     public const double DefaultMinVolume = 0.2;
     public const double DefaultMaxVolume = 1.0;
     public const double DefaultIdleTimeout = 3.0;
     public const double DefaultBassReactiveGain = 0.15;
+
+    /// <summary>Matches MinWidth/MinHeight of the window, so a stale tiny value cannot shrink it.</summary>
+    public const double MinWindowWidth = 920;
+    public const double MinWindowHeight = 650;
+
+    /// <summary>
+    /// The window size the user last chose. Zero means "never set", so the size from the XAML file
+    /// stands; the value is not exposed as a setting in the window on purpose.
+    /// </summary>
+    public double WindowWidth { get; set; }
+
+    /// <inheritdoc cref="WindowWidth"/>
+    public double WindowHeight { get; set; }
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public double MinVolume { get; set; } = DefaultMinVolume;
@@ -84,9 +97,18 @@ public sealed class AppSettings
         }
         CookiesFolderPath = (CookiesFolderPath ?? string.Empty).Trim();
         ProxyUrl = (ProxyUrl ?? string.Empty).Trim();
+        WindowWidth = NormalizeWindowSide(WindowWidth, MinWindowWidth);
+        WindowHeight = NormalizeWindowSide(WindowHeight, MinWindowHeight);
         NormalizeCachedTracks(YouTubeTracks);
         NormalizeCachedTracks(TikTokTracks);
     }
+
+    /// <summary>
+    /// Zero and garbage both mean "not set", because an unreadable value must not become a window
+    /// that cannot be resized back; a real value is clamped to the minimum the window allows.
+    /// </summary>
+    private static double NormalizeWindowSide(double value, double minimum) =>
+        double.IsFinite(value) && value > 0 ? Math.Clamp(value, minimum, 16000) : 0;
 
     /// <summary>One row per file, no empty paths, and a stable id for every entry.</summary>
     public static void NormalizeTracks(List<TrackState> tracks)

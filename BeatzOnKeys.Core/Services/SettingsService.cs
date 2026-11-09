@@ -135,6 +135,10 @@ public sealed class SettingsService
         SelectedTrackId = settings.SelectedTrackId,
         Language = settings.Language,
         Theme = settings.Theme,
+        // The window size is a preference like the rest: it must be copied here by hand, because
+        // this list is written out field by field and a new field is otherwise silently lost.
+        WindowWidth = settings.WindowWidth,
+        WindowHeight = settings.WindowHeight,
         TracksMigratedToLibrary = settings.TracksMigratedToLibrary,
         YouTubeCacheEnabled = settings.YouTubeCacheEnabled,
         CookiesFolderPath = settings.CookiesFolderPath,

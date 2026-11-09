@@ -165,6 +165,11 @@
     <sys:String x:Key="L_TabPlaylist">Локально</sys:String>
     <sys:String x:Key="L_TabYouTube">YouTube</sys:String>
     <sys:String x:Key="L_TabTikTok">TikTok</sys:String>
+    <!-- Fields: one rule for every one of them -->
+    <sys:String x:Key="L_ClearInput">Очистить поле</sys:String>
+    <sys:String x:Key="L_SearchTracksHint">Поиск по названию трека</sys:String>
+    <sys:String x:Key="L_SearchNoMatch">Ничего не нашлось. Измените запрос или очистите поле.</sys:String>
+    <sys:String x:Key="L_RenameTrack">Изменить название</sys:String>
     <sys:String x:Key="L_SourceTikTok">TikTok</sys:String>
     <sys:String x:Key="L_Cancel">Отменить</sys:String>
     <sys:String x:Key="L_YtPreviewPause">Пауза</sys:String>
@@ -185,6 +190,7 @@
     <sys:String x:Key="L_TikTokCleared">Кеш TikTok очищен</sys:String>
     <sys:String x:Key="L_TikTokClearPartialFormat">Не удалось удалить файлов: {0}</sys:String>
     <sys:String x:Key="L_TikTokRemoved">Трек удалён из списка</sys:String>
+    <sys:String x:Key="L_TikTokRenamed">Название изменено</sys:String>
     <sys:String x:Key="L_TikTokDeleteFailedFormat">Не удалось удалить файл: {0}</sys:String>
     <sys:String x:Key="L_TikTokCancelled">Отменено</sys:String>
     <sys:String x:Key="L_TikTokTracksTitle">Скачанные из TikTok</sys:String>
@@ -253,6 +259,8 @@
     <sys:String x:Key="L_YtClearDownloadedConfirm">Удалить все скачанные треки? Кеш поиска и локальный плейлист не пострадают.</sys:String>
     <sys:String x:Key="L_YtDownloadedCleared">Скачанные треки удалены</sys:String>
     <sys:String x:Key="L_YtClearCacheTitle">Очистить кеш</sys:String>
+    <sys:String x:Key="L_YtClearDownloadedTitle">Очистить скачанные треки</sys:String>
+    <sys:String x:Key="L_YtClearSearchCacheTitle">Очистить кеш поиска</sys:String>
     <sys:String x:Key="L_YtCacheCleared">Кеш очищен</sys:String>
     <sys:String x:Key="L_YtOpenFolder">Открыть папку с музыкой</sys:String>
     <sys:String x:Key="L_YtCacheEnabled">Кешировать треки</sys:String>
@@ -312,7 +320,7 @@
     <sys:String x:Key="Guide_TikTokCacheT">Отдельный кеш и отдельный список</sys:String>
     <sys:String x:Key="Guide_TikTokCacheX">Файлы TikTok лежат отдельно от кеша YouTube, и «Очистить кеш TikTok» удаляет только их. Список «Скачанные из TikTok» — своя коллекция, отдельная от плейлиста «Локально»: счётчики и очистка у них не общие.</sys:String>
     <sys:String x:Key="Guide_TikTokLimitsT">Что может не получиться</sys:String>
-    <sys:String x:Key="Guide_TikTokLimitsX">Если ролик закрыт, удалён или требует входа в аккаунт, программа скажет об этом по-человечески и ничего не добавит в список. Куки, токены и вход в аккаунт не используются: только то, что TikTok отдаёт открыто.</sys:String>
+    <sys:String x:Key="Guide_TikTokLimitsX">Если ролик закрыт, удалён или требует входа в аккаунт, программа скажет об этом по-человечески и ничего не добавит в список. Куки, токены и вход в аккаунт не используются: только то, что TikTok отдаёт открыто. Если сам TikTok не отдаёт ролик вашему подключению, программа последней попыткой спросит сторонний сервис tikwm.com — тогда ссылка на ролик уходит на этот сервис; он отдаёт прямой адрес дорожки, а файл скачивается уже с серверов TikTok.</sys:String>
     <sys:String x:Key="Guide_WindowTitle">Гайд по BeatzOnKeys</sys:String>
     <sys:String x:Key="L_Guide">Гайд</sys:String>
     <sys:String x:Key="Guide_SecQuick">Быстрый старт</sys:String>

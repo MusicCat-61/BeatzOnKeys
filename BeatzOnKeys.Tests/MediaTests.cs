@@ -245,6 +245,139 @@ public static class MediaTests
         AssertEx.Equal(TikTokFailure.Restricted, exception.Failure);
     }
 
+    /// <summary>
+    /// The measured reality behind the word "region refused": on a connection TikTok does not
+    /// serve, all four addresses say no — the embed page answers 400, the API answers 200 with an
+    /// empty body, the watch page is the generic shell with verification markers and no media
+    /// address, and oembed carries no address either. The batch tool then reports its own wording.
+    /// The service must call this TikTok's own restriction, must not blame the provider and must
+    /// not advertise a way around it.
+    /// </summary>
+    /// <summary>
+    /// The relay's answer is read by rules, not by hope: only https on a host TikTok media really
+    /// lives on is downloaded, and the name it suggests is taken only when it is a name.
+    /// </summary>
+    public static Task TikTokRelayParsesTheTrackName()
+    {
+        using var document = JsonDocument.Parse("""
+            {"code":0,"data":{"music":"https://v16-ies-music.tiktokcdn-us.com/a.mp3",
+            "play":"https://v16m.tiktokcdn-us.com/b.mp4",
+            "music_info":{"title":"Song - Artist"},"title":"#tag caption"}}
+            """);
+        var media = TikTokAudioService.ParseTikWm(document.RootElement);
+        AssertEx.True(media is not null, "A complete relay answer must be read.");
+        AssertEx.Equal("Song - Artist", media!.Title, "A real track name wins over the caption.");
+        AssertEx.Equal("https://v16-ies-music.tiktokcdn-us.com/a.mp3", media.AudioUrl);
+        AssertEx.Equal("https://v16m.tiktokcdn-us.com/b.mp4", media.VideoUrl);
+        return Task.CompletedTask;
+    }
+
+    public static Task TikTokRelayDropsTheOriginalSoundName()
+    {
+        using var document = JsonDocument.Parse("""
+            {"code":0,"data":{"music":"https://v16-ies-music.tiktokcdn-us.com/a.mp3",
+            "music_info":{"title":"original sound - radil_prod"},"title":"#длялипсингов #песни"}}
+            """);
+        var media = TikTokAudioService.ParseTikWm(document.RootElement);
+        AssertEx.Equal("#длялипсингов #песни", media!.Title,
+            "A placeholder name is not a track, so the clip's own text stands in.");
+        return Task.CompletedTask;
+    }
+
+    public static Task TikTokRelayRefusesForeignMediaHosts()
+    {
+        using var document = JsonDocument.Parse("""
+            {"code":0,"data":{"music":"https://evil.example/a.mp3","play":"http://v16m.tiktokcdn-us.com/b.mp4"}}
+            """);
+        AssertEx.Null(TikTokAudioService.ParseTikWm(document.RootElement),
+            "A foreign host and a plain-http address are both refused, so nothing is left to download.");
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// The free tier allows one request per second, and says so in words. One pause, one retry,
+    /// then the honest refusal — not a tight loop against somebody else's server.
+    /// </summary>
+    public static async Task TikTokRelayLimitIsRetriedOnce()
+    {
+        var relayCalls = 0;
+        var handler = new StubHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (request.RequestUri.Host.Equals("tikwm.com", StringComparison.OrdinalIgnoreCase))
+            {
+                relayCalls++;
+                return relayCalls == 1
+                    ? Json("""{"code":-1,"msg":"Free Api Limit: 1 request/second."}""")
+                    : Json("""{"code":0,"data":{}}""");
+            }
+
+            if (path.Contains("embed", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest);
+            }
+
+            if (path.Contains("item/detail", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(string.Empty) };
+            }
+
+            return Html("<html></html>");
+        });
+        var service = new TikTokAudioService(new StubBinaries(ytDlp: null, ffmpeg: null), new ScriptedRunner(), handler);
+        using var directory = new TemporaryDirectory();
+        var options = new TikTokAudioOptions { MusicDirectory = directory.Path };
+        await AssertEx.ThrowsAsync<TikTokException>(
+            () => service.DownloadAsync("7234567890123456789",
+                "https://www.tiktok.com/@i/video/7234567890123456789", options, null, CancellationToken.None));
+        AssertEx.Equal(2, relayCalls, "The one-per-second limit gets exactly one retry, then it is over.");
+    }
+
+    public static async Task TikTokServiceNamesTheRegionalRefusal()
+    {
+        var handler = new StubHandler(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.Contains("embed", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest);
+            }
+
+            if (path.Contains("item/detail", StringComparison.Ordinal))
+            {
+                // HTTP 200 with nothing in it: exactly what was measured on the refused connection.
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(string.Empty) };
+            }
+
+            if (path.Contains("oembed", StringComparison.Ordinal))
+            {
+                return Json("""{"title":"clip"}""");
+            }
+
+            return Html("<html><head><title>TikTok - Make Your Day</title></head>" +
+                        "<body>captcha verify challenge</body></html>");
+        });
+        var runner = new ScriptedRunner();
+        runner.Results.Enqueue(new YouTubeProcessResult(1, string.Empty,
+            "ERROR: [TikTok] 7234567890123456789: Your IP address is blocked from accessing this post", false));
+        var service = new TikTokAudioService(new StubBinaries(ytDlp: "yt-dlp.exe", ffmpeg: null), runner, handler);
+        using var directory = new TemporaryDirectory();
+        var options = new TikTokAudioOptions { MusicDirectory = directory.Path };
+        var exception = await AssertEx.ThrowsAsync<TikTokException>(
+            () => service.DownloadAsync("7234567890123456789",
+                "https://www.tiktok.com/@i/video/7234567890123456789", options, null, CancellationToken.None));
+        AssertEx.Equal(TikTokFailure.RegionBlocked, exception.Failure,
+            "A connection TikTok refuses is reported as TikTok's own restriction.");
+        AssertEx.True(exception.Message.StartsWith("TikTok does not serve this video to this connection",
+                StringComparison.Ordinal),
+            "The honest framing comes first: " + exception.Message);
+        foreach (var forbidden in new[] { "VPN", "vpn", "провайдер", "provider", "интернет-провайдер" })
+        {
+            AssertEx.False(exception.Message.Contains(forbidden, StringComparison.Ordinal),
+                $"The message must not mention '{forbidden}': " + exception.Message);
+        }
+    }
+
     public static async Task TikTokServiceFollowsAShortLink()
     {
         string? requested = null;

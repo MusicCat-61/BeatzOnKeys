@@ -95,6 +95,45 @@ internal static class PlaybackControllerTests
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// The queue is the list of one page. Switching pages must not restart what is being heard, and
+    /// "next" must come from that page: this is the defect where a TikTok track ended and the player
+    /// walked into the local playlist.
+    /// </summary>
+    public static Task ReplaceMakesThePageTheQueue()
+    {
+        var controller = new PlaybackController { AutoAdvance = true, Loop = true };
+        var local = Track("local");
+        var first = Track("first");
+        var second = Track("second");
+        controller.UpsertTrack(local);
+        controller.SelectTrack(local.Id);
+
+        // The page does not hold the playing track, so it is kept in front instead of being lost.
+        controller.Replace([first, second], local);
+        AssertEx.Equal(0, controller.IndexOf(local.Id));
+        AssertEx.Equal<Guid?>(local.Id, controller.SelectedTrackId, "A page switch restarted or forgot the playing track.");
+        AssertEx.True(controller.TryAdvanceAtEnd(out var next));
+        AssertEx.Equal(first, next, "The next track came from another page instead of this one.");
+        AssertEx.Equal(2, controller.IndexOf(second.Id), "The page order must survive behind the kept track.");
+
+        // A selection that is still in the new list survives, so reordering a page never restarts it.
+        controller.SelectTrack(second.Id);
+        controller.Replace([first, second], null);
+        AssertEx.Equal<Guid?>(second.Id, controller.SelectedTrackId);
+        controller.Replace([second]);
+        AssertEx.Equal(0, controller.IndexOf(second.Id));
+        AssertEx.Null(controller.GetTrack(first.Id), "Replacing the queue left tracks of the previous page behind.");
+
+        // A selection that the new list no longer holds is dropped: keeping it would make "next"
+        // point at a track that is not in the queue any more.
+        controller.Replace([Track("other")]);
+        AssertEx.Null(controller.SelectedTrackId);
+        controller.Replace([]);
+        AssertEx.Null(controller.CurrentTrack);
+        return Task.CompletedTask;
+    }
+
     private static PlaybackTrack Track(string name) =>
         new(Guid.NewGuid(), name, $"C:\\audio\\{name}.mp3", TimeSpan.FromSeconds(1));
 }

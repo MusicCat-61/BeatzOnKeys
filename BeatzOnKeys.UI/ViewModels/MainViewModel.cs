@@ -826,6 +826,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         try
         {
             SelectedTrack = track;
+            // The queue follows the track that is about to play, not whatever was selected before:
+            // without this the local playlist inherited the previous tab's queue and never advanced.
+            SyncPlaybackQueue(track.Id);
             if (!_typingPlayback.SelectTrack(track.Id, restart: true)) { return; }
             // Воспроизведение уже идёт — клик переключает трек, а не перезапускает всю сессию,
             // поэтому StartAsync зовётся только когда транспорт стоит.
@@ -938,30 +941,50 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     /// the list the user is looking at, and Loop closes inside that page: a TikTok track no longer
     /// hands over to a local file, which is what the old single flat order did.
     /// </summary>
-    private void SyncPlaybackQueue()
+    /// <summary>
+    /// The playback queue belongs to the tab the playing track came from, not to the tab in view.
+    /// Switching tabs is only looking around: a YouTube track keeps advancing through YouTube while
+    /// the local playlist is on screen, and never crawls into another list. When nothing plays the
+    /// visible tab supplies the queue, because "Start" has to know what it would play.
+    /// </summary>
+    private void SyncPlaybackQueue(Guid? aboutToPlay = null)
     {
-        // A track that is already playing but belongs to another page keeps its place at the front,
-        // so switching tabs never restarts it and never loses its name.
         var playing = _playbackController.CurrentTrack;
-        var queue = BuildQueue();
+        // The track that is about to play decides the page when it is known: the queue is rebuilt
+        // before the row is handed to the player, and asking the controller at that moment would
+        // answer with the previous track's page.
+        var owner = aboutToPlay ?? playing?.Id;
+        var page = owner is Guid id ? PageOf(id) : _page;
+        var queue = BuildQueue(page);
         _playbackController.Replace(queue, playing);
         // Every track of this page is part of its queue again. The marks are cleared first because
         // they outlive a page switch: a local track that was playing while another tab was open got
         // marked there, and the mark then stopped it from advancing on its own page.
         foreach (var track in queue) { _playbackController.SetStandalone(track.Id, false); }
-        if (playing is null) { return; }
-        // A kept foreign track is parked in front of this page's queue. It must not become the
-        // target of Loop and must not continue into this page's tracks: without the mark, the end
-        // of the local playlist wrapped onto the parked YouTube track, and the end of that one
-        // walked on into TikTok — reported as "it crawled into YouTube and then into TikTok".
-        var belongsHere = queue.Any(track => track.Id == playing.Id);
-        _playbackController.SetStandalone(playing.Id, !belongsHere);
+        var upcoming = aboutToPlay ?? playing?.Id;
+        if (upcoming is not Guid upcomingId) { return; }
+        // Only a preview is a one-off now: it belongs to no tab, so it ends instead of continuing.
+        // A track of another tab is no longer parked here at all, because the queue follows it.
+        _playbackController.SetStandalone(upcomingId, upcomingId == _previewTrackId);
     }
 
-    private List<PlaybackTrack> BuildQueue()
+    /// <summary>
+    /// Which tab owns this track. A preview belongs to the YouTube section it was started from, but
+    /// it is handled by the mark above, so it never reaches the queue as an ordinary row.
+    /// </summary>
+    private AppPage PageOf(Guid id)
+    {
+        if (Tracks.Any(track => track.Id == id)) { return AppPage.Playlist; }
+        if (YouTube.Downloaded.Any(track => track.Id == id)) { return AppPage.YouTube; }
+        if (TikTok.Tracks.Any(track => track.Id == id)) { return AppPage.TikTok; }
+        // A preview or a file that has left its list: the visible tab is the honest fallback.
+        return _page;
+    }
+
+    private List<PlaybackTrack> BuildQueue(AppPage page)
     {
         var queue = new List<PlaybackTrack>();
-        switch (_page)
+        switch (page)
         {
             case AppPage.YouTube:
                 AddCached(queue, YouTube.Downloaded);
@@ -1317,7 +1340,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             _friendlyNames[playback.Id] = string.IsNullOrWhiteSpace(title) ? playback.Name : title;
             // Rebuild before the upsert: the page list is the queue, and the row below it is what
             // plays next. A preview stays outside the queue on purpose.
-            if (!isPreview) { SyncPlaybackQueue(); }
+            if (!isPreview) { SyncPlaybackQueue(playback.Id); }
             _playbackController.UpsertTrack(playback);
             // A preview is heard once. Without this it sat in the page queue, and with Loop on, the
             // end of the preview handed over to the first downloaded track — reported as "the

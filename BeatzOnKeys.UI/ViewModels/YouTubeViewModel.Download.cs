@@ -88,11 +88,34 @@ public sealed partial class YouTubeViewModel
         try { _searchCancellation?.Cancel(); }
         catch (ObjectDisposedException) { }
         CancelCacheLoop();
+        // The rows that were being fetched keep saying "caching" for ever otherwise: a stopped pass
+        // has no exception to report, so each unfinished row is told that it was stopped.
+        if (wasCaching)
+        {
+            foreach (var row in Results.Where(item => item.IsCaching)) { row.CacheStopped = true; }
+        }
         // The status is set here as well as in the catch: cancelling the cache pass has no
         // exception to report, and a silent stop would look like a hang.
         if (wasSearching) { StatusText = Loc.T("L_YtSearchCancelled"); }
         else if (wasCaching) { StatusText = Loc.T("L_YtCachingCancelled"); }
         CancelCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Empties the field and the list it produced. The preview that is playing keeps playing: the
+    /// cross is about the list, not about the sound, and a preview ends on its own anyway.
+    /// </summary>
+    private void ClearQueryAndResults()
+    {
+        SearchQuery = string.Empty;
+        if (Results.Count == 0 && _cacheLoop is null) { return; }
+        CancelCacheLoop();
+        Results.Clear();
+        _resultsClearedByUser = true;
+        // The playing row is gone from the list, so the marker is let go; the sound continues.
+        ForgetPreviewRow();
+        StatusText = string.Empty;
+        NotifyResultsChanged();
     }
 
     /// <summary>
@@ -103,8 +126,12 @@ public sealed partial class YouTubeViewModel
     {
         OnPropertyChanged(nameof(HasResults));
         OnPropertyChanged(nameof(ShowEmptyResults));
+        OnPropertyChanged(nameof(ShowResultsClearedHint));
+        OnPropertyChanged(nameof(ResultsClearedHintVisible));
+        OnPropertyChanged(nameof(EmptyResultsVisible));
         OnPropertyChanged(nameof(ResultsCountNumber));
         OnPropertyChanged(nameof(ResultsBadgeVisible));
+        ClearQueryCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>The second button next to the field: a pasted link downloads without a search.</summary>
@@ -135,6 +162,7 @@ public sealed partial class YouTubeViewModel
         // path of the playing preview is kept, because the new list may well contain the same video
         // and its button has to show that it is playing.
         ForgetPreviewRow();
+        _resultsClearedByUser = false;
         Results.Clear();
         NotifyCancelState();
         StatusText = Loc.T("L_YtSearching");

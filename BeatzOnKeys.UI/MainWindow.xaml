@@ -1189,6 +1189,17 @@
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
+                        <!-- An empty list needs a sentence. A cleared list and a failed search say
+                             different things: blaming the query for a deliberate clear would read as
+                             a bug. Both sit under the list, not over it. -->
+                        <TextBlock Grid.Row="1" Text="{DynamicResource L_YtResultsCleared}"
+                                   FontSize="15" TextWrapping="Wrap" Margin="2,10,0,0"
+                                   Foreground="{DynamicResource TextTertiaryBrush}"
+                                   Visibility="{Binding YouTube.ResultsClearedHintVisible}"/>
+                        <TextBlock Grid.Row="1" Text="{DynamicResource L_YtResultsEmpty}"
+                                   FontSize="15" TextWrapping="Wrap" Margin="2,10,0,0"
+                                   Foreground="{DynamicResource TextTertiaryBrush}"
+                                   Visibility="{Binding YouTube.EmptyResultsVisible}"/>
 <!-- While a search runs the empty area becomes a small piano scene: a ring turns,
                              a light sweeps across the keys and two notes drift up. Every colour comes
                              from the theme, and nothing is a picture asset, so it scales with DPI. -->

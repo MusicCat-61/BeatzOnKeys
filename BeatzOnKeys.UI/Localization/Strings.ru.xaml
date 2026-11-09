@@ -224,6 +224,7 @@
     <sys:String x:Key="L_YtPrev">Предыдущий трек</sys:String>
     <sys:String x:Key="L_YtNext">Следующий трек</sys:String>
     <sys:String x:Key="L_YtCaching">Кешируется…</sys:String>
+    <sys:String x:Key="L_YtCacheStopped">Кеширование остановлено</sys:String>
     <sys:String x:Key="L_YtCacheFailed">Не удалось подготовить</sys:String>
     <sys:String x:Key="L_YtInstalled">yt-dlp установлен</sys:String>
     <sys:String x:Key="L_YtInstalledVersionFormat">yt-dlp {0}</sys:String>
@@ -239,6 +240,8 @@
     <sys:String x:Key="L_YtSearchHint">Введите название и нажмите «Найти», или вставьте ссылку и нажмите «Скачать»</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Результаты поиска</sys:String>
     <sys:String x:Key="L_YtFoundTitle">Найдено</sys:String>
+    <sys:String x:Key="L_YtResultsCleared">Запрос очищен. Введите название и нажмите «Найти».</sys:String>
+    <sys:String x:Key="L_YtResultsEmpty">Ничего не нашлось. Измените запрос и попробуйте снова.</sys:String>
     <sys:String x:Key="L_YtIdle">Введите запрос или вставьте ссылку</sys:String>
     <sys:String x:Key="L_YtCachingLater">Отложено — вернёмся позже</sys:String>
     <sys:String x:Key="L_YtSearching">Ищу на YouTube…</sys:String>

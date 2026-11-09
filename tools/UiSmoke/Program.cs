@@ -1370,6 +1370,12 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         await UntilAsync(() => vm.YouTube.Results.Count == 2, 8000, "search results");
         Check("youtube.searchFillsResults", vm.YouTube.Results.Count == 2,
             $"Results={vm.YouTube.Results.Count}.");
+        // The count lives in the badge only. The old sentence "Found: N" came back after every
+        // language switch, because RefreshLocalization rebuilt it; it must not come back at all.
+        Check("youtube.noFoundSentence",
+            !vm.YouTube.StatusText.Contains(Loc.T("L_YtFoundTitle"), StringComparison.Ordinal) &&
+            !vm.YouTube.StatusText.Contains(Loc.T("L_YtFoundFormat"), StringComparison.Ordinal),
+            $"StatusText='{vm.YouTube.StatusText}'.");
         await UntilAsync(() => vm.YouTube.Results.All(item => item.CanPlay), 8000, "cached results");
 
         var firstResult = vm.YouTube.Results[0];
@@ -1501,6 +1507,59 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             YouTubeViewModel.CachePassTimeout = passTimeout;
             SmokeYouTubeRunner.Delay = TimeSpan.Zero;
         }
+
+        // Stopping the pass has to be visible on the rows. A cancelled pass raises no exception, so
+        // without a state of its own every row that was being fetched said "Caching…" for ever.
+        SmokeYouTubeRunner.Delay = TimeSpan.FromMilliseconds(250);
+        try
+        {
+            vm.YouTube.SearchQuery = "cancel rows";
+            vm.YouTube.SearchCommand.Execute(null);
+            await UntilAsync(() => vm.YouTube.Results.Count == 2, 8000, "cancel results");
+            await UntilAsync(() => vm.YouTube.Results.Any(item => item.IsDownloading), 8000, "cancel caching");
+            Check("youtube.cancelIsPressableWhileCaching",
+                vm.YouTube.CancelVisible == Visibility.Visible && vm.YouTube.CancelCommand.CanExecute(null),
+                $"Visible={vm.YouTube.CancelVisible}, canExecute={vm.YouTube.CancelCommand.CanExecute(null)}.");
+            vm.YouTube.CancelCommand.Execute(null);
+            await SettleAsync();
+            var unfinished = vm.YouTube.Results.Where(item => !item.CanPlay).ToList();
+            Check("youtube.cancelMarksTheRowsStopped",
+                unfinished.Count > 0 && unfinished.All(item => item.CacheStopped) &&
+                unfinished.All(item => item.CacheStateText == Loc.T("L_YtCacheStopped")) &&
+                unfinished.All(item => !item.IsCaching),
+                $"Unfinished={unfinished.Count}, stopped={unfinished.Count(item => item.CacheStopped)}, " +
+                $"state='{(unfinished.FirstOrDefault()?.CacheStateText ?? "n/a")}'.");
+        }
+        finally { SmokeYouTubeRunner.Delay = TimeSpan.Zero; }
+
+        // The cross empties the field and the list, and says so in words instead of leaving an empty
+        // rectangle. A preview that is already playing is deliberately not stopped.
+        vm.YouTube.SearchQuery = "cross test";
+        vm.YouTube.SearchCommand.Execute(null);
+        await UntilAsync(() => vm.YouTube.Results.Count == 2, 8000, "cross results");
+        await UntilAsync(() => vm.YouTube.Results.All(item => item.CanPlay), 20000, "cross cached");
+        vm.YouTube.PreviewCommand.Execute(vm.YouTube.Results[0]);
+        await UntilAsync(() => vm.IsRunning && player.IsPlaying, 5000, "cross preview");
+        Check("youtube.crossIsPressableWithResults",
+            vm.YouTube.ClearQueryCommand.CanExecute(null),
+            "The cross offers to clear a list that exists.");
+        vm.YouTube.ClearQueryCommand.Execute(null);
+        await SettleAsync();
+        Check("youtube.crossClearsFieldAndResults",
+            vm.YouTube.SearchQuery.Length == 0 && vm.YouTube.Results.Count == 0 &&
+            vm.YouTube.ResultsBadgeVisible == Visibility.Collapsed,
+            $"Query='{vm.YouTube.SearchQuery}', results={vm.YouTube.Results.Count}, " +
+            $"badge={vm.YouTube.ResultsBadgeVisible}.");
+        Check("youtube.clearedListExplainsItself",
+            vm.YouTube.ShowResultsClearedHint && !vm.YouTube.ShowEmptyResults &&
+            vm.YouTube.ResultsClearedHintVisible == Visibility.Visible &&
+            vm.YouTube.EmptyResultsVisible == Visibility.Collapsed &&
+            Loc.T("L_YtResultsCleared") != Loc.T("L_YtResultsEmpty"),
+            $"cleared hint={vm.YouTube.ShowResultsClearedHint}, empty hint={vm.YouTube.ShowEmptyResults}.");
+        Check("youtube.crossDoesNotStopThePreview",
+            vm.IsRunning && player.IsPlaying,
+            $"After clearing the list the preview keeps playing: running={vm.IsRunning}, playing={player.IsPlaying}.");
+        await StopAsync(vm);
 
         await vm.YouTube.ClearSearchCacheAsync();
        vm.YouTube.SearchQuery = string.Empty;
@@ -2099,16 +2158,18 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             $"After switching to the local page: playing={player.IsPlaying}, " +
             $"{positionBeforeSwitch.TotalSeconds:F2}s -> {player.Position.TotalSeconds:F2}s, " +
             $"now='{vm.PlayingTrackText}'.");
-        // The kept foreign track is parked in front of this page's queue. It has to be marked, or
-        // the end of the local list wraps onto it and then walks on into another tab — the reported
-        // "it crawled into YouTube and then into TikTok".
+        // The queue belongs to the tab the sound came from, not to the tab on screen: a TikTok
+        // track keeps advancing through TikTok while the local page is open, and it is never marked
+        // as a one-off, because it is not one.
         var pageController = GetField<BeatzOnKeys.Core.Audio.PlaybackController>(vm, "_playbackController");
-        Check("queue.foreignTrackIsMarked",
+        Check("queue.followsThePlayingTab",
             pageController is not null && pageController.CurrentTrack is { } kept &&
-            pageController.IsStandalone(kept.Id) &&
-            pageController.IndexOf(kept.Id) == 0,
+            !pageController.IsStandalone(kept.Id) &&
+            vm.TikTok.Tracks.Any(row => row.Id == kept.Id) &&
+            vm.Tracks.All(row => row.Id != kept.Id),
             pageController?.CurrentTrack is { } current
-                ? $"Kept '{current.Name}' at {pageController.IndexOf(current.Id)}, standalone={pageController.IsStandalone(current.Id)}."
+                ? $"Playing '{current.Name}', standalone={pageController.IsStandalone(current.Id)}, " +
+                  $"inTikTok={vm.TikTok.Tracks.Any(row => row.Id == current.Id)}."
                 : "Nothing is playing, so the check proves nothing.");
         await StopAsync(vm);
 

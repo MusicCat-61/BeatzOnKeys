@@ -224,6 +224,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtPrev">Previous track</sys:String>
     <sys:String x:Key="L_YtNext">Next track</sys:String>
     <sys:String x:Key="L_YtCaching">Caching…</sys:String>
+    <sys:String x:Key="L_YtCacheStopped">Caching stopped</sys:String>
     <sys:String x:Key="L_YtCacheFailed">Could not prepare</sys:String>
     <sys:String x:Key="L_YtInstalled">yt-dlp installed</sys:String>
     <sys:String x:Key="L_YtInstalledVersionFormat">yt-dlp {0}</sys:String>
@@ -239,6 +240,8 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtSearchHint">Type a name and press Search, or paste a link and press Download</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Search results</sys:String>
     <sys:String x:Key="L_YtFoundTitle">Found</sys:String>
+    <sys:String x:Key="L_YtResultsCleared">The query is cleared. Type a name and press Search.</sys:String>
+    <sys:String x:Key="L_YtResultsEmpty">Nothing was found. Change the query and try again.</sys:String>
     <sys:String x:Key="L_YtIdle">Type a query or paste a link</sys:String>
     <sys:String x:Key="L_YtCachingLater">Deferred — will retry</sys:String>
     <sys:String x:Key="L_YtSearching">Searching YouTube…</sys:String>

@@ -49,6 +49,8 @@ public sealed partial class YouTubeViewModel : ObservableObject
     private double _queryProgress;
     private bool _isQueryDownloading;
     private bool _isSearchTab = true;
+    /// <summary>Set when the user cleared the field and its results, so the empty list can explain itself.</summary>
+    private bool _resultsClearedByUser;
 
     public YouTubeViewModel(
         YouTubeTrackService service,
@@ -106,7 +108,11 @@ public sealed partial class YouTubeViewModel : ObservableObject
             track => MoveTrack(track, 1), track => CanMove(track, 1));
         // The cross in a field clears it and nothing else: no confirmation, no side effect.
         ClearFilterCommand = new RelayCommand(() => FilterText = string.Empty, () => HasFilter);
-        ClearQueryCommand = new RelayCommand(() => SearchQuery = string.Empty, () => SearchQuery.Length > 0);
+        // The cross empties the field and the results it produced. A running cache pass is stopped
+        // with them, or ten invisible downloads would keep occupying the slots. A preview that is
+        // already playing is deliberately left alone: it is a sound the user asked for, and it
+        // stops by itself at the end.
+        ClearQueryCommand = new RelayCommand(ClearQueryAndResults, () => SearchQuery.Length > 0 || Results.Count > 0);
 
         RefreshPositions();
         ApplyOptions();
@@ -357,13 +363,25 @@ public sealed partial class YouTubeViewModel : ObservableObject
 
     public bool HasResults => Results.Count > 0;
     public bool HasDownloaded => Downloaded.Count > 0;
-    public bool ShowEmptyResults => !IsSearching && Results.Count == 0;
 
     /// <summary>The number inside the badge next to "Found", in the reader's own digits.</summary>
     public string ResultsCountNumber => Results.Count.ToString(System.Globalization.CultureInfo.CurrentUICulture);
 
     /// <summary>The badge belongs to a list that exists; an empty search shows no counter at all.</summary>
     public Visibility ResultsBadgeVisible => HasResults ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// True when the list is empty and the cross put it there. An emptied list needs a sentence of
+    /// its own: "nothing was found" would blame the query for a deliberate clear.
+    /// </summary>
+    public bool ShowResultsClearedHint => !IsSearching && Results.Count == 0 && _resultsClearedByUser;
+
+    /// <summary>The list is empty after a search that really returned nothing.</summary>
+    public bool ShowEmptyResults => !IsSearching && Results.Count == 0 && !_resultsClearedByUser;
+
+    /// <summary>Two different sentences, because a cleared list is not a failed search.</summary>
+    public Visibility ResultsClearedHintVisible => ShowResultsClearedHint ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility EmptyResultsVisible => ShowEmptyResults ? Visibility.Visible : Visibility.Collapsed;
 
     public bool CacheEnabled
     {
@@ -857,7 +875,8 @@ public sealed partial class YouTubeViewModel : ObservableObject
 
     public void RefreshLocalization()
     {
-        StatusText = HasResults ? Loc.F("L_YtFoundFormat", Results.Count) : string.Empty;
+        // The result count lives in the badge beside the list, so the sentence above it is not
+        // rebuilt here: that line was the only thing bringing "Found: N" back after a language switch.
         foreach (var track in Downloaded) { track.RefreshLocalization(); }
         _ = RefreshCacheSizeAsync();
         // Every derived label is recomputed on a language switch, not just the status line.

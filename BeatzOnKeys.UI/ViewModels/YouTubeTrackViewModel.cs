@@ -143,7 +143,26 @@ public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result) : Obs
     }
 
     /// <summary>True while this result is being fetched for listening, so the row shows a state.</summary>
-    public bool IsCaching => !CanPlay && !IsLive && !_cacheFailed;
+    public bool IsCaching => !CanPlay && !IsLive && !_cacheFailed && !_cacheStopped;
+
+    /// <summary>
+    /// Set when the user stopped the cache pass while this row was being fetched. The row keeps its
+    /// play and add buttons — nothing was broken — but it must not claim to be caching for ever,
+    /// which is what a stopped pass used to leave behind.
+    /// </summary>
+    public bool CacheStopped
+    {
+        get => _cacheStopped;
+        set
+        {
+            if (_cacheStopped == value) { return; }
+            _cacheStopped = value;
+            OnPropertyChanged(nameof(IsCaching));
+            OnPropertyChanged(nameof(CacheStateText));
+        }
+    }
+
+    private bool _cacheStopped;
 
     /// <summary>
     /// Set when the background pass gave up on this row because it was slow. The row stays
@@ -183,6 +202,7 @@ public sealed class YouTubeSearchItemViewModel(YouTubeSearchResult result) : Obs
         ? LiveBadgeText
         : CanPlay ? Author
         : _cacheFailed ? Loc.T("L_YtCacheFailed")
+        : _cacheStopped ? Loc.T("L_YtCacheStopped")
         : _skipped ? Loc.T("L_YtCachingLater")
         : Loc.T("L_YtCaching");
 }

@@ -686,6 +686,10 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         // The YouTube section measures its cache and reports whether yt-dlp is installed.
         try { await YouTube.InitializeAsync().ConfigureAwait(true); }
         catch (Exception exception) { AppLogger.Error("youtube", "Could not initialize the YouTube section.", exception); }
+        // The TikTok section has to be measured too. Without this call its counter was never filled
+        // at startup, and the page showed "0 KB" for a folder that was not empty.
+        try { await TikTok.InitializeAsync().ConfigureAwait(true); }
+        catch (Exception exception) { AppLogger.Error("tiktok", "Could not initialize the TikTok section.", exception); }
         // Rewrite older settings as the new schema without discarding the user's playlist/preferences.
         await SaveAsync().ConfigureAwait(true);
     }

@@ -184,6 +184,7 @@
     <sys:String x:Key="L_TikTokDownloading">Скачиваем из TikTok…</sys:String>
     <sys:String x:Key="L_TikTokDownloadedFormat">Готово: {0}</sys:String>
     <sys:String x:Key="L_TikTokCacheLabel">Кеш TikTok: {0}</sys:String>
+    <sys:String x:Key="L_TikTokCacheUnknown">Кеш TikTok: —</sys:String>
     <sys:String x:Key="L_TikTokCacheHint">Файлы лежат в {0}</sys:String>
     <sys:String x:Key="L_TikTokClearCache">Очистить кеш TikTok</sys:String>
     <sys:String x:Key="L_TikTokClearCacheConfirm">Удалить все скачанные файлы TikTok? Локальный плейлист и кеш YouTube останутся.</sys:String>
@@ -253,6 +254,7 @@
     <sys:String x:Key="L_YtRemove">Убрать</sys:String>
     <sys:String x:Key="L_YtCacheTitle">Кеш YouTube</sys:String>
     <sys:String x:Key="L_YtCacheUsedFormat">Занято треками: {0}</sys:String>
+    <sys:String x:Key="L_YtCacheUnknown">Занято треками: —</sys:String>
     <sys:String x:Key="L_YtClearCache">Очистить кеш YouTube</sys:String>
     <sys:String x:Key="L_YtClearCacheConfirm">Удалить все скачанные треки YouTube? Локальный плейлист не пострадает.</sys:String>
     <sys:String x:Key="L_YtClearSearchCacheConfirm">Удалить кеш поиска? Скачанные треки останутся.</sys:String>

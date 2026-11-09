@@ -23,7 +23,8 @@ public sealed class TikTokViewModel : ObservableObject
     private CancellationTokenSource? _downloadCancellation;
     private string _inputUrl = string.Empty;
     private string _statusText = string.Empty;
-    private string _cacheSizeText = string.Empty;
+    // The last measurement that succeeded. Null means "not measured yet", which is not zero.
+    private long? _cacheBytes;
     private double _progress;
     private bool _isBusy;
     private bool _disposed;
@@ -163,14 +164,15 @@ public sealed class TikTokViewModel : ObservableObject
 
     public string CacheSizeText
     {
-        // The label must never be blank: before the first measurement, or after a refresh that could
-        // not run, the card would otherwise lose its heading and look like a broken section.
-        get => string.IsNullOrEmpty(_cacheSizeText) ? ZeroCacheLabel() : _cacheSizeText;
-        private set => SetProperty(ref _cacheSizeText, value);
+        // Until the folder has been measured the number is unknown, and printing "0 KB" would be a
+        // claim that the folder is empty — a false one, on the page whose whole point is showing
+        // what was downloaded. A dash says exactly what is true, and the real figure replaces it
+        // the moment a measurement succeeds.
+        get => _cacheBytes is { } bytes
+            ? Loc.F("L_TikTokCacheLabel",
+                ByteSizeFormatter.Format(bytes, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")))
+            : Loc.T("L_TikTokCacheUnknown");
     }
-
-    private static string ZeroCacheLabel() => Loc.F("L_TikTokCacheLabel",
-        ByteSizeFormatter.Format(0, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")));
 
     public double Progress
     {
@@ -455,15 +457,15 @@ public sealed class TikTokViewModel : ObservableObject
                     return 0L;
                 }
             }).ConfigureAwait(true);
-            CacheSizeText = Loc.F("L_TikTokCacheLabel",
-                ByteSizeFormatter.Format(bytes, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")));
+            _cacheBytes = bytes;
+            OnPropertyChanged(nameof(CacheSizeText));
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            // Fire-and-forget callers cannot see this, and a section without its heading looks
-            // broken, so the label is restored rather than left as it was.
-            CacheSizeText = ZeroCacheLabel();
+            // A failed measurement keeps the last figure that was true instead of replacing it with
+            // a zero nobody measured; the dash stays only if nothing was ever measured.
             AppLogger.Warning("tiktok", $"Could not measure the TikTok cache: {exception.Message}");
+            OnPropertyChanged(nameof(CacheSizeText));
         }
     }
 
@@ -501,6 +503,9 @@ public sealed class TikTokViewModel : ObservableObject
         FilteredTracks.Refresh();
         OnPropertyChanged(nameof(FilteredEmptyVisibility));
         _requestSave();
+        // The number on the card belongs to the folder, not to the name, so it must not change
+        // because of a rename — and it will not, because it is re-measured rather than re-derived.
+        _ = RefreshCacheSizeAsync();
     }
 
     /// <summary>Drops a dragged row at a target position; unlike the arrows it may travel far.</summary>

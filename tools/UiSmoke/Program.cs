@@ -1273,7 +1273,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
 
         var expected = Loc.F("L_YtCacheUsedFormat", ByteSizeFormatter.Format(vm.YouTube.KeptCacheBytes, "КБ", "МБ", "ГБ"));
         Check("youtube.cacheSize", vm.YouTube.KeptCacheBytes > 0 && vm.YouTube.CacheSizeText == expected &&
-            !vm.YouTube.CacheSizeText.Contains("L_YtCacheUsedFormat", StringComparison.Ordinal),
+            !vm.YouTube.CacheSizeText.Contains("L_YtCacheUsedFormat", StringComparison.Ordinal) &&
+            !vm.YouTube.CacheSizeText.Contains(Loc.T("L_YtCacheUnknown"), StringComparison.Ordinal),
             $"Cache: bytes={vm.YouTube.CacheBytes}, kept={vm.YouTube.KeptCacheBytes}, search={vm.YouTube.SearchCacheBytes}, " +
             $"dir='{AppPaths.MusicDirectory}' exists={Directory.Exists(AppPaths.MusicDirectory)} " +
             $"files={(Directory.Exists(AppPaths.MusicDirectory) ? Directory.GetFiles(AppPaths.MusicDirectory).Length : -1)}, " +
@@ -1611,6 +1612,19 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             // row disappeared", and it happened whenever the first measurement had not run yet.
             Check("tiktok.cacheLabelIsNeverBlank", !string.IsNullOrWhiteSpace(tabs.TikTok.CacheSizeText),
                 $"CacheSizeText='{tabs.TikTok.CacheSizeText}'.");
+            // Measured, not invented. The number on the card has to equal the bytes really on disk,
+            // and it must be neither the "not measured yet" dash nor a zero for a folder that holds
+            // a file — that zero was the whole bug: nothing measured the folder at startup.
+            var tikTokFolder = Path.Combine(AppPaths.MusicDirectory, "TikTok");
+            var realBytes = Directory.Exists(tikTokFolder)
+                ? Directory.EnumerateFiles(tikTokFolder)
+                    .Where(path => !path.EndsWith(".part", StringComparison.OrdinalIgnoreCase))
+                    .Sum(path => new FileInfo(path).Length)
+                : 0L;
+            Check("tiktok.cacheLabelIsMeasured", realBytes > 0 &&
+                !tabs.TikTok.CacheSizeText.Contains(Loc.T("L_TikTokCacheUnknown"), StringComparison.Ordinal) &&
+                !tabs.TikTok.CacheSizeText.Contains(": 0 ", StringComparison.Ordinal),
+                $"CacheSizeText='{tabs.TikTok.CacheSizeText}', bytes on disk={realBytes}.");
             Check("tiktok.fileLivesInItsOwnFolder",
                 tabs.TikTok.Tracks[0].CachedPath.Contains("TikTok", StringComparison.OrdinalIgnoreCase),
                 tabs.TikTok.Tracks[0].CachedPath);
@@ -2090,6 +2104,40 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             "The cross empties the field and disappears.");
 
         // --- 4. the pencil renames the row, nothing on disk -------------------------------
+        // Before the first measurement the card must say "not known", never "0 KB": the zero was
+        // read as "your downloads are gone" while the files sat on disk.
+        var unmeasured = new TikTokViewModel(new FailingTikTokService(), [], () => { }, _ => { });
+        try
+        {
+            Check("tiktok.unmeasuredCacheSaysUnknown",
+                unmeasured.CacheSizeText.Contains(Loc.T("L_TikTokCacheUnknown"), StringComparison.Ordinal) &&
+                !unmeasured.CacheSizeText.Contains(": 0 ", StringComparison.Ordinal),
+                $"An unmeasured folder reads '{unmeasured.CacheSizeText}'.");
+        }
+        finally { unmeasured.Dispose(); }
+
+        // The bug itself: nothing measured the TikTok folder when the section started, so a folder
+        // with files still read "0 KB". Initialization has to fill the number in.
+        var measuredAtStartup = new TikTokViewModel(new FailingTikTokService(), [], () => { }, _ => { });
+        try
+        {
+            await measuredAtStartup.InitializeAsync();
+            var startupFolder = Path.Combine(AppPaths.MusicDirectory, "TikTok");
+            var startupBytes = Directory.Exists(startupFolder)
+                ? Directory.EnumerateFiles(startupFolder)
+                    .Where(path => !path.EndsWith(".part", StringComparison.OrdinalIgnoreCase))
+                    .Sum(path => new FileInfo(path).Length)
+                : 0L;
+            Check("tiktok.cacheIsMeasuredAtStartup",
+                startupBytes > 0 &&
+                !measuredAtStartup.CacheSizeText.Contains(Loc.T("L_TikTokCacheUnknown"), StringComparison.Ordinal) &&
+                !measuredAtStartup.CacheSizeText.Contains(": 0 ", StringComparison.Ordinal),
+                $"At startup the card reads '{measuredAtStartup.CacheSizeText}' for {startupBytes} bytes on disk.");
+        }
+        finally { measuredAtStartup.Dispose(); }
+
+        await vm.TikTok.RefreshCacheSizeAsync();
+        var cacheFigureBeforeRename = vm.TikTok.CacheSizeText;
         firstRow.BeginEdit();
         Check("rename.fieldOpens",
             firstRow.IsEditing && firstRow.EditTitle == firstRow.Title &&
@@ -2100,6 +2148,13 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("rename.commitKeepsTheName",
             !firstRow.IsEditing && firstRow.Title == "Renamed row" && File.Exists(firstRow.CachedPath),
             $"Title='{firstRow.Title}', file kept='{Path.GetFileName(firstRow.CachedPath)}'.");
+        // A rename changes a name, not a folder. The card above the list counts the folder, so the
+        // figure must survive a rename untouched — that is exactly what the user saw go wrong.
+        await SettleAsync();
+        Check("rename.keepsTheCacheFigure",
+            vm.TikTok.CacheSizeText == cacheFigureBeforeRename &&
+            !vm.TikTok.CacheSizeText.Contains(Loc.T("L_TikTokCacheUnknown"), StringComparison.Ordinal),
+            $"Before='{cacheFigureBeforeRename}', after='{vm.TikTok.CacheSizeText}'.");
         firstRow.BeginEdit();
         firstRow.EditTitle = "   ";
         firstRow.CommitEdit();
@@ -2168,6 +2223,29 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("window.sizeSurvivesRestart",
             Near(savedSettings.WindowWidth, 1500) && Near(savedSettings.WindowHeight, 1200),
             $"Saved {savedSettings.WindowWidth}x{savedSettings.WindowHeight}.");
+
+        // --- the counter is filled by startup, not by luck --------------------------------
+        // This is the reported bug: a fresh start over a folder that already holds files showed
+        // "0 KB". A second view model is created over the same folders, exactly like a restart.
+        var startupSettings = await MakeSettingsService(Path.Combine(session, "queue-settings.json")).LoadAsync();
+        var restarted = Own(new MainViewModel(startupSettings,
+            MakeSettingsService(Path.Combine(session, "queue-settings.json")),
+            new FakeKeyboardHook(), new ContinuousAudioPlayer()));
+        await restarted.InitializeAsync();
+        var restartFolder = Path.Combine(AppPaths.MusicDirectory, "TikTok");
+        var restartBytes = Directory.Exists(restartFolder)
+            ? Directory.EnumerateFiles(restartFolder)
+                .Where(path => !path.EndsWith(".part", StringComparison.OrdinalIgnoreCase))
+                .Sum(path => new FileInfo(path).Length)
+            : 0L;
+        Check("tiktok.startupFillsTheCounter",
+            restartBytes > 0 &&
+            !restarted.TikTok.CacheSizeText.Contains(Loc.T("L_TikTokCacheUnknown"), StringComparison.Ordinal) &&
+            !restarted.TikTok.CacheSizeText.Contains(": 0 ", StringComparison.Ordinal),
+            $"After a restart the card reads '{restarted.TikTok.CacheSizeText}' for {restartBytes} bytes.");
+        await restarted.DisposeAsync();
+        _ownedModels.Remove(restarted);
+
         await vm.DisposeAsync();
         _ownedModels.Remove(vm);
 

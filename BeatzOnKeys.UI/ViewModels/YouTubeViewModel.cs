@@ -37,7 +37,7 @@ public sealed partial class YouTubeViewModel : ObservableObject
     private CancellationTokenSource? _cacheLoop;
     private string _searchQuery = string.Empty;
     private string _statusText;
-    private string _cacheSizeText = string.Empty;
+    private bool _cacheMeasured;
     private long _cacheBytes;
     private bool _isSearching;
     private bool _isInstalling;
@@ -263,8 +263,13 @@ public sealed partial class YouTubeViewModel : ObservableObject
     /// <summary>"Занято на диске: 14.3 МБ" — the unit follows the measured size.</summary>
     public string CacheSizeText
     {
-        get => _cacheSizeText;
-        private set => SetProperty(ref _cacheSizeText, value);
+        // An unmeasured folder is not an empty one, and a blank line here used to read as a broken
+        // card whenever a measurement failed. The dash says "not known yet" until a real figure
+        // arrives, exactly as the TikTok card does.
+        get => _cacheMeasured
+            ? Loc.F("L_YtCacheUsedFormat",
+                ByteSizeFormatter.Format(KeptCacheBytes, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")))
+            : Loc.T("L_YtCacheUnknown");
     }
 
     public long CacheBytes => _cacheBytes;
@@ -548,9 +553,8 @@ public sealed partial class YouTubeViewModel : ObservableObject
         // "Занято треками" is the space the kept tracks take, not the whole folder: the previews
         // have their own line right below, and counting them twice made both lines show the
         // same number.
-        var keptBytes = KeptCacheBytes;
-        CacheSizeText = Loc.F("L_YtCacheUsedFormat",
-            ByteSizeFormatter.Format(keptBytes, Loc.T("L_YtKb"), Loc.T("L_YtMb"), Loc.T("L_YtGb")));
+        _cacheMeasured = true;
+        OnPropertyChanged(nameof(CacheSizeText));
         // Rows saved before the duration was stored have none; the file itself knows it, so the
         // dash on the downloaded row goes away instead of staying forever.
         foreach (var track in Downloaded) { track.ReadDurationFromFile(); }

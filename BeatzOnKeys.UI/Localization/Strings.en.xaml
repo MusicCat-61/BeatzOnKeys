@@ -184,6 +184,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_TikTokDownloading">Downloading from TikTok…</sys:String>
     <sys:String x:Key="L_TikTokDownloadedFormat">Done: {0}</sys:String>
     <sys:String x:Key="L_TikTokCacheLabel">TikTok cache: {0}</sys:String>
+    <sys:String x:Key="L_TikTokCacheUnknown">TikTok cache: —</sys:String>
     <sys:String x:Key="L_TikTokCacheHint">Files are kept in {0}</sys:String>
     <sys:String x:Key="L_TikTokClearCache">Clear the TikTok cache</sys:String>
     <sys:String x:Key="L_TikTokClearCacheConfirm">Delete every downloaded TikTok file? The local playlist and the YouTube cache stay untouched.</sys:String>
@@ -253,6 +254,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtRemove">Remove</sys:String>
     <sys:String x:Key="L_YtCacheTitle">YouTube cache</sys:String>
     <sys:String x:Key="L_YtCacheUsedFormat">Kept tracks: {0}</sys:String>
+    <sys:String x:Key="L_YtCacheUnknown">Kept tracks: —</sys:String>
     <sys:String x:Key="L_YtClearCache">Clear the YouTube cache</sys:String>
     <sys:String x:Key="L_YtClearCacheConfirm">Delete every downloaded YouTube track? The local playlist is not affected.</sys:String>
     <sys:String x:Key="L_YtClearSearchCacheConfirm">Delete the search cache? Downloaded tracks stay.</sys:String>

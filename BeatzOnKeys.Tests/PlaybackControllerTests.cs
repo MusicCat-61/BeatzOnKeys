@@ -134,6 +134,103 @@ internal static class PlaybackControllerTests
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// A preview is heard once. It belongs to no list, so continuing from it would pick an unrelated
+    /// row — and with Loop on, that row is simply the first downloaded track. Reported by a user:
+    /// "the preview finished and something from the downloads started playing".
+    /// </summary>
+    public static Task AStandaloneTrackStopsInsteadOfContinuing()
+    {
+        foreach (var loop in new[] { false, true })
+        foreach (var autoAdvance in new[] { false, true })
+        {
+            var controller = new PlaybackController { AutoAdvance = autoAdvance, Loop = loop };
+            var downloaded = Track("downloaded");
+            var preview = Track("preview");
+            controller.UpsertTrack(downloaded);
+            controller.UpsertTrack(preview);
+            controller.SetStandalone(preview.Id);
+            AssertEx.True(controller.IsStandalone(preview.Id), "The mark has to stick.");
+
+            controller.SelectTrack(preview.Id);
+            AssertEx.False(controller.TryAdvanceAtEnd(out var next),
+                $"A preview advanced the queue (autoAdvance={autoAdvance}, loop={loop}).");
+            AssertEx.Null(next);
+            AssertEx.Equal<Guid?>(preview.Id, controller.SelectedTrackId,
+                "A finished preview must not move the selection onto another track.");
+
+            // An ordinary track is untouched by the rule and still advances as configured.
+            controller.SelectTrack(downloaded.Id);
+            var advanced = controller.TryAdvanceAtEnd(out var afterDownloaded);
+            var expected = autoAdvance || loop;
+            AssertEx.Equal(expected, advanced, $"A downloaded track stopped advancing (autoAdvance={autoAdvance}, loop={loop}).");
+            if (expected) { AssertEx.NotNull(afterDownloaded); }
+        }
+
+        // The mark can be taken back, so a file that is later played as a real track behaves normally.
+        var plain = new PlaybackController { AutoAdvance = true, Loop = false };
+        var first = Track("first");
+        var second = Track("second");
+        plain.UpsertTrack(first);
+        plain.UpsertTrack(second);
+        plain.SetStandalone(first.Id);
+        plain.SetStandalone(first.Id, standalone: false);
+        AssertEx.False(plain.IsStandalone(first.Id));
+        plain.SelectTrack(first.Id);
+        AssertEx.True(plain.TryAdvanceAtEnd(out var nextAfterClear), "Clearing the mark restores normal behaviour.");
+        AssertEx.Equal(second, nextAfterClear);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// A track kept from another page is parked at the front of this page's queue. Loop must wrap
+    /// onto the page's own first track, never onto that parked one — that is how the local playlist
+    /// "moved on" into the downloaded YouTube list and then into TikTok.
+    /// </summary>
+    public static Task LoopWrapsOntoThePageNotTheParkedTrack()
+    {
+        foreach (var autoAdvance in new[] { false, true })
+        {
+            var controller = new PlaybackController { AutoAdvance = autoAdvance, Loop = true };
+            var foreign = Track("from-youtube");
+            var first = Track("local-1");
+            var second = Track("local-2");
+            controller.UpsertTrack(foreign);
+            controller.SelectTrack(foreign.Id);
+            // The page does not hold the playing track, so it is parked in front and marked.
+            controller.Replace([first, second], foreign);
+            controller.SetStandalone(foreign.Id);
+            AssertEx.Equal(0, controller.IndexOf(foreign.Id));
+
+            // The parked track ends: it stops instead of continuing into this page.
+            AssertEx.False(controller.TryAdvanceAtEnd(out var afterForeign),
+                $"The parked foreign track continued (autoAdvance={autoAdvance}).");
+            AssertEx.Null(afterForeign);
+
+            // The page's own last track wraps onto the page's first, not onto the parked one. With
+            // auto-advance off, Loop repeats the current track instead — that is its own rule and
+            // is asserted below.
+            controller.SelectTrack(second.Id);
+            var advanced = controller.TryAdvanceAtEnd(out var wrapped);
+            AssertEx.True(advanced, $"The page did not continue (autoAdvance={autoAdvance}).");
+            var expected = autoAdvance ? first : second;
+            AssertEx.Equal(expected, wrapped,
+                autoAdvance
+                    ? "Loop landed on the parked foreign track instead of the page."
+                    : "Without auto-advance the current track has to repeat.");
+            if (autoAdvance) { AssertEx.Equal(1, controller.IndexOf(first.Id)); }
+        }
+
+        // With auto-advance off, Loop repeats the selected track — the documented behaviour.
+        var repeating = new PlaybackController { AutoAdvance = false, Loop = true };
+        var only = Track("only");
+        repeating.UpsertTrack(only);
+        repeating.SelectTrack(only.Id);
+        AssertEx.True(repeating.TryAdvanceAtEnd(out var repeated));
+        AssertEx.Equal(only, repeated, "Without auto-advance the current track repeats.");
+        return Task.CompletedTask;
+    }
+
     private static PlaybackTrack Track(string name) =>
         new(Guid.NewGuid(), name, $"C:\\audio\\{name}.mp3", TimeSpan.FromSeconds(1));
 }

@@ -26,6 +26,20 @@ public sealed partial class YouTubeViewModel
         try { loop.Cancel(); }
         catch (ObjectDisposedException) { }
         finally { loop.Dispose(); }
+        // The button is shown and enabled by the same flag that was just cleared. Without this the
+        // interface kept offering "Cancel" for a pass that no longer existed.
+        NotifyCancelState();
+    }
+
+    /// <summary>
+    /// Tells the interface that there is now more — or less — to cancel. The cancel button is one
+    /// button for a search, the cache pass and a link download, so every start and every finish has
+    /// to pass through here; forgetting one leaves the button hidden during that work.
+    /// </summary>
+    private void NotifyCancelState()
+    {
+        OnPropertyChanged(nameof(CancelVisible));
+        CancelCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>
@@ -37,6 +51,8 @@ public sealed partial class YouTubeViewModel
         CancelCacheLoop();
         var loop = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _cacheLoop = loop;
+        // The pass is running, so the one cancel button must appear and become pressable.
+        NotifyCancelState();
         try { await CacheResultsAsync(loop.Token).ConfigureAwait(true); }
         catch (OperationCanceledException) { }
         // Fire-and-forget must not leave an unobserved task: a failure here is logged like any
@@ -49,6 +65,7 @@ public sealed partial class YouTubeViewModel
         {
             if (ReferenceEquals(_cacheLoop, loop)) { _cacheLoop = null; }
             loop.Dispose();
+            NotifyCancelState();
         }
     }
 
@@ -78,6 +95,18 @@ public sealed partial class YouTubeViewModel
         CancelCommand.NotifyCanExecuteChanged();
     }
 
+    /// <summary>
+    /// Tells the view that the result list changed shape. The badge beside "Found" counts rows, so
+    /// it has to follow the collection, not just the search state.
+    /// </summary>
+    private void NotifyResultsChanged()
+    {
+        OnPropertyChanged(nameof(HasResults));
+        OnPropertyChanged(nameof(ShowEmptyResults));
+        OnPropertyChanged(nameof(ResultsCountNumber));
+        OnPropertyChanged(nameof(ResultsBadgeVisible));
+    }
+
     /// <summary>The second button next to the field: a pasted link downloads without a search.</summary>
     public AsyncRelayCommand DownloadFromQueryCommand => _downloadFromQuery ??= new AsyncRelayCommand(
         () => DownloadFromQueryAsync(), () => !IsBusy && !string.IsNullOrWhiteSpace(SearchQuery));
@@ -102,10 +131,14 @@ public sealed partial class YouTubeViewModel
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _searchCancellation = cancellation;
         IsSearching = true;
+        // The rows below are about to be thrown away, so the remembered row is let go — but the
+        // path of the playing preview is kept, because the new list may well contain the same video
+        // and its button has to show that it is playing.
+        ForgetPreviewRow();
         Results.Clear();
+        NotifyCancelState();
         StatusText = Loc.T("L_YtSearching");
-        OnPropertyChanged(nameof(HasResults));
-        OnPropertyChanged(nameof(ShowEmptyResults));
+        NotifyResultsChanged();
         try
         {
             var installProgress = new Progress<double>(value =>
@@ -125,7 +158,9 @@ public sealed partial class YouTubeViewModel
                     IsAdded = Downloaded.Any(track => track.VideoId == item.VideoId)
                 });
             }
-            StatusText = found.Count == 0 ? Loc.T("L_YtNotFound") : Loc.F("L_YtFoundFormat", found.Count);
+            // The count now lives in the badge beside the list heading, so repeating it here would
+            // say the same thing twice. Only the empty answer still needs a sentence.
+            StatusText = found.Count == 0 ? Loc.T("L_YtNotFound") : string.Empty;
             // Results are fetched right away, so pressing play works at once and the user hears
             // what the row actually is before deciding to keep it.
             _ = StartCacheLoopAsync();
@@ -145,8 +180,7 @@ public sealed partial class YouTubeViewModel
         {
             IsSearching = false;
             InstallProgress = 0;
-            OnPropertyChanged(nameof(HasResults));
-            OnPropertyChanged(nameof(ShowEmptyResults));
+            NotifyResultsChanged();
             RefreshCommands();
         }
     }
@@ -283,6 +317,14 @@ public sealed partial class YouTubeViewModel
     private YouTubeSearchItemViewModel? _activePreview;
 
     /// <summary>
+    /// The file the preview holds. The row object is not enough: a second search clears the list and
+    /// builds new rows, so a remembered object would keep pointing at a discarded row while the
+    /// visible one showed a plain play button for a track that was audibly playing. The path
+    /// survives that rebuild, so it is what the state is matched on.
+    /// </summary>
+    private string? _activePreviewPath;
+
+    /// <summary>
     /// Mirrors the player state onto the rows. Called on every progress tick, so it does nothing
     /// unless something actually changed.
     /// </summary>
@@ -290,11 +332,20 @@ public sealed partial class YouTubeViewModel
     {
         if (!isCurrent)
         {
-            if (_activePreview is null) { return; }
-            _activePreview.IsPlaying = false;
-            _activePreview.IsPaused = false;
+            if (_activePreview is null && _activePreviewPath is null) { return; }
+            _activePreview?.IsPlaying = false;
+            _activePreview?.IsPaused = false;
             _activePreview = null;
+            _activePreviewPath = null;
             return;
+        }
+
+        // After a rebuild the remembered row is stale but the path still names the file that is
+        // playing, so the row is looked up again instead of being written to nowhere.
+        if (_activePreview is null && _activePreviewPath is { } path)
+        {
+            _activePreview = Results.FirstOrDefault(row =>
+                string.Equals(row.CachedPath, path, StringComparison.OrdinalIgnoreCase));
         }
 
         if (_activePreview is null) { return; }
@@ -303,6 +354,14 @@ public sealed partial class YouTubeViewModel
         // it was paused, and the next press would look like a fresh start.
         _activePreview.IsPlaying = isPlaying || isPaused;
         _activePreview.IsPaused = isPaused;
+    }
+
+    /// <summary>Forgets which row the preview belongs to, without touching the player.</summary>
+    private void ForgetPreviewRow()
+    {
+        _activePreview?.IsPlaying = false;
+        _activePreview?.IsPaused = false;
+        _activePreview = null;
     }
 
     /// <summary>
@@ -403,9 +462,12 @@ public sealed partial class YouTubeViewModel
     private void Preview(YouTubeSearchItemViewModel item)
     {
         if (!item.CanPlay) { return; }
-        // The same row twice means "stop", not "start again from the top": that is the only
-        // thing a second click on a playing track can reasonably mean.
-        if (ReferenceEquals(item, _activePreview))
+        // The same file twice means "stop", not "start again from the top": that is the only thing
+        // a second click on a playing track can reasonably mean. The comparison is by file, so a
+        // row rebuilt by a new search still counts as the same track.
+        var sameFile = item.CachedPath is { } path && _activePreviewPath is { } activePath &&
+            string.Equals(path, activePath, StringComparison.OrdinalIgnoreCase);
+        if (sameFile || ReferenceEquals(item, _activePreview))
         {
             PauseToggleRequested?.Invoke();
             return;
@@ -419,6 +481,7 @@ public sealed partial class YouTubeViewModel
             _activePreview.IsPaused = false;
         }
         _activePreview = item;
+        _activePreviewPath = item.CachedPath;
         item.IsPlaying = true;
         item.IsPaused = false;
         PreviewRequested?.Invoke(item.CachedPath!, item.Title);

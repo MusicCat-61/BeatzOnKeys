@@ -35,9 +35,9 @@
     <sys:String x:Key="L_ResumeHint">Continue the track where it stopped instead of starting over.</sys:String>
     <sys:String x:Key="L_StatusPaused">Paused — the track stays put, and Resume returns to the same second</sys:String>
     <sys:String x:Key="L_AutoAdvance">Auto-advance tracks</sys:String>
-    <sys:String x:Key="L_AutoAdvanceHint">Move to the next track when this one ends</sys:String>
+    <sys:String x:Key="L_AutoAdvanceHint">When a track ends, the next one in this list plays</sys:String>
     <sys:String x:Key="L_Loop">Loop playback</sys:String>
-    <sys:String x:Key="L_LoopHint">Repeat the current track or the whole list</sys:String>
+    <sys:String x:Key="L_LoopHint">With auto-advance the whole list repeats; without it, only this track</sys:String>
     <sys:String x:Key="L_MusicReaction">Music reaction</sys:String>
     <sys:String x:Key="L_VolumeSection">Volume</sys:String>
     <sys:String x:Key="L_ReactionSection">Music reaction</sys:String>
@@ -238,6 +238,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtCacheTotal">Kept tracks: {0}</sys:String>
     <sys:String x:Key="L_YtSearchHint">Type a name and press Search, or paste a link and press Download</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Search results</sys:String>
+    <sys:String x:Key="L_YtFoundTitle">Found</sys:String>
     <sys:String x:Key="L_YtIdle">Type a query or paste a link</sys:String>
     <sys:String x:Key="L_YtCachingLater">Deferred — will retry</sys:String>
     <sys:String x:Key="L_YtSearching">Searching YouTube…</sys:String>

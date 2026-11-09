@@ -359,6 +359,12 @@ public sealed partial class YouTubeViewModel : ObservableObject
     public bool HasDownloaded => Downloaded.Count > 0;
     public bool ShowEmptyResults => !IsSearching && Results.Count == 0;
 
+    /// <summary>The number inside the badge next to "Found", in the reader's own digits.</summary>
+    public string ResultsCountNumber => Results.Count.ToString(System.Globalization.CultureInfo.CurrentUICulture);
+
+    /// <summary>The badge belongs to a list that exists; an empty search shows no counter at all.</summary>
+    public Visibility ResultsBadgeVisible => HasResults ? Visibility.Visible : Visibility.Collapsed;
+
     public bool CacheEnabled
     {
         get => _cacheEnabled;
@@ -870,6 +876,10 @@ public sealed partial class YouTubeViewModel : ObservableObject
         ClearDownloadedCommand.NotifyCanExecuteChanged();
         ClearFilterCommand.NotifyCanExecuteChanged();
         ClearQueryCommand.NotifyCanExecuteChanged();
+        // The cancel button depends on the same three flags as everything above, and it was the one
+        // command nobody re-checked: it stayed hidden and disabled while a search was running.
+        OnPropertyChanged(nameof(CancelVisible));
+        CancelCommand.NotifyCanExecuteChanged();
     }
 
     public void Dispose()

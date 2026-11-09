@@ -1030,9 +1030,23 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Text="{DynamicResource L_YtResultsTitle}" FontSize="15"
-                                       FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"
-                                       Margin="2,0,0,8"/>
+                            <!-- The same composite as "Downloaded from TikTok": a heading with a
+                                 round badge that carries the count, so the number sits next to the
+                                 list it describes instead of in a sentence above it. -->
+                            <StackPanel Orientation="Horizontal" Margin="2,0,0,8">
+                                <TextBlock Text="{DynamicResource L_YtFoundTitle}" FontSize="15"
+                                           FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Border Margin="10,0,0,0" Height="26" MinWidth="26" CornerRadius="13"
+                                        Background="{DynamicResource DropAreaBrush}"
+                                        BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                        Visibility="{Binding YouTube.ResultsBadgeVisible}"
+                                        AutomationProperties.Name="{Binding YouTube.ResultsCountNumber}">
+                                    <TextBlock Text="{Binding YouTube.ResultsCountNumber}" FontSize="15"
+                                               FontWeight="SemiBold" HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
+                                </Border>
+                            </StackPanel>
                         <ListBox Grid.Row="1" ItemsSource="{Binding YouTube.Results}" Background="Transparent"
                                  BorderThickness="0" Padding="0"
                                  ItemContainerStyle="{StaticResource TrackListItemStyle}"

@@ -943,7 +943,19 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         // A track that is already playing but belongs to another page keeps its place at the front,
         // so switching tabs never restarts it and never loses its name.
         var playing = _playbackController.CurrentTrack;
-        _playbackController.Replace(BuildQueue(), playing);
+        var queue = BuildQueue();
+        _playbackController.Replace(queue, playing);
+        // Every track of this page is part of its queue again. The marks are cleared first because
+        // they outlive a page switch: a local track that was playing while another tab was open got
+        // marked there, and the mark then stopped it from advancing on its own page.
+        foreach (var track in queue) { _playbackController.SetStandalone(track.Id, false); }
+        if (playing is null) { return; }
+        // A kept foreign track is parked in front of this page's queue. It must not become the
+        // target of Loop and must not continue into this page's tracks: without the mark, the end
+        // of the local playlist wrapped onto the parked YouTube track, and the end of that one
+        // walked on into TikTok — reported as "it crawled into YouTube and then into TikTok".
+        var belongsHere = queue.Any(track => track.Id == playing.Id);
+        _playbackController.SetStandalone(playing.Id, !belongsHere);
     }
 
     private List<PlaybackTrack> BuildQueue()
@@ -1307,6 +1319,10 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             // plays next. A preview stays outside the queue on purpose.
             if (!isPreview) { SyncPlaybackQueue(); }
             _playbackController.UpsertTrack(playback);
+            // A preview is heard once. Without this it sat in the page queue, and with Loop on, the
+            // end of the preview handed over to the first downloaded track — reported as "the
+            // preview finished and something else started playing".
+            _playbackController.SetStandalone(playback.Id, isPreview);
             // The preview is remembered before the first note, so a short idle time cannot be armed
             // and fire a moment later; a downloaded track clears it and keeps the pause working.
             _previewTrackId = isPreview ? playback.Id : null;

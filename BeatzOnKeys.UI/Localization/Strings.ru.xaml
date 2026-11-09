@@ -35,9 +35,9 @@
     <sys:String x:Key="L_ResumeHint">Продолжить трек с того места, где остановились, а не с начала.</sys:String>
     <sys:String x:Key="L_StatusPaused">Пауза — трек стоит на месте, «Продолжить» вернёт его с той же секунды</sys:String>
     <sys:String x:Key="L_AutoAdvance">Автоперелистывание треков</sys:String>
-    <sys:String x:Key="L_AutoAdvanceHint">После конца трека переходить к следующему</sys:String>
+    <sys:String x:Key="L_AutoAdvanceHint">Трек кончился — включается следующий в этом списке</sys:String>
     <sys:String x:Key="L_Loop">Зацикливать воспроизведение</sys:String>
-    <sys:String x:Key="L_LoopHint">Повторять текущий трек или весь список</sys:String>
+    <sys:String x:Key="L_LoopHint">С автоперелистыванием повторяется весь список, без него — только этот трек</sys:String>
     <sys:String x:Key="L_MusicReaction">Реакция на музыку</sys:String>
     <sys:String x:Key="L_VolumeSection">Громкость</sys:String>
     <sys:String x:Key="L_ReactionSection">Реакция на музыку</sys:String>
@@ -238,6 +238,7 @@
     <sys:String x:Key="L_YtCacheTotal">Занято треками: {0}</sys:String>
     <sys:String x:Key="L_YtSearchHint">Введите название и нажмите «Найти», или вставьте ссылку и нажмите «Скачать»</sys:String>
     <sys:String x:Key="L_YtResultsTitle">Результаты поиска</sys:String>
+    <sys:String x:Key="L_YtFoundTitle">Найдено</sys:String>
     <sys:String x:Key="L_YtIdle">Введите запрос или вставьте ссылку</sys:String>
     <sys:String x:Key="L_YtCachingLater">Отложено — вернёмся позже</sys:String>
     <sys:String x:Key="L_YtSearching">Ищу на YouTube…</sys:String>

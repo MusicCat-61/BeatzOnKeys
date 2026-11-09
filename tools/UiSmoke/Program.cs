@@ -690,6 +690,47 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         await SettleAsync();
         Check("sections.badgeCounts", sections.Select(section => section.Count).Sum() == 10,
             "Badges announce 4 volume, 4 reaction, and 2 behaviour controls.");
+
+        // The two switches describe the same list, so their hints have to say what actually happens
+        // and must not contradict each other: the old loop hint promised "this track or the whole
+        // list" in one sentence, which is two different behaviours depending on the other switch.
+        // The dictionaries are read from disk instead of switching the live language: calling
+        // Loc.Initialize here fires LanguageChanged into the running view model and resets sections.
+        var hints = new Dictionary<string, (string Advance, string Loop)>(StringComparer.Ordinal);
+        foreach (var code in new[] { "ru", "en" })
+        {
+            var dictionary = Path.Combine(root, "BeatzOnKeys.UI", "Localization", $"Strings.{code}.xaml");
+            var text = File.ReadAllText(dictionary);
+            hints[code] = (KeyValue(text, "L_AutoAdvanceHint"), KeyValue(text, "L_LoopHint"));
+        }
+
+        Check("behavior.hintsExplainTheLogicRu",
+            hints["ru"].Advance != "L_AutoAdvanceHint" && hints["ru"].Loop != "L_LoopHint" &&
+            hints["ru"].Advance != hints["ru"].Loop &&
+            hints["ru"].Loop.Contains("список", StringComparison.Ordinal) &&
+            hints["ru"].Loop.Contains("автоперелистыванием", StringComparison.Ordinal),
+            $"ru advance='{hints["ru"].Advance}', loop='{hints["ru"].Loop}'.");
+        Check("behavior.hintsExplainTheLogicEn",
+            hints["en"].Advance != "L_AutoAdvanceHint" && hints["en"].Loop != "L_LoopHint" &&
+            hints["en"].Advance != hints["en"].Loop &&
+            hints["en"].Loop.Contains("list", StringComparison.Ordinal) &&
+            hints["en"].Loop.Contains("auto-advance", StringComparison.Ordinal),
+            $"en advance='{hints["en"].Advance}', loop='{hints["en"].Loop}'.");
+        // A hint that names a control has to name one that exists: "without Next track" pointed at
+        // nothing, because the checkbox is called "Auto-advance tracks".
+        Check("behavior.hintsNameTheRealSwitches",
+            !hints["ru"].Loop.Contains("«следующего трека»", StringComparison.Ordinal) &&
+            !hints["en"].Loop.Contains("Next track", StringComparison.Ordinal),
+            $"ru loop='{hints["ru"].Loop}', en loop='{hints["en"].Loop}'.");
+    }
+
+    /// <summary>Reads one string out of a localization dictionary without loading it as XAML.</summary>
+    private static string KeyValue(string xaml, string key)
+    {
+        var match = Regex.Match(xaml,
+            $"x:Key=\"{Regex.Escape(key)}\">(.*?)</sys:String>",
+            RegexOptions.Singleline);
+        return match.Success ? match.Groups[1].Value.Trim() : key;
     }
 
     private static int VisibleControls(Window window) =>
@@ -1345,6 +1386,18 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("youtube.previewPlaysCachedFile",
             vm.IsRunning && player.IsPlaying && vm.NowPlayingText.Contains(firstResult.Title, StringComparison.Ordinal),
             $"Running={vm.IsRunning}, playing={player.IsPlaying}, now='{vm.NowPlayingText}'.");
+        // The badge beside "Found" is the count, and it appears with the list it counts.
+        Check("youtube.resultsBadgeCounts",
+            vm.YouTube.ResultsBadgeVisible == Visibility.Visible &&
+            vm.YouTube.ResultsCountNumber == vm.YouTube.Results.Count.ToString(System.Globalization.CultureInfo.CurrentUICulture),
+            $"Badge='{vm.YouTube.ResultsCountNumber}' for {vm.YouTube.Results.Count} rows, visible={vm.YouTube.ResultsBadgeVisible}.");
+        // A preview is heard once: the controller marks it so that the end of it does not hand the
+        // queue over to a downloaded track. Checked here because it is set on the play path.
+        var controller = GetField<BeatzOnKeys.Core.Audio.PlaybackController>(vm, "_playbackController");
+        Check("youtube.previewIsStandalone",
+            controller is not null && controller.CurrentTrack is { } previewing &&
+            controller.IsStandalone(previewing.Id),
+            "The preview in the player is marked as a one-off track.");
 
         // A preview is the user asking to hear the track, so the idle pause must stay away even
         // though the setting is on. The player is watched past the timeout to catch a stale timer.
@@ -2046,6 +2099,17 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             $"After switching to the local page: playing={player.IsPlaying}, " +
             $"{positionBeforeSwitch.TotalSeconds:F2}s -> {player.Position.TotalSeconds:F2}s, " +
             $"now='{vm.PlayingTrackText}'.");
+        // The kept foreign track is parked in front of this page's queue. It has to be marked, or
+        // the end of the local list wraps onto it and then walks on into another tab — the reported
+        // "it crawled into YouTube and then into TikTok".
+        var pageController = GetField<BeatzOnKeys.Core.Audio.PlaybackController>(vm, "_playbackController");
+        Check("queue.foreignTrackIsMarked",
+            pageController is not null && pageController.CurrentTrack is { } kept &&
+            pageController.IsStandalone(kept.Id) &&
+            pageController.IndexOf(kept.Id) == 0,
+            pageController?.CurrentTrack is { } current
+                ? $"Kept '{current.Name}' at {pageController.IndexOf(current.Id)}, standalone={pageController.IsStandalone(current.Id)}."
+                : "Nothing is playing, so the check proves nothing.");
         await StopAsync(vm);
 
         // --- 2 and 3. one filter per list, each with a cross -------------------------------

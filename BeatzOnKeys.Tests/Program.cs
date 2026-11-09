@@ -8,6 +8,8 @@ internal static class Program
         ("PlaybackController.NaturalEndModeMatrix", PlaybackControllerTests.NaturalEndModeMatrix),
         ("PlaybackController.SelectionUpsertRemoveAndClear", PlaybackControllerTests.SelectionUpsertRemoveAndClear),
         ("PlaybackController.EventsRunOutsidePlaylistLock", PlaybackControllerTests.EventsRunOutsidePlaylistLock),
+        ("PlaybackController.LoopWrapsOntoThePageNotTheParkedTrack", PlaybackControllerTests.LoopWrapsOntoThePageNotTheParkedTrack),
+        ("PlaybackController.AStandaloneTrackStopsInsteadOfContinuing", PlaybackControllerTests.AStandaloneTrackStopsInsteadOfContinuing),
         ("PlaybackController.ReplaceMakesThePageTheQueue", PlaybackControllerTests.ReplaceMakesThePageTheQueue),
         ("PlaylistOrder.MoveTrackStepsAndRespectsEdges", PlaylistOrderTests.MoveTrackStepsAndRespectsEdges),
         ("PlaylistOrder.ReorderFollowsVisualOrderAndKeepsSelection", PlaylistOrderTests.ReorderFollowsVisualOrderAndKeepsSelection),

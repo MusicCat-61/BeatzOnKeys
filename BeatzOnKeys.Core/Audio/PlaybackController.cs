@@ -7,6 +7,8 @@ public sealed class PlaybackController
 {
     private readonly object _gate = new();
     private readonly List<PlaybackTrack> _tracks = [];
+    /// <summary>Ids that must not continue into the next entry when they end. A preview lives here.</summary>
+    private readonly HashSet<Guid> _standalone = [];
     private Guid? _selectedTrackId;
     private bool _autoAdvance;
     private bool _loop = true;
@@ -50,10 +52,21 @@ public sealed class PlaybackController
             next = null;
             var index = _tracks.FindIndex(track => track.Id == _selectedTrackId);
             if (index < 0) { return false; }
+            // A track that belongs to no page of this queue ends the session. A preview is heard
+            // once, and a track kept from another page has nothing after it here — continuing from
+            // either one would hand the queue over to an unrelated row.
+            if (_selectedTrackId is Guid standalone && _standalone.Contains(standalone)) { return false; }
             if (_autoAdvance)
             {
                 if (index + 1 < _tracks.Count) { index++; }
-                else if (_loop) { index = 0; }
+                else if (_loop)
+                {
+                    // Wrapping lands on the first track of the page, never on a kept foreign track
+                    // parked in front: that park was why the local playlist "moved on" into the
+                    // downloaded YouTube list and then into TikTok.
+                    index = FirstPageIndex();
+                    if (index < 0) { return false; }
+                }
                 else { return false; }
             }
             else if (!_loop) { return false; }
@@ -62,6 +75,17 @@ public sealed class PlaybackController
         }
         CurrentTrackChanged?.Invoke(new(next.Id, next.Name, true));
         return true;
+    }
+
+    /// <summary>The first entry that belongs to the page; -1 when every entry is a kept foreign one.</summary>
+    private int FirstPageIndex()
+    {
+        for (var position = 0; position < _tracks.Count; position++)
+        {
+            if (!_standalone.Contains(_tracks[position].Id)) { return position; }
+        }
+
+        return -1;
     }
 
     public void RemoveTrack(Guid id)
@@ -161,5 +185,21 @@ public sealed class PlaybackController
     }
 
     public void Deselect() { lock (_gate) { _selectedTrackId = null; } }
-    public void Clear() { lock (_gate) { _tracks.Clear(); _selectedTrackId = null; } }
+    public void Clear() { lock (_gate) { _tracks.Clear(); _selectedTrackId = null; _standalone.Clear(); } }
+
+    /// <summary>
+    /// Marks a track as heard on its own: when it ends, the queue stops instead of moving on. A
+    /// preview is the reason this exists — it belongs to no list, so continuing from it would pick
+    /// an unrelated row, and with Loop on that row is simply the first downloaded track.
+    /// </summary>
+    public void SetStandalone(Guid id, bool standalone = true)
+    {
+        lock (_gate)
+        {
+            if (standalone) { _standalone.Add(id); } else { _standalone.Remove(id); }
+        }
+    }
+
+    /// <summary>True when this track ends the session instead of handing over to the next one.</summary>
+    public bool IsStandalone(Guid id) { lock (_gate) { return _standalone.Contains(id); } }
 }

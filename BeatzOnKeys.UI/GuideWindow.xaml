@@ -41,14 +41,14 @@
                 <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
                     <TextBlock Text="{DynamicResource Guide_WindowTitle}" FontSize="19" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="{DynamicResource L_PlaybackSummary}" FontSize="12.5" Margin="0,3,0,0"
+                    <TextBlock Text="{DynamicResource L_PlaybackSummary}" FontSize="13.5" Margin="0,3,0,0"
                                TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"/>
                 </StackPanel>
 
                 <Button Grid.Column="2" Style="{StaticResource CloseButtonStyle}" Width="32" Height="32"
                         Click="Close_Click" VerticalAlignment="Top" ToolTip="{DynamicResource L_CloseDialog}"
                         AutomationProperties.Name="{DynamicResource L_CloseDialog}">
-                    <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE8BB;" FontSize="12"/>
+                    <TextBlock Style="{StaticResource SymbolIconStyle}" Text="&#xE8BB;" FontSize="13"/>
                 </Button>
             </Grid>
 

@@ -43,9 +43,9 @@
 
             <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
                         Margin="18,0,18,16">
-                <Button x:Name="BtnNo" Style="{StaticResource SubtleButtonStyle}" FontSize="16"
+                <Button x:Name="BtnNo" Style="{StaticResource SubtleButtonStyle}" FontSize="17"
                         MinWidth="96" Margin="0,0,8,0" Click="BtnNo_Click"/>
-                <Button x:Name="BtnYes" Style="{StaticResource AccentButtonStyle}" FontSize="16"
+                <Button x:Name="BtnYes" Style="{StaticResource AccentButtonStyle}" FontSize="17"
                         MinWidth="96" Click="BtnYes_Click"/>
             </StackPanel>
         </Grid>

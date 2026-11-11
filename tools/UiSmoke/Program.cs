@@ -241,6 +241,16 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             Check("render.playlistNoStatuses", !Descendants<TextBlock>(_window).Any(t =>
                 Regex.IsMatch(t.Text ?? "", @"^(Queued|Processing|Transcribing|Ready|В очереди|Обработка|Транскрибирование|Готово)$", RegexOptions.IgnoreCase)),
                 "Rendered playlist has filename/path/duration/extension only.");
+            // A sentence with a hole in it is a bug the eye finds and a "not blank" check does not:
+            // the card read "Now playing · {0}" whenever nothing was playing.
+            var rawPlaceholders = Descendants<TextBlock>(_window)
+                .Where(t => t.IsVisible && Regex.IsMatch(t.Text ?? "", @"\{\d+\}"))
+                .Select(t => t.Text)
+                .ToArray();
+            Check("render.noRawPlaceholders", rawPlaceholders.Length == 0,
+                rawPlaceholders.Length == 0
+                    ? "No visible text shows an unformatted {0}."
+                    : "Visible with a raw placeholder: " + string.Join(" | ", rawPlaceholders));
             await Section("lifecycle.audio", AudioLifecycleAsync);
             await Section("render.matrix", CaptureMatrixAsync);
             await Section("settings.sections", SettingsSectionsAsync);
@@ -250,6 +260,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             await Section("missingTrack", MissingTrackAsync);
             await Section("youtube", YouTubeSectionAsync);
             await Section("queueAndFields", QueueAndFieldsAsync);
+            await Section("focus", FocusAsync);
         await Section("settings.roundtrip", SettingsRoundtripAsync);
         }
         catch (Exception error) { Check("harness.exception", false, error.ToString()); }
@@ -438,7 +449,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             $"Output={Output?.GetType().Name}, state={Output?.PlaybackState}, gain={player.CurrentGain:F3}, position={startPosition.TotalSeconds:F3}s.");
         await Task.Delay(600);
         Check("start.advancesWithoutKeys", hook.SignalCount == 0 && player.IsPlaying && player.Position > startPosition + TimeSpan.FromMilliseconds(300) &&
-            vm.PlaybackProgress > startProgress, $"No keys: position={player.Position.TotalSeconds:F3}s, progress={vm.PlaybackProgress:F4}%.");
+            vm.PlaybackProgress > startProgress, $"No keys: position={player.Position.TotalSeconds:F3}s, was {startPosition.TotalSeconds:F3}s, progress={vm.PlaybackProgress:F4}%.");
         hook.Signal();
         await UntilAsync(() => player.CurrentGain >= 0.99, 1500, "typing volume attack");
         Check("signal.actualWaveOutPlaying", Output is WaveOut && Output.PlaybackState == PlaybackState.Playing && player.IsPlaying,
@@ -2488,6 +2499,134 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         }
     }
 
+    /// <summary>
+    /// Focus mode exists to remove decisions, so every check here is about what disappears and what
+    /// still works — and about the one thing it must never do: rewrite the user's preferences.
+    /// </summary>
+    private async Task FocusAsync()
+    {
+        var music = AppPaths.MusicDirectory;
+        Directory.CreateDirectory(music);
+        var settingsPath = Path.Combine(session, "focus-settings.json");
+
+        // --- 1. in focus mode the queue never runs dry, and the switches are not touched ------
+        // Both switches start off on purpose: without focus mode this clip would simply stop.
+        var player = new ContinuousAudioPlayer();
+        var vm = Own(new MainViewModel(new AppSettings
+        {
+            Language = "en",
+            PauseOnIdle = false,
+            AutoAdvance = false,
+            Loop = false
+        }, MakeSettingsService(settingsPath), new FakeKeyboardHook(), player));
+        vm.UserMessageRequested += message => _messages.Add("Focus: " + message);
+        await vm.InitializeAsync();
+        await vm.AddFilesAsync(new[] { _fixtures[3], _fixtures[1] });
+        var controller = GetField<BeatzOnKeys.Core.Audio.PlaybackController>(vm, "_playbackController")
+            ?? throw new InvalidOperationException("The playback controller is required here.");
+        var second = vm.Tracks[1];
+        Check("focus.startsWithBothSwitchesOff",
+            !controller.AutoAdvance && !controller.Loop && !vm.AutoAdvance && !vm.Loop,
+            $"controller auto={controller.AutoAdvance}, loop={controller.Loop}.");
+
+        vm.ToggleFocusModeCommand.Execute(null);
+        await SettleAsync();
+        Check("focus.neverGoesSilent",
+            controller.AutoAdvance && controller.Loop,
+            $"In focus mode auto={controller.AutoAdvance}, loop={controller.Loop}.");
+        Check("focus.doesNotTouchTheSwitches",
+            !vm.AutoAdvance && !vm.Loop && vm.FocusToggleText == Loc.T("L_FocusExit"),
+            $"The user's switches stay {vm.AutoAdvance}/{vm.Loop}; the button reads '{vm.FocusToggleText}'.");
+
+        vm.StartCommand.Execute(null);
+        await UntilAsync(() => vm.IsRunning && player.IsPlaying, 5000, "focus playback");
+        await UntilAsync(() => ReferenceEquals(vm.SelectedTrack, second) && player.IsPlaying, 12000,
+            "the next track in focus mode");
+        Check("focus.advancesInsteadOfStopping",
+            ReferenceEquals(vm.SelectedTrack, second) && player.IsPlaying,
+            $"Selected='{vm.SelectedTrackText}', playing={player.IsPlaying}.");
+        await StopAsync(vm);
+
+        vm.ToggleFocusModeCommand.Execute(null);
+        await SettleAsync();
+        Check("focus.leavingHandsTheSwitchesBack",
+            !controller.AutoAdvance && !controller.Loop && !vm.AutoAdvance && !vm.Loop,
+            $"After leaving auto={controller.AutoAdvance}, loop={controller.Loop}.");
+        var savedAfter = await MakeSettingsService(settingsPath).LoadAsync();
+        Check("focus.writesNoPreference",
+            !savedAfter.AutoAdvance && !savedAfter.Loop,
+            $"Saved auto={savedAfter.AutoAdvance}, loop={savedAfter.Loop}.");
+        await vm.DisposeAsync();
+        _ownedModels.Remove(vm);
+
+        // --- 2. an empty page is named, not clicked into -------------------------------------
+        // The YouTube page is used because it is genuinely empty here: the local playlist is
+        // loaded from the shared library file, so "a new view model has no tracks" would be a lie.
+        var empty = Own(new MainViewModel(new AppSettings { Language = "en", PauseOnIdle = false },
+            MakeSettingsService(Path.Combine(session, "focus-empty.json")), new FakeKeyboardHook(),
+            new ContinuousAudioPlayer()));
+        await empty.InitializeAsync();
+        empty.ShowYouTubeCommand.Execute(null);
+        await SettleAsync();
+        empty.ToggleFocusModeCommand.Execute(null);
+        await SettleAsync();
+        Check("focus.namesTheEmptyPage",
+            empty.FocusNeedsMusicVisible == Visibility.Visible && !empty.HasSomethingToPlay &&
+            !empty.StartCommand.CanExecute(null),
+            $"Nothing to play={!empty.HasSomethingToPlay}, Start can execute=" +
+            $"{empty.StartCommand.CanExecute(null)}, line={empty.FocusNeedsMusicVisible}.");
+        empty.ToggleFocusModeCommand.Execute(null);
+        Check("focus.emptyLineBelongsToTheMode",
+            empty.FocusNeedsMusicVisible == Visibility.Collapsed,
+            "Outside focus mode the line is gone.");
+        await empty.DisposeAsync();
+        _ownedModels.Remove(empty);
+
+        // --- 3. the window really hides the choices and keeps the transport ------------------
+        var window = _window ?? throw new InvalidOperationException("The window is required for the focus checks.");
+        var shell = _vm ?? throw new InvalidOperationException("The window's view model is required here.");
+        await StopAsync(shell);
+        shell.ShowPlaylistCommand.Execute(null);
+        await SettleAsync();
+        bool Shows(string key) => Descendants<TextBlock>(window).Any(text => text.IsVisible && text.Text == Loc.T(key));
+        int VisibleTabs() => Descendants<Button>(window).Count(button => button.IsVisible &&
+            (ReferenceEquals(button.Command, shell.ShowYouTubeCommand) ||
+             ReferenceEquals(button.Command, shell.ShowTikTokCommand) ||
+             ReferenceEquals(button.Command, shell.ShowSettingsCommand)));
+        var privacyBefore = Shows("L_PrivacyTitle");
+        var tabsBefore = VisibleTabs();
+        var startButton = Descendants<Button>(window).FirstOrDefault(button => ReferenceEquals(button.Command, shell.StartCommand));
+
+        shell.ToggleFocusModeCommand.Execute(null);
+        await SettleAsync();
+        Check("focus.hidesTheTabs",
+            tabsBefore >= 3 && VisibleTabs() == 0,
+            $"Tabs on screen: {tabsBefore} before, {VisibleTabs()} after.");
+        Check("focus.hidesTheCardsAndAdvice",
+            privacyBefore && !Shows("L_PrivacyTitle") &&
+            shell.TabStripVisible == Visibility.Collapsed &&
+            shell.FocusChromeVisible == Visibility.Collapsed,
+            $"Privacy card before={privacyBefore}, after={Shows("L_PrivacyTitle")}.");
+        Check("focus.showsItsOwnPage",
+            Shows("L_FocusHint") && shell.FocusPanelVisible == Visibility.Visible,
+            $"Focus page visible={shell.FocusPanelVisible}, hint shown={Shows("L_FocusHint")}.");
+        Check("focus.keepsTheTransport",
+            startButton is { IsVisible: true },
+            startButton is null ? "The Start button was not found." : $"Start visible={startButton.IsVisible}.");
+        SaveScreenshot(window, $"focus-{Loc.CurrentCode}.png");
+
+        shell.ToggleFocusModeCommand.Execute(null);
+        await SettleAsync();
+        Check("focus.leavingRestoresTheWindow",
+            VisibleTabs() >= 3 && Shows("L_PrivacyTitle") &&
+            shell.FocusPanelVisible == Visibility.Collapsed &&
+            shell.TabStripVisible == Visibility.Visible,
+            $"After leaving: tabs={VisibleTabs()}, privacy={Shows("L_PrivacyTitle")}.");
+        Check("focus.buttonIsOnScreen",
+            Descendants<Button>(window).Any(button => button.IsVisible &&
+                ReferenceEquals(button.Command, shell.ToggleFocusModeCommand)),
+            "The mode has a button in the window.");
+    }
     private async Task Section(string name, Func<Task> action)
     {
         try { await action(); }

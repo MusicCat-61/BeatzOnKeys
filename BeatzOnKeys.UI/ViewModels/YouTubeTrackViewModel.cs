@@ -408,6 +408,7 @@ public sealed class YouTubeTrackViewModel : ObservableObject
             OnPropertyChanged();
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(SubtitleText));
+        OnPropertyChanged(nameof(SubtitleVisible));
             OnPropertyChanged(nameof(IsReady));
             OnPropertyChanged(nameof(IsFailed));
             OnPropertyChanged(nameof(CanPlay));
@@ -415,6 +416,7 @@ public sealed class YouTubeTrackViewModel : ObservableObject
             OnPropertyChanged(nameof(IsChipReady));
             OnPropertyChanged(nameof(IsChipFailed));
             OnPropertyChanged(nameof(IsChipBusy));
+        OnPropertyChanged(nameof(StatusChipVisible));
         }
     }
 
@@ -480,6 +482,13 @@ public sealed class YouTubeTrackViewModel : ObservableObject
     public bool IsChipBusy => IsDownloading || Status == YouTubeTrackStatus.Downloading;
 
     /// <summary>
+    /// The chip exists to warn or to show work in progress. A finished track needs no badge:
+    /// "Ready" on every row is the same noise the playlist removed, and it draws the eye away
+    /// from the rows that are actually in trouble.
+    /// </summary>
+    public Visibility StatusChipVisible => IsChipReady ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>
     /// Clears everything a previous attempt left behind. Without this a retry of the same video
     /// keeps the old failure text and the row still reads "Ошибка" while it downloads again.
     /// </summary>
@@ -504,6 +513,13 @@ public sealed class YouTubeTrackViewModel : ObservableObject
 
     /// <summary>The one line under the title: a failure explains itself instead of saying "Ошибка".</summary>
     public string SubtitleText => IsFailed && !string.IsNullOrEmpty(ErrorMessage) ? ErrorMessage! : StatusText;
+
+    /// <summary>
+    /// A finished row has nothing to explain: "Ready" under every title is the same noise the
+    /// playlist already dropped. The line appears for work in progress and for failures, where
+    /// it carries a message the user cannot get anywhere else.
+    /// </summary>
+    public Visibility SubtitleVisible => IsChipReady ? Visibility.Collapsed : Visibility.Visible;
     public string TooltipText => ErrorMessage ?? CachedPath ?? VideoId;
 
     /// <summary>Marks a finished download; the row becomes playable and remembers its file.</summary>

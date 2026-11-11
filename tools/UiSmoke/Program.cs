@@ -646,10 +646,18 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 SaveScreenshot(window, filename);
                 // Audio really is playing, so the progress moves on its own; the check is that it
                 // moves only forward and only by what the elapsed capture time could explain.
-                var drift = vm.PlaybackProgress - baseline;
-                Check($"preview.equalState.{Theme.CurrentCode}.{language}", drift >= -0.0001 && drift < 2,
-                    $"Progress moved {drift:F4} points during the captures (baseline {baseline:F4}%); "
-                    + "real playback only, no synthetic VM property edits.");
+                  var drift = vm.PlaybackProgress - baseline;
+                  // A four-second fixture can genuinely end and restart between two captures,
+                  // and a restart is not a backwards jump: it is the same thing a listener
+                  // hears. Only a fall back into the middle of the track is a bug, so the
+                  // restart case is named instead of being silently tolerated.
+                  var restarted = drift < 0 && vm.PlaybackProgress < 0.5;
+                  Check($"preview.equalState.{Theme.CurrentCode}.{language}",
+                      (drift >= -0.0001 && drift < 2) || restarted,
+                      restarted
+                          ? $"Progress restarted from the beginning ({baseline:F4}% -> {vm.PlaybackProgress:F4}%)."
+                          : $"Progress moved {drift:F4} points during the captures (baseline {baseline:F4}%); "
+                            + "real playback only, no synthetic VM property edits.");
                 if (language == "ru") await CaptureAboutAsync(light);
             }
         }
@@ -2761,6 +2769,26 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             $"Status={vm.StatusText}, running={vm.IsRunning}.");
         // The YouTube page used to hide its list behind two inner tabs, which put the tabs back
         // one floor below the screen that removed them. One list, one search, no inner tabs.
+        // A finished row needs no badge: "Ready" under every title is the noise the playlist
+        // already dropped, and it pulls the eye away from the rows that are in trouble.
+        var readyRow = new YouTubeTrackViewModel(new YouTubeTrackState
+        {
+            VideoId = "readyChip", Title = "Ready chip", CachedPath = _fixtures[3],
+            Duration = TimeSpan.FromSeconds(4), Status = YouTubeTrackStatus.Ready
+        });
+        var failedRow = new YouTubeTrackViewModel(new YouTubeTrackState
+        {
+            VideoId = "failedChip", Title = "Failed chip", Duration = TimeSpan.FromSeconds(4),
+            Status = YouTubeTrackStatus.Failed
+        });
+        Check("rows.readyRowsHaveNoBadge",
+            readyRow.StatusChipVisible == Visibility.Collapsed && readyRow.SubtitleVisible == Visibility.Collapsed,
+            $"Ready row: chip={readyRow.StatusChipVisible}, subtitle={readyRow.SubtitleVisible}.");
+        // The badge must still appear where it carries information: a failed row explains itself.
+        Check("rows.failedRowsKeepTheirBadge",
+            failedRow.StatusChipVisible == Visibility.Visible && failedRow.SubtitleVisible == Visibility.Visible &&
+            failedRow.SubtitleText.Length > 0,
+            $"Failed row: chip={failedRow.StatusChipVisible}, subtitle={failedRow.SubtitleVisible}.");
         Check("home.noInnerTabs",
             !Descendants<Button>(window).Any(button => button.IsVisible &&
                 (ReferenceEquals(button.Command, vm.YouTube.ShowSearchTabCommand) ||

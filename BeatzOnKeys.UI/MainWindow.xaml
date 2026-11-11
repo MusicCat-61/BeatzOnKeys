@@ -28,9 +28,9 @@
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="56"/>
+            <RowDefinition Height="62"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="58"/>
+            <RowDefinition Height="66"/>
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -47,15 +47,16 @@
                     </Ellipse.Fill>
                 </Ellipse>
                 <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="{DynamicResource L_AppName}" FontSize="15" FontWeight="SemiBold"
+                    <TextBlock Text="{DynamicResource L_AppName}" FontSize="16" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <TextBlock Text="{DynamicResource L_AppTagline}" FontSize="11.5"
+                    <TextBlock Text="{DynamicResource L_AppTagline}" FontSize="13"
                                Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,-1,0,0"/>
                 </StackPanel>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="22,0,0,0"
                         HorizontalAlignment="Left"
+                         Visibility="{Binding TabStripVisible}"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
                 <Button Command="{Binding ShowPlaylistCommand}" Content="{DynamicResource L_TabPlaylist}">
                     <Button.Style>
@@ -112,6 +113,10 @@
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                <Button Command="{Binding ToggleFocusModeCommand}" Content="{Binding FocusToggleText}"
+                        Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,0,10,0"
+                        ToolTip="{Binding FocusToggleTooltip}"
+                        AutomationProperties.Name="{Binding FocusToggleText}"/>
                 <Border Background="{DynamicResource ControlBackgroundBrush}"
                         BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                         CornerRadius="6" Padding="2" Margin="0,0,10,0"
@@ -182,11 +187,15 @@
         <Grid Grid.Row="1" Margin="20,4,20,8">
             <Grid.Style>
                 <Style TargetType="Grid">
-                    <Setter Property="Visibility" Value="Visible"/>
+                    <Setter Property="Visibility" Value="Collapsed"/>
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsPlaylistPage}" Value="False">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                        </DataTrigger>
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsPlaylistPage}" Value="True"/>
+                                <Condition Binding="{Binding IsFocusMode}" Value="False"/>
+                            </MultiDataTrigger.Conditions>
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </MultiDataTrigger>
                     </Style.Triggers>
                 </Style>
             </Grid.Style>
@@ -198,7 +207,7 @@
 
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="126"/>
+                    <RowDefinition Height="138"/>
                     <RowDefinition Height="12"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
@@ -226,7 +235,7 @@
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="{DynamicResource L_DropTitle}" FontSize="18" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap"/>
-                                <TextBlock Text="{DynamicResource L_DropHint}" FontSize="13.5" Margin="0,3,0,0"
+                                <TextBlock Text="{DynamicResource L_DropHint}" FontSize="14.5" Margin="0,3,0,0"
                                            Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Grid>
@@ -252,9 +261,9 @@
                                     IsEnabled="{Binding CanClearPlaylist}"
                                     AutomationProperties.Name="{DynamicResource L_ClearPlaylist}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                                    <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="13"
                                                Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,6,0"/>
-                                    <TextBlock Text="{DynamicResource L_ClearPlaylist}" VerticalAlignment="Center" FontSize="12.5"/>
+                                    <TextBlock Text="{DynamicResource L_ClearPlaylist}" VerticalAlignment="Center" FontSize="13.5"/>
                                 </StackPanel>
                             </Button>
                             <TextBlock Text="{DynamicResource L_Tracks}" Style="{StaticResource SectionLabelStyle}"
@@ -265,7 +274,7 @@
                                     VerticalAlignment="Center"
                                     ToolTip="{Binding TrackCountText}"
                                     AutomationProperties.Name="{Binding TrackCountText}">
-                                <TextBlock Text="{Binding TrackCountNumber}" FontSize="15" FontWeight="SemiBold"
+                                <TextBlock Text="{Binding TrackCountNumber}" FontSize="16" FontWeight="SemiBold"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                            Foreground="{DynamicResource AccentBrush}"/>
                             </Border>
@@ -278,7 +287,7 @@
                                      Style="{StaticResource InputBoxStyle}" MaxLength="200"
                                      AcceptsReturn="False" Padding="34,5,34,5"
                                      AutomationProperties.Name="{DynamicResource L_SearchTracksHint}"/>
-                            <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                            <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="13"
                                        Foreground="{DynamicResource TextTertiaryBrush}"
                                        HorizontalAlignment="Left" VerticalAlignment="Center"
                                        Margin="11,0,0,0" IsHitTestVisible="False"/>
@@ -378,7 +387,7 @@
 
                                             <Border Width="34" Height="34" CornerRadius="8" VerticalAlignment="Center"
                                                     Background="{DynamicResource OverlayBrush}">
-                                                <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="15"
+                                                <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="16"
                                                            Foreground="{DynamicResource AccentBrush}"/>
                                             </Border>
 
@@ -387,26 +396,26 @@
                                                     <RowDefinition Height="Auto"/>
                                                     <RowDefinition Height="Auto"/>
                                                 </Grid.RowDefinitions>
-                                                <TextBlock Text="{Binding FileName}" FontSize="14.5" FontWeight="SemiBold"
+                                                <TextBlock Text="{Binding FileName}" FontSize="15.5" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                                            TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Grid.Row="1" Text="{Binding DirectoryName}" FontSize="12"
+                                                <TextBlock Grid.Row="1" Text="{Binding DirectoryName}" FontSize="13"
                                                            Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
                                             </Grid>
 
                                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
                                                         Margin="0,0,10,0">
-                                                <TextBlock Text="&#xE823;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                                                <TextBlock Text="&#xE823;" Style="{StaticResource SymbolIconStyle}" FontSize="13"
                                                            Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,5,0"/>
-                                                <TextBlock Text="{Binding DurationText}" FontSize="12.5"
+                                                <TextBlock Text="{Binding DurationText}" FontSize="13.5"
                                                            Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </StackPanel>
 
                                             <Border Grid.Column="3" Background="{DynamicResource ControlBackgroundBrush}"
                                                     CornerRadius="4" Padding="6,3" Margin="0,0,7,0"
                                                     VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Extension}" FontSize="10.5" FontWeight="SemiBold"
+                                                <TextBlock Text="{Binding Extension}" FontSize="12.5" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
                                             </Border>
                                             <Button Grid.Column="4" Margin="0,0,2,0"
@@ -424,7 +433,7 @@
                                                         </Style.Triggers>
                                                     </Style>
                                                 </Button.Style>
-                                                <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70E;"/>
+                                                <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12.5" Text="&#xE70E;"/>
                                             </Button>
                                             <Button Grid.Column="5" Margin="0,0,6,0"
                                                     Command="{Binding DataContext.MoveTrackDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -441,12 +450,12 @@
                                                         </Style.Triggers>
                                                     </Style>
                                                 </Button.Style>
-                                                <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70D;"/>
+                                                <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12.5" Text="&#xE70D;"/>
                                             </Button>
                                             <Button Grid.Column="6" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
                                                     Command="{Binding DataContext.RemoveTrackCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                     CommandParameter="{Binding}" ToolTip="{DynamicResource L_Remove}">
-                                                <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="13"/>
+                                                <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="14"/>
                                             </Button>
                                         </Grid>
                                     </DataTemplate>
@@ -466,10 +475,10 @@
                                 </StackPanel.Style>
                                 <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="30"
                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                <TextBlock Text="{DynamicResource L_EmptyTracks}" FontSize="15" FontWeight="SemiBold"
+                                <TextBlock Text="{DynamicResource L_EmptyTracks}" FontSize="16" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                            HorizontalAlignment="Center" Margin="0,10,0,0"/>
-                                <TextBlock Text="{DynamicResource L_EmptyTracksHint}" FontSize="13" Margin="0,4,0,0"
+                                <TextBlock Text="{DynamicResource L_EmptyTracksHint}" FontSize="14" Margin="0,4,0,0"
                                            TextAlignment="Center" TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
                             </StackPanel>
@@ -480,7 +489,7 @@
                                         Visibility="{Binding TrackFilteredEmptyVisibility}">
                                 <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="26"
                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                <TextBlock Text="{DynamicResource L_SearchNoMatch}" FontSize="16" Margin="0,8,0,0"
+                                <TextBlock Text="{DynamicResource L_SearchNoMatch}" FontSize="17" Margin="0,8,0,0"
                                            HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             </StackPanel>
                         </Grid>
@@ -500,13 +509,13 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <Border Width="30" Height="30" CornerRadius="7" Background="{DynamicResource DropAreaBrush}">
-                                    <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="14"
+                                    <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="15"
                                                Foreground="{DynamicResource AccentBrush}"/>
                                 </Border>
                                 <StackPanel Grid.Column="1" Margin="3,0,0,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding PlayingSourceText}" FontSize="13.5"
+                                    <TextBlock Text="{Binding PlayingSourceText}" FontSize="14.5"
                                                Foreground="{DynamicResource TextTertiaryBrush}"/>
-                                    <TextBlock Text="{Binding PlayingTrackText}" FontSize="15.5" FontWeight="SemiBold"
+                                    <TextBlock Text="{Binding PlayingTrackText}" FontSize="16" FontWeight="SemiBold"
                                                Foreground="{DynamicResource TextPrimaryBrush}"
                                                TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
                                 </StackPanel>
@@ -515,8 +524,8 @@
                             <Border Height="1" Background="{DynamicResource CardBorderBrush}" Margin="0,13,0,11"/>
                             <DockPanel>
                                 <TextBlock DockPanel.Dock="Right" Text="{Binding PlaybackPositionText}"
-                                           FontSize="13.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                                <TextBlock Text="{DynamicResource L_PlaybackProgress}" FontSize="13.5"
+                                           FontSize="14.5" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{DynamicResource L_PlaybackProgress}" FontSize="14.5"
                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
                             </DockPanel>
                             <ProgressBar Minimum="0" Maximum="100" Value="{Binding PlaybackProgress, Mode=OneWay}"
@@ -527,13 +536,13 @@
                     <Border Style="{StaticResource CardStyle}" Padding="15" Margin="0,12,0,0">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="&#xE72E;" Style="{StaticResource SymbolIconStyle}" FontSize="16"
+                                <TextBlock Text="&#xE72E;" Style="{StaticResource SymbolIconStyle}" FontSize="17"
                                            Foreground="{DynamicResource SuccessBrush}"/>
-                                <TextBlock Text="{DynamicResource L_PrivacyTitle}" FontSize="15.5" FontWeight="SemiBold"
+                                <TextBlock Text="{DynamicResource L_PrivacyTitle}" FontSize="16" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextPrimaryBrush}"
                                            VerticalAlignment="Center" Margin="9,0,0,0"/>
                             </StackPanel>
-                            <TextBlock Text="{DynamicResource L_PrivacyText}" FontSize="13.5" TextWrapping="Wrap"
+                            <TextBlock Text="{DynamicResource L_PrivacyText}" FontSize="14.5" TextWrapping="Wrap"
                                        Margin="0,8,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
                         </StackPanel>
                     </Border>
@@ -548,9 +557,13 @@
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Collapsed"/>
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsSettingsOpen}" Value="True">
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsSettingsOpen}" Value="True"/>
+                                <Condition Binding="{Binding IsFocusMode}" Value="False"/>
+                            </MultiDataTrigger.Conditions>
                             <Setter Property="Visibility" Value="Visible"/>
-                        </DataTrigger>
+                        </MultiDataTrigger>
                     </Style.Triggers>
                 </Style>
             </Grid.Style>
@@ -567,7 +580,7 @@
                         <Button DockPanel.Dock="Right" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
                                 Command="{Binding CloseSettingsCommand}" ToolTip="{DynamicResource L_CloseDialog}"
                                 AutomationProperties.Name="{DynamicResource L_CloseDialog}">
-                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12" Text="&#xE8BB;"/>
+                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="13" Text="&#xE8BB;"/>
                         </Button>
                         <TextBlock Text="{DynamicResource L_Settings}" Style="{StaticResource SectionLabelStyle}"
                                    VerticalAlignment="Center" Margin="0"/>
@@ -744,7 +757,7 @@
                                                   ToolTip="{DynamicResource L_PunchResponseHint}" Margin="0,2,0,0">
                                             <TextBlock Text="{DynamicResource L_PunchResponse}" TextWrapping="Wrap"/>
                                         </CheckBox>
-                                        <TextBlock Text="{DynamicResource L_PunchResponseHint}" FontSize="13" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_PunchResponseHint}" FontSize="14" TextWrapping="Wrap"
                                                    Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
                                         <DockPanel Margin="0,12,0,0">
@@ -756,21 +769,21 @@
                                                 Value="{Binding BassReactivePercentValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                 ToolTip="{DynamicResource L_BassGainHint}"
                                                 TickFrequency="1" Margin="0,4,0,0"/>
-                                        <TextBlock Text="{DynamicResource L_BassGainHint}" FontSize="13" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_BassGainHint}" FontSize="14" TextWrapping="Wrap"
                                                    Margin="0,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
                                         <CheckBox IsChecked="{Binding StereoPulseEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                   ToolTip="{DynamicResource L_StereoPulseHint}" Margin="0,10,0,0">
                                             <TextBlock Text="{DynamicResource L_StereoPulse}" TextWrapping="Wrap"/>
                                         </CheckBox>
-                                        <TextBlock Text="{DynamicResource L_StereoPulseHint}" FontSize="13" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_StereoPulseHint}" FontSize="14" TextWrapping="Wrap"
                                                    Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
                                         <CheckBox IsChecked="{Binding AdaptiveVolumeEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                   ToolTip="{DynamicResource L_AdaptiveVolumeHint}" Margin="0,10,0,0">
                                             <TextBlock Text="{DynamicResource L_AdaptiveVolume}" TextWrapping="Wrap"/>
                                         </CheckBox>
-                                        <TextBlock Text="{DynamicResource L_AdaptiveVolumeHint}" FontSize="13" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_AdaptiveVolumeHint}" FontSize="14" TextWrapping="Wrap"
                                                    Margin="30,4,0,4" Foreground="{DynamicResource TextTertiaryBrush}"/>
                                     </StackPanel>
                                 </StackPanel>
@@ -835,13 +848,13 @@
                                         <CheckBox IsChecked="{Binding AutoAdvance}" Margin="0,2,0,0">
                                             <TextBlock Text="{DynamicResource L_AutoAdvance}" TextWrapping="Wrap"/>
                                         </CheckBox>
-                                        <TextBlock Text="{DynamicResource L_AutoAdvanceHint}" FontSize="13" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_AutoAdvanceHint}" FontSize="14" TextWrapping="Wrap"
                                                    Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"/>
 
                                         <CheckBox IsChecked="{Binding Loop}" Margin="0,10,0,0">
                                             <TextBlock Text="{DynamicResource L_Loop}" TextWrapping="Wrap"/>
                                         </CheckBox>
-                                        <TextBlock Text="{DynamicResource L_LoopHint}" FontSize="13" TextWrapping="Wrap"
+                                        <TextBlock Text="{DynamicResource L_LoopHint}" FontSize="14" TextWrapping="Wrap"
                                                    Margin="30,4,0,4" Foreground="{DynamicResource TextTertiaryBrush}"/>
                                     </StackPanel>
                                 </StackPanel>
@@ -858,9 +871,13 @@
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Collapsed"/>
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsYouTubePage}" Value="True">
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsYouTubePage}" Value="True"/>
+                                <Condition Binding="{Binding IsFocusMode}" Value="False"/>
+                            </MultiDataTrigger.Conditions>
                             <Setter Property="Visibility" Value="Visible"/>
-                        </DataTrigger>
+                        </MultiDataTrigger>
                     </Style.Triggers>
                 </Style>
             </Grid.Style>
@@ -906,7 +923,7 @@
                             </Button.Style>
                         </Button>
                     </StackPanel>
-                    <TextBlock Text="{Binding YouTube.StatusText}" FontSize="14" TextWrapping="Wrap"
+                    <TextBlock Text="{Binding YouTube.StatusText}" FontSize="15" TextWrapping="Wrap"
                                Margin="2,10,0,0" Foreground="{DynamicResource TextSecondaryBrush}"
                                Visibility="{Binding YouTube.SearchTabVisible}"/>
                 </StackPanel>
@@ -964,7 +981,7 @@
                                     </Button>
                                 </Grid>
                             </DockPanel>
-                            <TextBlock Text="{DynamicResource L_YtSearchHint}" FontSize="14" TextWrapping="Wrap"
+                            <TextBlock Text="{DynamicResource L_YtSearchHint}" FontSize="15" TextWrapping="Wrap"
                                        Margin="0,10,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <ProgressBar Value="{Binding YouTube.InstallProgress, Mode=OneWay}" Maximum="1"
                                          Height="4" Margin="0,10,0,0">
@@ -1007,7 +1024,7 @@
                                         <Binding Path="YouTube.QueryProgress" Mode="OneWay"/>
                                     </ProgressBar.Value>
                                 </ProgressBar>
-                                <TextBlock FontSize="13" Margin="0,6,0,0"
+                                <TextBlock FontSize="14" Margin="0,6,0,0"
                                            Foreground="{DynamicResource AccentBrush}">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
@@ -1034,7 +1051,7 @@
                                  round badge that carries the count, so the number sits next to the
                                  list it describes instead of in a sentence above it. -->
                             <StackPanel Orientation="Horizontal" Margin="2,0,0,8">
-                                <TextBlock Text="{DynamicResource L_YtFoundTitle}" FontSize="15"
+                                <TextBlock Text="{DynamicResource L_YtFoundTitle}" FontSize="16"
                                            FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
                                            VerticalAlignment="Center"/>
                                 <Border Margin="10,0,0,0" Height="26" MinWidth="26" CornerRadius="13"
@@ -1042,7 +1059,7 @@
                                         BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
                                         Visibility="{Binding YouTube.ResultsBadgeVisible}"
                                         AutomationProperties.Name="{Binding YouTube.ResultsCountNumber}">
-                                    <TextBlock Text="{Binding YouTube.ResultsCountNumber}" FontSize="15"
+                                    <TextBlock Text="{Binding YouTube.ResultsCountNumber}" FontSize="16"
                                                FontWeight="SemiBold" HorizontalAlignment="Center"
                                                VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                                 </Border>
@@ -1054,7 +1071,7 @@
                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid MinHeight="46">
+                                    <Grid MinHeight="52">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
@@ -1084,7 +1101,7 @@
                                                         </Style.Triggers>
                                                     </Style>
                                                 </Border.Style>
-                                                <TextBlock Text="{Binding PlayGlyph}" FontSize="11"
+                                                <TextBlock Text="{Binding PlayGlyph}" FontSize="12.5"
                                                            HorizontalAlignment="Center" VerticalAlignment="Center">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
@@ -1102,12 +1119,12 @@
                                         </Button>
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
-                                            <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
+                                            <TextBlock Text="{Binding Title}" FontSize="15.5" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                                             <DockPanel Margin="0,3,0,0">
                                                 <TextBlock DockPanel.Dock="Right" Text="{Binding ProgressText}"
-                                                           FontSize="12.5" Margin="8,0,0,0"
+                                                           FontSize="13.5" Margin="8,0,0,0"
                                                            Foreground="{DynamicResource AccentBrush}">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
@@ -1120,7 +1137,7 @@
                                                         </Style>
                                                     </TextBlock.Style>
                                                 </TextBlock>
-                                                <TextBlock Text="{Binding CacheStateText}" FontSize="12.5"
+                                                <TextBlock Text="{Binding CacheStateText}" FontSize="13.5"
                                                            TextTrimming="CharacterEllipsis"
                                                            Foreground="{DynamicResource TextTertiaryBrush}"/>
                                             </DockPanel>
@@ -1138,7 +1155,7 @@
                                             </ProgressBar>
                                         </StackPanel>
 
-                                        <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="12.5"
+                                        <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="13.5"
                                                    VerticalAlignment="Center" Margin="0,0,10,0"
                                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
                                         <!-- Adding waits for the preview: the row must not start a
@@ -1175,11 +1192,11 @@
                                                 </Border.Style>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
                                                             VerticalAlignment="Center" Margin="10,0">
-                                                    <TextBlock Text="&#xE73E;" FontSize="11"
+                                                    <TextBlock Text="&#xE73E;" FontSize="12.5"
                                                                VerticalAlignment="Center"
                                                                Foreground="{DynamicResource SuccessBrush}"
                                                                FontFamily="Segoe MDL2 Assets"/>
-                                                    <TextBlock Text="{DynamicResource L_YtAdded}" FontSize="12.5"
+                                                    <TextBlock Text="{DynamicResource L_YtAdded}" FontSize="13.5"
                                                                Margin="6,0,0,0" VerticalAlignment="Center"
                                                                Foreground="{DynamicResource SuccessBrush}"/>
                                                 </StackPanel>
@@ -1193,11 +1210,11 @@
                              different things: blaming the query for a deliberate clear would read as
                              a bug. Both sit under the list, not over it. -->
                         <TextBlock Grid.Row="1" Text="{DynamicResource L_YtResultsCleared}"
-                                   FontSize="15" TextWrapping="Wrap" Margin="2,10,0,0"
+                                   FontSize="16" TextWrapping="Wrap" Margin="2,10,0,0"
                                    Foreground="{DynamicResource TextTertiaryBrush}"
                                    Visibility="{Binding YouTube.ResultsClearedHintVisible}"/>
                         <TextBlock Grid.Row="1" Text="{DynamicResource L_YtResultsEmpty}"
-                                   FontSize="15" TextWrapping="Wrap" Margin="2,10,0,0"
+                                   FontSize="16" TextWrapping="Wrap" Margin="2,10,0,0"
                                    Foreground="{DynamicResource TextTertiaryBrush}"
                                    Visibility="{Binding YouTube.EmptyResultsVisible}"/>
 <!-- While a search runs the empty area becomes a small piano scene: a ring turns,
@@ -1274,7 +1291,7 @@
                                     </TextBlock>
                                 </Grid>
 
-                                <TextBlock Text="{DynamicResource L_YtSearching}" FontSize="13" Margin="0,12,0,0"
+                                <TextBlock Text="{DynamicResource L_YtSearching}" FontSize="14" Margin="0,12,0,0"
                                            HorizontalAlignment="Center"
                                            Foreground="{DynamicResource TextSecondaryBrush}"/>
 
@@ -1380,7 +1397,7 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
-                                    <TextBlock Canvas.Left="104" Canvas.Top="6" Text="♫" FontSize="15"
+                                    <TextBlock Canvas.Left="104" Canvas.Top="6" Text="♫" FontSize="16"
                                                Foreground="{DynamicResource TextSecondaryBrush}" Opacity="0">
                                         <TextBlock.RenderTransform>
                                             <TranslateTransform X="0" Y="6"/>
@@ -1426,14 +1443,14 @@
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="2,0,0,8">
-                            <TextBlock Text="{DynamicResource L_YtDownloadedTitle}" FontSize="15"
+                            <TextBlock Text="{DynamicResource L_YtDownloadedTitle}" FontSize="16"
                                        FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}"
                                        VerticalAlignment="Center"/>
                             <Border Margin="10,0,0,0" Height="26" MinWidth="26" CornerRadius="13"
                                     Background="{DynamicResource DropAreaBrush}"
                                     BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
                                     VerticalAlignment="Center">
-                                <TextBlock Text="{Binding YouTube.TrackCountNumber}" FontSize="15"
+                                <TextBlock Text="{Binding YouTube.TrackCountNumber}" FontSize="16"
                                            FontWeight="SemiBold" HorizontalAlignment="Center"
                                            VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                             </Border>
@@ -1445,7 +1462,7 @@
                                      Style="{StaticResource InputBoxStyle}" MaxLength="200"
                                      AcceptsReturn="False" Padding="34,5,34,5"
                                      AutomationProperties.Name="{DynamicResource L_SearchTracksHint}"/>
-                            <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                            <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="13"
                                        Foreground="{DynamicResource TextTertiaryBrush}"
                                        HorizontalAlignment="Left" VerticalAlignment="Center"
                                        Margin="11,0,0,0" IsHitTestVisible="False"/>
@@ -1524,14 +1541,14 @@
                                         <Border Width="30" Height="30" CornerRadius="7" VerticalAlignment="Center"
                                                 Background="{DynamicResource OverlayBrush}">
                                             <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}"
-                                                       FontSize="14" Foreground="{DynamicResource AccentBrush}"/>
+                                                       FontSize="15" Foreground="{DynamicResource AccentBrush}"/>
                                         </Border>
 
                                         <StackPanel Grid.Column="1" Margin="6,0,10,0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
+                                            <TextBlock Text="{Binding Title}" FontSize="15.5" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis"
                                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="{Binding SubtitleText}" FontSize="12.5"
+                                            <TextBlock Text="{Binding SubtitleText}" FontSize="13.5"
                                                        TextTrimming="CharacterEllipsis" Margin="0,3,0,0"
                                                        Foreground="{DynamicResource TextTertiaryBrush}"/>
                                             <ProgressBar Value="{Binding Progress}" Maximum="1" Height="3"
@@ -1549,7 +1566,7 @@
                                             </ProgressBar>
                                         </StackPanel>
 
-                                        <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="12.5"
+                                        <TextBlock Grid.Column="2" Text="{Binding DurationText}" FontSize="13.5"
                                                    VerticalAlignment="Center" Margin="0,0,10,0"
                                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
                                         <Border Grid.Column="3" VerticalAlignment="Center" Margin="0,0,10,0"
@@ -1571,7 +1588,7 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
-                                            <TextBlock Text="{Binding StatusChipText}" FontSize="11.5" FontWeight="SemiBold">
+                                            <TextBlock Text="{Binding StatusChipText}" FontSize="13" FontWeight="SemiBold">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Setter Property="Foreground" Value="{DynamicResource TextTertiaryBrush}"/>
@@ -1605,7 +1622,7 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Button.Style>
-                                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70E;"/>
+                                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12.5" Text="&#xE70E;"/>
                                         </Button>
                                         <Button Grid.Column="5" Margin="0,0,6,0" CommandParameter="{Binding}"
                                                 Command="{Binding DataContext.YouTube.MoveTrackDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -1622,19 +1639,19 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Button.Style>
-                                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70D;"/>
+                                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12.5" Text="&#xE70D;"/>
                                         </Button>
                                         <Button Grid.Column="6" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
                                                 CommandParameter="{Binding}"
                                                 Command="{Binding DataContext.YouTube.RemoveCachedCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 ToolTip="{DynamicResource L_Remove}">
-                                            <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="13"/>
+                                            <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="14"/>
                                         </Button>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
-                            <TextBlock Grid.Row="3" Text="{DynamicResource L_YtEmpty}" FontSize="13" TextWrapping="Wrap"
+                            <TextBlock Grid.Row="3" Text="{DynamicResource L_YtEmpty}" FontSize="14" TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextTertiaryBrush}">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -1649,7 +1666,7 @@
                             </TextBlock>
                             <!-- A filter that hides everything says so, instead of showing the
                                  "nothing downloaded yet" line, which would be a lie. -->
-                            <TextBlock Grid.Row="3" Text="{DynamicResource L_SearchNoMatch}" FontSize="15"
+                            <TextBlock Grid.Row="3" Text="{DynamicResource L_SearchNoMatch}" FontSize="16"
                                        TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"
                                        Visibility="{Binding YouTube.FilteredEmptyVisibility}"/>
                     </Grid>
@@ -1662,17 +1679,17 @@
 
                     <Border Style="{StaticResource CardStyle}" Padding="14">
                         <StackPanel>
-                            <TextBlock Text="{DynamicResource L_YtCacheTitle}" FontSize="15" FontWeight="SemiBold"
+                            <TextBlock Text="{DynamicResource L_YtCacheTitle}" FontSize="16" FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextPrimaryBrush}"/>
                             <!-- One place for both caches: the total, the previews and the two clear actions. -->
-                            <TextBlock Text="{Binding YouTube.CacheSizeText}" FontSize="14.5" Margin="0,8,0,0"
+                            <TextBlock Text="{Binding YouTube.CacheSizeText}" FontSize="15.5" Margin="0,8,0,0"
                                        Foreground="{DynamicResource TextSecondaryBrush}"/>
-                            <TextBlock Text="{Binding YouTube.SearchCacheSizeText}" FontSize="14.5" Margin="0,4,0,0"
+                            <TextBlock Text="{Binding YouTube.SearchCacheSizeText}" FontSize="15.5" Margin="0,4,0,0"
                                        TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"/>
                             <CheckBox IsChecked="{Binding YouTube.CacheEnabled}" Margin="0,10,0,0">
                                 <TextBlock Text="{DynamicResource L_YtCacheEnabled}" TextWrapping="Wrap"/>
                             </CheckBox>
-                            <TextBlock Text="{Binding YouTube.CacheHintText}" FontSize="12.5" TextWrapping="Wrap"
+                            <TextBlock Text="{Binding YouTube.CacheHintText}" FontSize="13.5" TextWrapping="Wrap"
                                        Margin="30,4,0,0" Foreground="{DynamicResource TextTertiaryBrush}"
                                        ToolTip="{Binding YouTube.CacheHintText}"/>
                             <WrapPanel Margin="0,10,0,0">
@@ -1693,7 +1710,7 @@
                     <Border Style="{StaticResource CardStyle}" Padding="14" Margin="0,12,0,0">
                         <StackPanel>
                             <!-- The state leads; the path is a tooltip detail, not a headline. -->
-                            <TextBlock Text="{Binding YouTube.YtDlpStatusText}" FontSize="15" FontWeight="SemiBold"
+                            <TextBlock Text="{Binding YouTube.YtDlpStatusText}" FontSize="16" FontWeight="SemiBold"
                                        TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"
                                        ToolTip="{Binding YouTube.YtDlpPath}"/>
                             <ProgressBar Value="{Binding YouTube.InstallProgress, Mode=OneWay}" Maximum="1"
@@ -1731,9 +1748,9 @@
                         <StackPanel>
                             <!-- The same troubleshooting entry the guide carries, kept next to yt-dlp
                                  because that is the card it explains. -->
-                            <TextBlock Text="{DynamicResource L_YtZapretTitle}" FontSize="14.5"
+                            <TextBlock Text="{DynamicResource L_YtZapretTitle}" FontSize="15.5"
                                        TextWrapping="Wrap" Foreground="{DynamicResource TextPrimaryBrush}"/>
-                            <TextBlock Text="{DynamicResource L_YtZapretBody}" FontSize="14.5" TextWrapping="Wrap"
+                            <TextBlock Text="{DynamicResource L_YtZapretBody}" FontSize="15.5" TextWrapping="Wrap"
                                        Margin="0,6,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                             <Button Content="{DynamicResource L_ZapretOpen}" Click="ZapretOpenClick"
                                     Style="{StaticResource AccentButtonStyle}" Padding="10,5" Margin="0,10,0,0"
@@ -1752,9 +1769,13 @@
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Collapsed"/>
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsTikTokPage}" Value="True">
+                        <MultiDataTrigger>
+                            <MultiDataTrigger.Conditions>
+                                <Condition Binding="{Binding IsTikTokPage}" Value="True"/>
+                                <Condition Binding="{Binding IsFocusMode}" Value="False"/>
+                            </MultiDataTrigger.Conditions>
                             <Setter Property="Visibility" Value="Visible"/>
-                        </DataTrigger>
+                        </MultiDataTrigger>
                     </Style.Triggers>
                 </Style>
             </Grid.Style>
@@ -1796,7 +1817,7 @@
                             </Button>
                         </Grid>
                     </DockPanel>
-                    <TextBlock Text="{DynamicResource L_TikTokSearchHint}" FontSize="16" TextWrapping="Wrap"
+                    <TextBlock Text="{DynamicResource L_TikTokSearchHint}" FontSize="17" TextWrapping="Wrap"
                                Margin="0,10,0,0" Foreground="{DynamicResource TextSecondaryBrush}"/>
                     <ProgressBar Value="{Binding TikTok.Progress, Mode=OneWay}" Maximum="1" Height="4"
                                  Margin="0,10,0,0">
@@ -1811,7 +1832,7 @@
                             </Style>
                         </ProgressBar.Style>
                     </ProgressBar>
-                    <TextBlock Text="{Binding TikTok.StatusText}" FontSize="13" TextWrapping="Wrap"
+                    <TextBlock Text="{Binding TikTok.StatusText}" FontSize="14" TextWrapping="Wrap"
                                Margin="0,8,0,0" Foreground="{DynamicResource TextSecondaryBrush}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -1836,9 +1857,9 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding TikTok.CacheSizeText}" FontSize="14.5"
+                        <TextBlock Text="{Binding TikTok.CacheSizeText}" FontSize="15.5"
                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
-                        <TextBlock Text="{Binding TikTok.CacheHintText}" FontSize="14.5" Margin="0,4,0,0"
+                        <TextBlock Text="{Binding TikTok.CacheHintText}" FontSize="15.5" Margin="0,4,0,0"
                                    TextTrimming="CharacterEllipsis"
                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
                     </StackPanel>
@@ -1871,13 +1892,13 @@
                                 Command="{Binding TikTok.DismissNetworkHintCommand}"
                                 ToolTip="{DynamicResource L_CloseDialog}"
                                 AutomationProperties.Name="{DynamicResource L_CloseDialog}">
-                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE8BB;"/>
+                            <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12.5" Text="&#xE8BB;"/>
                         </Button>
-                        <TextBlock Text="{DynamicResource L_TikTokNetworkTitle}" FontSize="14.5"
+                        <TextBlock Text="{DynamicResource L_TikTokNetworkTitle}" FontSize="15.5"
                                    TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"
                                    Foreground="{DynamicResource TextPrimaryBrush}"/>
                     </DockPanel>
-                    <TextBlock Grid.Row="1" Text="{DynamicResource L_TikTokNetworkBody}" FontSize="14.5"
+                    <TextBlock Grid.Row="1" Text="{DynamicResource L_TikTokNetworkBody}" FontSize="15.5"
                                TextWrapping="Wrap" Margin="0,6,0,0"
                                Foreground="{DynamicResource TextSecondaryBrush}"/>
                 </Grid>
@@ -1892,12 +1913,12 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <TextBlock Text="{DynamicResource L_TikTokTracksTitle}" FontSize="15" FontWeight="SemiBold"
+                        <TextBlock Text="{DynamicResource L_TikTokTracksTitle}" FontSize="16" FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                         <Border Margin="10,0,0,0" Height="26" MinWidth="26" CornerRadius="13"
                                 Background="{DynamicResource DropAreaBrush}"
                                 BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
-                            <TextBlock Text="{Binding TikTok.TrackCountNumber}" FontSize="15"
+                            <TextBlock Text="{Binding TikTok.TrackCountNumber}" FontSize="16"
                                        FontWeight="SemiBold" HorizontalAlignment="Center"
                                        VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
                         </Border>
@@ -1909,7 +1930,7 @@
                                  Style="{StaticResource InputBoxStyle}" MaxLength="200"
                                  AcceptsReturn="False" Padding="34,5,34,5"
                                  AutomationProperties.Name="{DynamicResource L_SearchTracksHint}"/>
-                        <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                        <TextBlock Text="&#xE721;" Style="{StaticResource SymbolIconStyle}" FontSize="13"
                                    Foreground="{DynamicResource TextTertiaryBrush}"
                                    HorizontalAlignment="Left" VerticalAlignment="Center"
                                    Margin="11,0,0,0" IsHitTestVisible="False"/>
@@ -1989,7 +2010,7 @@
 
                                     <Border Width="34" Height="34" CornerRadius="8" VerticalAlignment="Center"
                                             Background="{DynamicResource OverlayBrush}">
-                                        <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="15"
+                                        <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="16"
                                                    Foreground="{DynamicResource AccentBrush}"/>
                                     </Border>
 
@@ -2004,34 +2025,34 @@
                                         </Grid.RowDefinitions>
                                         <!-- The pencil swaps the label for a field: the name changes in
                                              this list only, the file on disk keeps its own name. -->
-                                        <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
+                                        <TextBlock Text="{Binding Title}" FontSize="15.5" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource TextPrimaryBrush}"
                                                    TextTrimming="CharacterEllipsis"
                                                    Visibility="{Binding TitleVisibility}"/>
                                         <TextBox x:Name="RenameBox" Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}"
                                                  Style="{StaticResource InputBoxStyle}" MaxLength="200"
-                                                 AcceptsReturn="False" FontSize="14" Padding="6,2"
+                                                 AcceptsReturn="False" FontSize="15" Padding="6,2"
                                                  Visibility="{Binding EditVisibility}"
                                                  KeyDown="RenameBox_KeyDown"
                                                  LostFocus="RenameBox_LostFocus"
                                                  AutomationProperties.Name="{DynamicResource L_RenameTrack}"/>
-                                        <TextBlock Grid.Row="1" Text="{Binding SubtitleText}" FontSize="12"
+                                        <TextBlock Grid.Row="1" Text="{Binding SubtitleText}" FontSize="13"
                                                    Margin="0,3,0,0" TextTrimming="CharacterEllipsis"
                                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
                                     </Grid>
 
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
                                                 Margin="0,0,10,0">
-                                        <TextBlock Text="&#xE823;" Style="{StaticResource SymbolIconStyle}" FontSize="12"
+                                        <TextBlock Text="&#xE823;" Style="{StaticResource SymbolIconStyle}" FontSize="13"
                                                    Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,5,0"/>
-                                        <TextBlock Text="{Binding DurationText}" FontSize="12.5"
+                                        <TextBlock Text="{Binding DurationText}" FontSize="13.5"
                                                    Foreground="{DynamicResource TextSecondaryBrush}"/>
                                     </StackPanel>
 
                                     <Border Grid.Column="3" Background="{DynamicResource ControlBackgroundBrush}"
                                             CornerRadius="4" Padding="6,3" Margin="0,0,7,0"
                                             VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Extension}" FontSize="10.5" FontWeight="SemiBold"
+                                        <TextBlock Text="{Binding Extension}" FontSize="12.5" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource TextTertiaryBrush}"/>
                                     </Border>
 
@@ -2052,7 +2073,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Button.Style>
-                                        <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12" Text="&#xE70F;"/>
+                                        <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="13" Text="&#xE70F;"/>
                                     </Button>
                                     <Button Grid.Column="5" Margin="0,0,2,0"
                                             Command="{Binding DataContext.TikTok.MoveTrackUpCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -2069,7 +2090,7 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Button.Style>
-                                        <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70E;"/>
+                                        <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12.5" Text="&#xE70E;"/>
                                     </Button>
                                     <Button Grid.Column="6" Margin="0,0,6,0"
                                             Command="{Binding DataContext.TikTok.MoveTrackDownCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -2086,20 +2107,20 @@
                                                 </Style.Triggers>
                                             </Style>
                                         </Button.Style>
-                                        <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="11" Text="&#xE70D;"/>
+                                        <TextBlock Style="{StaticResource SymbolIconStyle}" FontSize="12.5" Text="&#xE70D;"/>
                                     </Button>
                                     <Button Grid.Column="7" Style="{StaticResource IconButtonStyle}" Width="30" Height="30"
                                             CommandParameter="{Binding}"
                                             Command="{Binding DataContext.TikTok.RemoveCachedCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                             ToolTip="{DynamicResource L_Remove}"
                                             AutomationProperties.Name="{DynamicResource L_Remove}">
-                                        <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="13"/>
+                                        <TextBlock Text="&#xE74D;" Style="{StaticResource SymbolIconStyle}" FontSize="14"/>
                                     </Button>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock Grid.Row="3" Text="{DynamicResource L_TikTokEmpty}" FontSize="15"
+                    <TextBlock Grid.Row="3" Text="{DynamicResource L_TikTokEmpty}" FontSize="16"
                                TextWrapping="Wrap" VerticalAlignment="Top" Margin="0,10,0,0"
                                Foreground="{DynamicResource TextTertiaryBrush}">
                         <TextBlock.Style>
@@ -2113,13 +2134,42 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                    <TextBlock Grid.Row="3" Text="{DynamicResource L_SearchNoMatch}" FontSize="15"
+                    <TextBlock Grid.Row="3" Text="{DynamicResource L_SearchNoMatch}" FontSize="16"
                                TextWrapping="Wrap" VerticalAlignment="Top" Margin="0,10,0,0"
                                Foreground="{DynamicResource TextTertiaryBrush}"
                                Visibility="{Binding TikTok.FilteredEmptyVisibility}"/>
                 </Grid>
             </Border>
         </Grid>
+        <!-- Focus mode: nothing to choose, only what is happening. The transport stays in the
+             footer, so this panel is the whole page. A page with nothing to play says so here
+             instead of offering Start that would do nothing. -->
+        <Grid Grid.Row="1" Panel.ZIndex="5" Margin="20,4,20,8" Visibility="{Binding FocusPanelVisible}">
+            <Border Style="{StaticResource CardStyle}" Padding="28" MaxWidth="720"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="{Binding PlayingSourceText}" FontSize="15" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource TextTertiaryBrush}"/>
+                    <TextBlock Text="{Binding PlayingTrackText}" FontSize="24" FontWeight="SemiBold"
+                               TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0"
+                               Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding PlaybackProgress, Mode=OneWay}"
+                                 Height="5" Margin="0,18,0,0"/>
+                    <TextBlock Text="{Binding PlaybackPositionText}" FontSize="14.5" Margin="0,8,0,0"
+                               HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    <TextBlock Text="{DynamicResource L_FocusHint}" FontSize="16" TextWrapping="Wrap"
+                               TextAlignment="Center" Margin="0,18,0,0"
+                               Foreground="{DynamicResource TextTertiaryBrush}"/>
+                    <!-- A dead end is named, not clicked into: Start is already disabled here, and
+                         this line explains why without leaving the scene. -->
+                    <TextBlock Text="{DynamicResource L_FocusNeedMusic}" FontSize="18" TextWrapping="Wrap"
+                               TextAlignment="Center" Margin="0,18,0,0"
+                               Foreground="{DynamicResource AccentBrush}"
+                               Visibility="{Binding FocusNeedsMusicVisible}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
         <Grid Grid.Row="2" Margin="20,0,20,7">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -2127,11 +2177,12 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                Visibility="{Binding FocusChromeVisible}">
                 <Button Click="AboutClick" Style="{StaticResource SubtleButtonStyle}" Padding="10,5"
                         AutomationProperties.Name="{DynamicResource L_About}">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE946;" Style="{StaticResource SymbolIconStyle}" FontSize="14"
+                        <TextBlock Text="&#xE946;" Style="{StaticResource SymbolIconStyle}" FontSize="15"
                                    Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,7,0"/>
                         <TextBlock Text="{DynamicResource L_About}" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -2139,7 +2190,7 @@
                 <Button Command="{Binding OpenLogsCommand}" Style="{StaticResource SubtleButtonStyle}" Padding="10,5"
                         Margin="8,0,0,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE838;" Style="{StaticResource SymbolIconStyle}" FontSize="14"
+                        <TextBlock Text="&#xE838;" Style="{StaticResource SymbolIconStyle}" FontSize="15"
                                    Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,7,0"/>
                         <TextBlock Text="{DynamicResource L_Logs}" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -2147,16 +2198,16 @@
                 <Button Click="ResetClick" Style="{StaticResource DangerButtonStyle}" Padding="10,5"
                         Margin="8,0,0,0" IsEnabled="{Binding CanReset}">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE777;" Style="{StaticResource SymbolIconStyle}" FontSize="14" Margin="0,0,7,0"/>
+                        <TextBlock Text="&#xE777;" Style="{StaticResource SymbolIconStyle}" FontSize="15" Margin="0,0,7,0"/>
                         <TextBlock Text="{DynamicResource L_Reset}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
             </StackPanel>
 
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="18,0" HorizontalAlignment="Stretch">
-                <TextBlock Text="{Binding StatusText}" FontSize="12.5" TextTrimming="CharacterEllipsis"
+                <TextBlock Text="{Binding StatusText}" FontSize="13.5" TextTrimming="CharacterEllipsis"
                            Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <TextBlock Text="{Binding NowPlayingText}" FontSize="11.5" Margin="0,2,0,0"
+                <TextBlock Text="{Binding NowPlayingText}" FontSize="13" Margin="0,2,0,0"
                            Foreground="{DynamicResource TextTertiaryBrush}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
 
@@ -2178,7 +2229,7 @@
                     </Button.Style>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="{Binding PauseResumeGlyph}" Style="{StaticResource SymbolIconStyle}"
-                                   FontSize="13" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,7,0"/>
+                                   FontSize="14" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,7,0"/>
                         <TextBlock Text="{Binding PauseResumeText}" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>

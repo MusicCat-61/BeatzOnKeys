@@ -59,6 +59,7 @@
     <sys:String x:Key="L_AdaptiveVolume">Adaptive threshold (fit the quiet level to the track)</sys:String>
     <sys:String x:Key="L_AdaptiveVolumeHint">Quiet track — 10%, loud — 30%, average — your value.</sys:String>
     <sys:String x:Key="L_NowPlayingCard">Now playing · {0}</sys:String>
+    <sys:String x:Key="L_NowPlayingIdle">Now playing</sys:String>
     <sys:String x:Key="L_NothingPlaying">Nothing playing</sys:String>
     <sys:String x:Key="L_TabSettings">Settings</sys:String>
     <sys:String x:Key="L_SourceLocal">local</sys:String>
@@ -80,6 +81,11 @@
     <sys:String x:Key="L_Start">Start</sys:String>
     <sys:String x:Key="L_Stop">Stop</sys:String>
     <sys:String x:Key="L_Reset">Reset</sys:String>
+    <sys:String x:Key="L_FocusEnter">Focus mode</sys:String>
+    <sys:String x:Key="L_FocusExit">Leave focus mode</sys:String>
+    <sys:String x:Key="L_FocusHint">Type and the music rises. Stop and it fades.</sys:String>
+    <sys:String x:Key="L_FocusNothingToPlay">There is nothing to play on this tab. Leave the mode and add music.</sys:String>
+    <sys:String x:Key="L_FocusNeedMusic">Add a track before entering focus</sys:String>
     <sys:String x:Key="L_Logs">Logs</sys:String>
     <sys:String x:Key="L_ReadyToType">Ready — press Start for continuous music controlled by typing</sys:String>
     <sys:String x:Key="L_StatusListening">Playing — type anywhere to raise the volume</sys:String>

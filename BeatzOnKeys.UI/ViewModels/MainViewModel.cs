@@ -291,6 +291,71 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
     public bool IsPlaylistPage => _page == AppPage.Playlist;
 
+    /// <summary>
+    /// Focus mode hides everything that asks the user to choose something — tabs, caches, counters,
+    /// advice plates, the track list and the settings panel — and leaves the transport and the
+    /// playing track. It is a view state, not a setting: nothing is written to settings.json, and
+    /// leaving the mode restores exactly what was there before.
+    /// </summary>
+    private bool _isFocusMode;
+
+    public bool IsFocusMode
+    {
+        get => _isFocusMode;
+        private set
+        {
+            if (!SetProperty(ref _isFocusMode, value)) { return; }
+            OnPropertyChanged(nameof(TabStripVisible));
+            OnPropertyChanged(nameof(FocusChromeVisible));
+            OnPropertyChanged(nameof(FocusPanelVisible));
+            OnPropertyChanged(nameof(FocusToggleTooltip));
+            OnPropertyChanged(nameof(FocusToggleText));
+            ApplyFocusBehaviour();
+            RefreshCommands();
+        }
+    }
+
+    public Visibility TabStripVisible => _isFocusMode ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>The footer's utility buttons step aside too: they are decisions as well.</summary>
+    public Visibility FocusChromeVisible => _isFocusMode ? Visibility.Collapsed : Visibility.Visible;
+
+    public Visibility FocusPanelVisible => _isFocusMode ? Visibility.Visible : Visibility.Collapsed;
+
+    public string FocusToggleTooltip => _isFocusMode ? Loc.T("L_FocusExit") : Loc.T("L_FocusEnter");
+
+    /// <summary>The button says what pressing it will do, so the mode is never a guess.</summary>
+    public string FocusToggleText => Loc.T(_isFocusMode ? "L_FocusExit" : "L_FocusEnter");
+
+    public RelayCommand ToggleFocusModeCommand => _toggleFocusMode ??= new RelayCommand(ToggleFocusMode);
+
+    private RelayCommand? _toggleFocusMode;
+
+    private void ToggleFocusMode()
+    {
+        if (!_isFocusMode)
+        {
+            // The settings panel is a page of choices, and it floats above everything.
+            IsSettingsOpen = false;
+        }
+
+        IsFocusMode = !_isFocusMode;
+        AppLogger.Info("ui", $"Focus mode {(_isFocusMode ? "entered" : "left")}.");
+    }
+
+    /// <summary>
+    /// While focus mode is on, the queue never runs dry: the next track plays, and the last one
+    /// loops. Only the controller is touched, never the saved preferences, so leaving the mode
+    /// gives the user back exactly the behaviour they chose.
+    /// </summary>
+    private void ApplyFocusBehaviour()
+    {
+        if (_playbackController is null) { return; }
+        _playbackController.AutoAdvance = _isFocusMode || _autoAdvance;
+        _playbackController.Loop = _isFocusMode || _loop;
+        OnPropertyChanged(nameof(BehaviorSummary));
+    }
+
     private void SetPage(AppPage page)
     {
         if (_page == page) { return; }
@@ -792,7 +857,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             var cached = YouTube.SelectedTrack is { CanPlay: true } chosen
                 ? chosen
                 : YouTube.Downloaded.FirstOrDefault(item => item.CanPlay);
-            if (cached is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
+            if (cached is null) { ReportNothingToPlay(); return; }
             YouTube.SelectTrack(cached);
             await PlayCachedAsync(cached, isPreview: false).ConfigureAwait(true);
             return;
@@ -803,15 +868,30 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             var cached = TikTok.SelectedTrack is { CanPlay: true } chosen
                 ? chosen
                 : TikTok.Tracks.FirstOrDefault(item => item.CanPlay);
-            if (cached is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
+            if (cached is null) { ReportNothingToPlay(); return; }
             TikTok.SelectTrack(cached);
             await PlayCachedAsync(cached, isPreview: false).ConfigureAwait(true);
             return;
         }
 
         var track = SelectedTrack is { IsAvailable: true } ? SelectedTrack : Tracks.FirstOrDefault(item => item.IsAvailable);
-        if (track is null) { UserMessageRequested?.Invoke(Loc.T("L_NoTracks")); return; }
+        if (track is null) { ReportNothingToPlay(); return; }
         await PlayPlaylistTrackAsync(track).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// "Nothing to play" in focus mode is a line of text, not a dialog: a modal window is exactly
+    /// the kind of interruption the mode exists to remove.
+    /// </summary>
+    private void ReportNothingToPlay()
+    {
+        if (_isFocusMode)
+        {
+            StatusText = Loc.T("L_FocusNothingToPlay");
+            return;
+        }
+
+        UserMessageRequested?.Invoke(Loc.T("L_NoTracks"));
     }
 
     /// <summary>
@@ -1209,8 +1289,10 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         // The source is read from the lists themselves, not remembered per click: an auto-advance
         // never passes through the play path, so a remembered set would call the next TikTok row a
         // local file. A preview belongs to no list and is named after the section it came from.
+        // A missing quarter was shown raw as "Now playing · {0}": the format string cannot stand in
+        // for the sentence it is only half of, so the idle case gets its own complete label.
         PlayingSourceText = playing is null
-            ? Loc.T("L_NowPlayingCard")
+            ? Loc.T("L_NowPlayingIdle")
             : Loc.F("L_NowPlayingCard", SourceNameFor(playing.Id));
         if (IsRunning)
         {
@@ -1401,6 +1483,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(ReactionSummary));
         OnPropertyChanged(nameof(BehaviorSummary));
         OnPropertyChanged(nameof(PauseResumeText));
+        OnPropertyChanged(nameof(FocusToggleText));
+        OnPropertyChanged(nameof(FocusToggleTooltip));
         YouTube.RefreshLocalization();
         TikTok.RefreshLocalization();
         RefreshPlaybackProgress();
@@ -1437,8 +1521,26 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         RemoveTrackCommand.NotifyCanExecuteChanged();
         MoveTrackUpCommand.NotifyCanExecuteChanged();
         MoveTrackDownCommand.NotifyCanExecuteChanged();
-
+        // Focus mode names the dead end instead of offering a Start that cannot work, so the line
+        // follows the same conditions the button does.
+        OnPropertyChanged(nameof(HasSomethingToPlay));
+        OnPropertyChanged(nameof(FocusNeedsMusicVisible));
     }
+
+    /// <summary>True when the active page has something playable, so Start would do something.</summary>
+    public bool HasSomethingToPlay => _page switch
+    {
+        AppPage.YouTube => YouTube.Downloaded.Any(track => track.CanPlay),
+        AppPage.TikTok => TikTok.Tracks.Any(track => track.CanPlay),
+        _ => Tracks.Any(track => track.IsAvailable)
+    };
+
+    /// <summary>
+    /// In focus mode an empty page is named, not clicked into. Start is already disabled there; this
+    /// line explains why without leaving the scene.
+    /// </summary>
+    public Visibility FocusNeedsMusicVisible =>
+        _isFocusMode && !HasSomethingToPlay ? Visibility.Visible : Visibility.Collapsed;
 
     private void OnYouTubePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {

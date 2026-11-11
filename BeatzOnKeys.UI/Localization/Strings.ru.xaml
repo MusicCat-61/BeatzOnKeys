@@ -59,6 +59,7 @@
     <sys:String x:Key="L_AdaptiveVolume">Адаптивный порог (подстраивать минимальную громкость под трек)</sys:String>
     <sys:String x:Key="L_AdaptiveVolumeHint">Тихий трек — 10%, громкий — 30%, средний — ваше значение.</sys:String>
     <sys:String x:Key="L_NowPlayingCard">Сейчас играет · {0}</sys:String>
+    <sys:String x:Key="L_NowPlayingIdle">Сейчас играет</sys:String>
     <sys:String x:Key="L_NothingPlaying">Ничего не играет</sys:String>
     <sys:String x:Key="L_TabSettings">Настройки</sys:String>
     <sys:String x:Key="L_SourceLocal">локально</sys:String>
@@ -80,6 +81,11 @@
     <sys:String x:Key="L_Start">Старт</sys:String>
     <sys:String x:Key="L_Stop">Стоп</sys:String>
     <sys:String x:Key="L_Reset">Сброс</sys:String>
+    <sys:String x:Key="L_FocusEnter">Режим фокуса</sys:String>
+    <sys:String x:Key="L_FocusExit">Выйти из фокуса</sys:String>
+    <sys:String x:Key="L_FocusHint">Печатайте — музыка поднимется. Остановились — затихнет.</sys:String>
+    <sys:String x:Key="L_FocusNothingToPlay">На этой вкладке нечего играть. Выйдите и добавьте музыку.</sys:String>
+    <sys:String x:Key="L_FocusNeedMusic">Добавь трек до входа в фокус</sys:String>
     <sys:String x:Key="L_Logs">Логи</sys:String>
     <sys:String x:Key="L_ReadyToType">Готово — нажмите «Старт»: музыка играет непрерывно, набор управляет громкостью</sys:String>
     <sys:String x:Key="L_StatusListening">Играет — печатайте в любом приложении, повышая громкость</sys:String>

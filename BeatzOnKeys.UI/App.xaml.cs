@@ -182,9 +182,10 @@ public partial class App : System.Windows.Application
         _mainWindow.Hide();
         AppLogger.Info("ui", $"Window hidden to tray; playback running={_viewModel?.IsRunning == true}; pid={Environment.ProcessId}.");
 
-        // A balloon is a hint that never blocks typing or playback; a modal dialog would freeze
-        // the app until dismissed, which is exactly what this app must not do.
-        ShowTrayNotice(Loc.T("L_TrayHint"));
+        // The cross hides the window, so the user has to be told where the app went. This used to
+        // be a Windows balloon; a balloon is easy to miss and can be switched off entirely in the
+        // system settings, which left people with a vanished window and no explanation.
+        MessageDialog.Notify(null, Loc.T("L_TrayHint"), Loc.T("L_AppName"), Loc.T("L_TrayGotIt"));
     }
 
     public void ShowMainWindow()
@@ -378,7 +379,10 @@ public partial class App : System.Windows.Application
 
         if (hints.Count > 0)
         {
-            ShowTrayNotice(string.Join(Environment.NewLine, hints));
+            // A window instead of a balloon: the whole point of this notice is that the app looks
+            // broken while it works, and a toast that fades away never explains that.
+            MessageDialog.Notify(_mainWindow, string.Join(Environment.NewLine + Environment.NewLine, hints),
+                Loc.T("L_AppName"), Loc.T("L_TrayGotIt"));
         }
     }
 

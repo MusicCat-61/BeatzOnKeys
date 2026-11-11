@@ -54,61 +54,26 @@
                 </StackPanel>
             </StackPanel>
 
+            <!-- The tabs are gone: the start screen chooses the source, and every mode carries
+                 one way back to it. A screen without an exit is a trap, so the way home is on
+                 screen in all of them. -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="22,0,0,0"
                         HorizontalAlignment="Left"
-                         Visibility="{Binding TabStripVisible}"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                <Button Command="{Binding ShowPlaylistCommand}" Content="{DynamicResource L_TabPlaylist}">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource PageTabStyle}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsPlaylistPage}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource OverlayBrush}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
+                <Button Command="{Binding ShowHomeCommand}" Visibility="{Binding HomeButtonVisible}"
+                        Style="{StaticResource SubtleButtonStyle}" Padding="10,5"
+                        ToolTip="{DynamicResource L_HomeHint}"
+                        AutomationProperties.Name="{DynamicResource L_Home}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE80F;" Style="{StaticResource SymbolIconStyle}" FontSize="15"
+                                   Foreground="{DynamicResource AccentBrush}" Margin="0,0,7,0"/>
+                        <TextBlock Text="{DynamicResource L_Home}" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </Button>
-                <Button Command="{Binding ShowYouTubeCommand}" Content="{DynamicResource L_TabYouTube}"
-                        Margin="6,0,0,0">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource PageTabStyle}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsYouTubePage}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource OverlayBrush}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
-                <Button Command="{Binding ShowTikTokCommand}" Content="{DynamicResource L_TabTikTok}"
-                        Margin="6,0,0,0">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource PageTabStyle}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsTikTokPage}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource OverlayBrush}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
-                <Button Command="{Binding ShowSettingsCommand}" Content="{DynamicResource L_TabSettings}"
-                        Margin="6,0,0,0">
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource PageTabStyle}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsSettingsOpen}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource OverlayBrush}"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
+                <TextBlock Text="{Binding CurrentModeTitle}" FontSize="15" FontWeight="SemiBold"
+                           Margin="14,0,0,0" VerticalAlignment="Center"
+                           Visibility="{Binding ModeTitleVisible}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
             </StackPanel>
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0"
@@ -2141,6 +2106,147 @@
                 </Grid>
             </Border>
         </Grid>
+        <!-- The start screen. It answers one question — where does the music come from today —
+             and nothing else. The tiles carry the only numbers in the app that are about music
+             waiting, never about work done. -->
+        <Grid Grid.Row="1" Margin="20,4,20,8" Visibility="{Binding HomePageVisible}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="4,2,0,20">
+                <TextBlock Text="{Binding GreetingText}" FontSize="26" FontWeight="SemiBold"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="{DynamicResource L_HomeSubtitle}" FontSize="15" Margin="0,6,0,0"
+                           TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"/>
+            </StackPanel>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" Style="{StaticResource HomeTileStyle}"
+                        Command="{Binding ShowPlaylistCommand}">
+                    <StackPanel>
+                        <Grid Height="30" HorizontalAlignment="Left">
+                            <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="24"
+                                       VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
+                        </Grid>
+                        <TextBlock Text="{DynamicResource L_HomeMyFiles}" FontSize="18" FontWeight="SemiBold"
+                                   Margin="0,14,0,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{DynamicResource L_HomeMyFilesHint}" FontSize="17" Margin="0,6,0,0"
+                                   TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        <TextBlock Text="{Binding HomeTracksMeta}" FontSize="15.5" Margin="0,12,0,0"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="2" Style="{StaticResource HomeTileStyle}"
+                        Command="{Binding ShowYouTubeCommand}">
+                    <StackPanel>
+                        <Grid Height="30" HorizontalAlignment="Left">
+                            <TextBlock Text="&#xE714;" Style="{StaticResource SymbolIconStyle}" FontSize="24"
+                                       VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}"/>
+                        </Grid>
+                        <TextBlock Text="{DynamicResource L_HomeYouTube}" FontSize="18" FontWeight="SemiBold"
+                                   Margin="0,14,0,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{DynamicResource L_HomeYouTubeHint}" FontSize="17" Margin="0,6,0,0"
+                                   TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        <TextBlock Text="{Binding HomeYouTubeMeta}" FontSize="15.5" Margin="0,12,0,0"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="4" Style="{StaticResource HomeTileStyle}"
+                        Command="{Binding ShowTikTokCommand}">
+                    <StackPanel>
+                        <!-- A drawn phone, not a glyph: the icon set has no vertical video, and
+                             a square "video" glyph next to YouTube read as the same thing twice. -->
+                        <Grid HorizontalAlignment="Left" Width="20" Height="30">
+                            <Border CornerRadius="4" BorderThickness="1.5" Background="Transparent"
+                                    BorderBrush="{DynamicResource AccentBrush}"/>
+                            <Polygon Points="7,10 7,20 14,15" Fill="{DynamicResource AccentBrush}"/>
+                        </Grid>
+                        <TextBlock Text="{DynamicResource L_HomeTikTok}" FontSize="18" FontWeight="SemiBold"
+                                   Margin="0,14,0,0" Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <TextBlock Text="{DynamicResource L_HomeTikTokHint}" FontSize="17" Margin="0,6,0,0"
+                                   TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        <TextBlock Text="{Binding HomeTikTokMeta}" FontSize="15.5" Margin="0,12,0,0"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- Focus is the headline case for this app, so it sits on the start screen and not
+                 only in the title bar. Settings is a visit, not a source, hence the low row. -->
+            <Grid Grid.Row="2" Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*"/>
+                    <ColumnDefinition Width="16"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" Style="{StaticResource HomeTileStyle}" Padding="20,16"
+                        Command="{Binding ToggleFocusModeCommand}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="&#x25CE;" FontSize="26"
+                                   HorizontalAlignment="Left" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AccentBrush}"/>
+                        <StackPanel Margin="16,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource L_HomeFocus}" FontSize="18" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{DynamicResource L_HomeFocusHint}" FontSize="16" Margin="0,4,0,0"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+
+                <Button Grid.Column="2" Style="{StaticResource HomeTileStyle}" Padding="20,16"
+                        Command="{Binding ShowSettingsCommand}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE713;" Style="{StaticResource SymbolIconStyle}" FontSize="20"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="{DynamicResource L_HomeSettings}" FontSize="17" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{DynamicResource L_HomeSettingsHint}" FontSize="15" Margin="0,3,0,0"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- What is playing stays visible on the hub: choosing a source must not hide the
+                 sound that is already there. -->
+            <Border Grid.Row="3" Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,16,0,0"
+                    VerticalAlignment="Bottom" Visibility="{Binding NowPlayingCardVisible}">
+                <DockPanel LastChildFill="False">
+                    <Border DockPanel.Dock="Left" Width="40" Height="40" CornerRadius="9"
+                            Background="{DynamicResource DropAreaBrush}">
+                        <TextBlock Text="&#xE8D6;" Style="{StaticResource SymbolIconStyle}" FontSize="16"
+                                   Foreground="{DynamicResource AccentBrush}"/>
+                    </Border>
+                    <StackPanel DockPanel.Dock="Left" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding PlayingSourceText}" FontSize="13.5"
+                                   Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        <TextBlock Text="{Binding PlayingTrackText}" FontSize="16" FontWeight="SemiBold"
+                                   Margin="0,2,0,0" TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding PlaybackPositionText}" FontSize="13.5"
+                               VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+
         <!-- Focus mode: nothing to choose, only what is happening. The transport stays in the
              footer, so this panel is the whole page. A page with nothing to play says so here
              instead of offering Start that would do nothing. -->
@@ -2238,7 +2344,8 @@
                         Style="{StaticResource SubtleButtonStyle}" MinWidth="104" Margin="0,0,8,0"/>
                 <Button Content="{DynamicResource L_Start}" Command="{Binding StartCommand}"
                         ToolTip="{DynamicResource L_StartHint}"
-                        Style="{StaticResource AccentButtonStyle}" MinWidth="132"/>
+                        Style="{StaticResource AccentButtonStyle}" MinWidth="132"
+                        Visibility="{Binding StartButtonVisible}"/>
             </StackPanel>
         </Grid>
     </Grid>

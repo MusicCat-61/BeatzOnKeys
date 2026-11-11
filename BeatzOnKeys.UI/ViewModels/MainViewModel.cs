@@ -274,14 +274,22 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     /// Exactly one of the three pages is active. A single field instead of two flags, because two
     /// booleans can both be true at once and then the window has no defined content.
     /// </summary>
-    private AppPage _page = AppPage.Playlist;
+    private AppPage _page = AppPage.Home;
 
     private enum AppPage
     {
+        Home,
         Playlist,
         YouTube,
         TikTok
     }
+
+    /// <summary>
+    /// The start screen: one place that says where the music comes from. It replaced the tab strip,
+    /// because a row of tabs asks "which section" before the user has decided anything, and that
+    /// question is the first decision of the day.
+    /// </summary>
+    public bool IsHomePage => _page == AppPage.Home;
 
     /// <summary>True while the YouTube page is shown.</summary>
     public bool IsYouTubePage => _page == AppPage.YouTube;
@@ -290,6 +298,38 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public bool IsTikTokPage => _page == AppPage.TikTok;
 
     public bool IsPlaylistPage => _page == AppPage.Playlist;
+
+    /// <summary>
+    /// The way back is on screen in every mode, because a screen without an exit is a trap. Focus
+    /// mode keeps it too — that room needs a door most of all. Only the hub hides it, because on
+    /// the hub it would go nowhere.
+    /// </summary>
+    public Visibility HomeButtonVisible =>
+        _page == AppPage.Home && !_isFocusMode ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>
+    /// The greeting is the only thing on the start screen that changes by itself, and it is chosen
+    /// from the local clock: 5-11 morning, 12-17 afternoon, 18-22 evening, the rest is night.
+    /// </summary>
+    public string GreetingText => Loc.T(GreetingKey(DateTime.Now.TimeOfDay));
+
+    /// <summary>Exposed for the test: the key for a given time of day, with no clock involved.</summary>
+    public static string GreetingKey(TimeSpan timeOfDay)
+    {
+        var hour = timeOfDay.TotalHours;
+        if (hour >= 5 && hour < 12) { return "L_GreetMorning"; }
+        if (hour >= 12 && hour < 18) { return "L_GreetAfternoon"; }
+        if (hour >= 18 && hour < 23) { return "L_GreetEvening"; }
+        return "L_GreetNight";
+    }
+
+    /// <summary>
+    /// The tile captions say how much music is waiting, not how much work was done: the first is a
+    /// reason to press a tile, the second is a score.
+    /// </summary>
+    public string HomeTracksMeta => Loc.F("L_HomeTracksMeta", Tracks.Count);
+    public string HomeYouTubeMeta => Loc.F("L_HomeCachedMeta", YouTube.Downloaded.Count);
+    public string HomeTikTokMeta => Loc.F("L_HomeCachedMeta", TikTok.Tracks.Count);
 
     /// <summary>
     /// Focus mode hides everything that asks the user to choose something — tabs, caches, counters,
@@ -310,7 +350,14 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             OnPropertyChanged(nameof(FocusPanelVisible));
             OnPropertyChanged(nameof(FocusToggleTooltip));
             OnPropertyChanged(nameof(FocusToggleText));
+            OnPropertyChanged(nameof(HomeButtonVisible));
+            OnPropertyChanged(nameof(StartButtonVisible));
+        // The idle line names the screen the user is on, so it follows a page change.
+        if (!IsRunning) { StatusText = IdleStatusText; }
             ApplyFocusBehaviour();
+            OnPropertyChanged(nameof(CurrentModeTitle));
+            OnPropertyChanged(nameof(ModeTitleVisible));
+        OnPropertyChanged(nameof(HomePageVisible));
             RefreshCommands();
         }
     }
@@ -321,6 +368,40 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public Visibility FocusChromeVisible => _isFocusMode ? Visibility.Collapsed : Visibility.Visible;
 
     public Visibility FocusPanelVisible => _isFocusMode ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// The start screen is a chooser, not a remote: Start appears once a source is open. Focus mode
+    /// keeps it, because there it is the only control that matters.
+    /// </summary>
+    public Visibility StartButtonVisible =>
+        _isFocusMode || _page != AppPage.Home ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The last mode the user was in, so focus mode started from the hub opens a source.</summary>
+    private AppPage _lastModePage = AppPage.Playlist;
+
+    /// <summary>The name of the mode on screen, next to the way home.</summary>
+    public string CurrentModeTitle => Loc.T(_page switch
+    {
+        AppPage.Playlist => "L_HomeMyFiles",
+        AppPage.YouTube => "L_HomeYouTube",
+        AppPage.TikTok => "L_HomeTikTok",
+        _ => "L_Home"
+    });
+
+    /// <summary>On the hub there is nothing to go back to, so the crumb is empty rather than "Home".</summary>
+    public Visibility ModeTitleVisible =>
+        _page == AppPage.Home || _isFocusMode ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>The start screen itself, hidden while a mode or focus mode is on.</summary>
+    public Visibility HomePageVisible =>
+        _page == AppPage.Home && !_isFocusMode ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// The hub shows what is playing only when something really is. The label itself always has a
+    /// value — "Nothing playing" — so the card asks the controller, not the text.
+    /// </summary>
+    public Visibility NowPlayingCardVisible =>
+        _playbackController?.CurrentTrack is not null ? Visibility.Visible : Visibility.Collapsed;
 
     public string FocusToggleTooltip => _isFocusMode ? Loc.T("L_FocusExit") : Loc.T("L_FocusEnter");
 
@@ -337,6 +418,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         {
             // The settings panel is a page of choices, and it floats above everything.
             IsSettingsOpen = false;
+            // Focus started from the start screen opens the last source, because a focus screen
+            // with no queue would be the one thing it must never be: a dead end.
+            if (_page == AppPage.Home) { SetPage(_lastModePage); }
         }
 
         IsFocusMode = !_isFocusMode;
@@ -360,10 +444,22 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     {
         if (_page == page) { return; }
         _page = page;
+        if (page != AppPage.Home) { _lastModePage = page; }
+        // Entering a mode means leaving the settings panel: it floats above everything, and a mode
+        // that opens behind a panel is not a mode the user asked for.
+        if (page != AppPage.Home) { IsSettingsOpen = false; }
+        OnPropertyChanged(nameof(IsHomePage));
         OnPropertyChanged(nameof(IsPlaylistPage));
         OnPropertyChanged(nameof(IsYouTubePage));
         OnPropertyChanged(nameof(IsTikTokPage));
+        OnPropertyChanged(nameof(HomeButtonVisible));
+        OnPropertyChanged(nameof(StartButtonVisible));
         OnPropertyChanged(nameof(SelectedTrackText));
+        OnPropertyChanged(nameof(CurrentModeTitle));
+        OnPropertyChanged(nameof(ModeTitleVisible));
+        OnPropertyChanged(nameof(HomePageVisible));
+        // The idle line names the screen the user is on, so it follows a page change.
+        if (!IsRunning) { StatusText = IdleStatusText; }
         // The queue follows the page: "next" is the row below in the list the user is looking at.
         SyncPlaybackQueue();
         RefreshCommands();
@@ -387,7 +483,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public RelayCommand ShowYouTubeCommand => _showYouTube ??= new RelayCommand(() => SetPage(AppPage.YouTube));
     public RelayCommand ShowTikTokCommand => _showTikTok ??= new RelayCommand(() => SetPage(AppPage.TikTok));
     public RelayCommand ShowSettingsCommand => _showSettings ??= new RelayCommand(ToggleSettings);
+
+    /// <summary>The way back to the start screen, present in every mode.</summary>
+    public RelayCommand ShowHomeCommand => _showHome ??= new RelayCommand(() => SetPage(AppPage.Home));
     public RelayCommand CloseSettingsCommand => _closeSettings ??= new RelayCommand(() => IsSettingsOpen = false);
+    private RelayCommand? _showHome;
     private RelayCommand? _showPlaylist;
     private RelayCommand? _showYouTube;
     private RelayCommand? _showTikTok;
@@ -700,6 +800,13 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public bool IsRussian => Loc.Current == AppLanguage.Ru;
     public bool IsLightTheme => Theme.IsLight;
     public string StatusText { get => _statusText; private set => SetProperty(ref _statusText, value); }
+
+    /// <summary>
+    /// The idle line tells the truth about where the user is: on the hub there is no Start button,
+    /// so telling them to press Start would point at something that is not on screen.
+    /// </summary>
+    public string IdleStatusText =>
+        _page == AppPage.Home && !_isFocusMode ? Loc.T("L_HomeStatusHint") : Loc.T("L_ReadyToType");
     public string NowPlayingText { get => _nowPlayingText; private set => SetProperty(ref _nowPlayingText, value); }
 
     /// <summary>
@@ -732,7 +839,8 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         IsRunning ? Loc.T(_audioPlayer.IsIdlePaused ? "L_StatusIdlePaused"
             : IsPaused ? "L_StatusPaused"
             : "L_StatusListening")
-            : Loc.T("L_ReadyToType");
+            // Idle means the page decides what to say: the hub has no Start button to point at.
+        : IdleStatusText;
 
     public async Task InitializeAsync()
     {
@@ -746,7 +854,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         RefreshTrackPositions();
         SyncPlaybackQueue();
         RefreshPlaybackProgress();
-        StatusText = Loc.T("L_ReadyToType");
+        StatusText = IdleStatusText;
         RefreshCommands();
         // The YouTube section measures its cache and reports whether yt-dlp is installed.
         try { await YouTube.InitializeAsync().ConfigureAwait(true); }
@@ -972,7 +1080,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             _trackEnded = false;
             _changingPlayback = false;
             RefreshPlaybackProgress();
-            StatusText = Loc.T("L_ReadyToType");
+            StatusText = IdleStatusText;
             RefreshCommands();
         }
     }
@@ -1286,6 +1394,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         NowPlayingText = playing is null ? string.Empty :
             Loc.F("L_NowPlayingFormat", playingName, FormatPosition(position), FormatPosition(duration));
         PlayingTrackText = playing is null ? Loc.T("L_NothingPlaying") : playingName;
+        OnPropertyChanged(nameof(NowPlayingCardVisible));
         // The source is read from the lists themselves, not remembered per click: an auto-advance
         // never passes through the play path, so a remembered set would call the next TikTok row a
         // local file. A preview belongs to no list and is named after the section it came from.
@@ -1485,6 +1594,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(PauseResumeText));
         OnPropertyChanged(nameof(FocusToggleText));
         OnPropertyChanged(nameof(FocusToggleTooltip));
+        OnPropertyChanged(nameof(GreetingText));
         YouTube.RefreshLocalization();
         TikTok.RefreshLocalization();
         RefreshPlaybackProgress();
@@ -1525,6 +1635,10 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         // follows the same conditions the button does.
         OnPropertyChanged(nameof(HasSomethingToPlay));
         OnPropertyChanged(nameof(FocusNeedsMusicVisible));
+        OnPropertyChanged(nameof(StartButtonVisible));
+        OnPropertyChanged(nameof(HomeTracksMeta));
+        OnPropertyChanged(nameof(HomeYouTubeMeta));
+        OnPropertyChanged(nameof(HomeTikTokMeta));
     }
 
     /// <summary>True when the active page has something playable, so Start would do something.</summary>

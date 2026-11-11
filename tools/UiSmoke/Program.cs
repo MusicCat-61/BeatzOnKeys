@@ -234,8 +234,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
                 $"Actual default {_window.Width}x{_window.Height}; expected width 1120 and a height that fits the settings column.");
             Check("window.fitsContent", FitsSettingsContent(),
                 $"Settings column scrollable height={SettingsScrollableHeight():F0} px at {_window.Height:F0} px tall; a larger font must not hide controls behind a scrollbar.");
-            Check("window.startsOnPlaylistPage", _vm.IsPlaylistPage && !_vm.IsYouTubePage,
-                $"IsPlaylistPage={_vm.IsPlaylistPage}, IsYouTubePage={_vm.IsYouTubePage}, searchTab={_vm.YouTube.IsSearchTab}.");
+            Check("window.startsOnHomePage", _vm.IsHomePage && !_vm.IsYouTubePage && !_vm.IsPlaylistPage,
+                $"IsHomePage={_vm.IsHomePage}, IsPlaylistPage={_vm.IsPlaylistPage}, IsYouTubePage={_vm.IsYouTubePage}.");
             Check("window.minimumSize", Near(_window.MinWidth, 920) && Near(_window.MinHeight, 650),
                 $"Actual XAML minimum {_window.MinWidth}x{_window.MinHeight}; expected 920x650.");
             Check("render.playlistNoStatuses", !Descendants<TextBlock>(_window).Any(t =>
@@ -261,6 +261,7 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             await Section("youtube", YouTubeSectionAsync);
             await Section("queueAndFields", QueueAndFieldsAsync);
             await Section("focus", FocusAsync);
+            await Section("home", HomeAsync);
         await Section("settings.roundtrip", SettingsRoundtripAsync);
         }
         catch (Exception error) { Check("harness.exception", false, error.ToString()); }
@@ -447,9 +448,20 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("start.continuousAtMinimum", player.IsPlaying && !player.IsIdlePaused &&
             Output?.PlaybackState == PlaybackState.Playing && Math.Abs(player.CurrentGain - 0.2) < 0.01 && startPosition.TotalSeconds < 0.75,
             $"Output={Output?.GetType().Name}, state={Output?.PlaybackState}, gain={player.CurrentGain:F3}, position={startPosition.TotalSeconds:F3}s.");
-        await Task.Delay(600);
-        Check("start.advancesWithoutKeys", hook.SignalCount == 0 && player.IsPlaying && player.Position > startPosition + TimeSpan.FromMilliseconds(300) &&
-            vm.PlaybackProgress > startProgress, $"No keys: position={player.Position.TotalSeconds:F3}s, was {startPosition.TotalSeconds:F3}s, progress={vm.PlaybackProgress:F4}%.");
+        // Measured, not assumed: a fixed 600 ms sleep used to fail on machines where the output
+        // device advances slower than wall-clock time, and that says nothing about the player. The
+        // position has to move, so wait for it to move and report how long that took.
+        var advanceClock = Stopwatch.StartNew();
+        try
+        {
+            await UntilAsync(() => player.Position > startPosition + TimeSpan.FromMilliseconds(300),
+                6000, "playback position to advance without keys");
+        }
+        catch (TimeoutException) { /* reported by the check below, with its numbers */ }
+        Check("start.advancesWithoutKeys", hook.SignalCount == 0 && player.IsPlaying &&
+            player.Position > startPosition + TimeSpan.FromMilliseconds(300) && vm.PlaybackProgress > startProgress,
+            $"No keys: position={player.Position.TotalSeconds:F3}s, was {startPosition.TotalSeconds:F3}s " +
+            $"after {advanceClock.ElapsedMilliseconds} ms, progress={vm.PlaybackProgress:F4}%.");
         hook.Signal();
         await UntilAsync(() => player.CurrentGain >= 0.99, 1500, "typing volume attack");
         Check("signal.actualWaveOutPlaying", Output is WaveOut && Output.PlaybackState == PlaybackState.Playing && player.IsPlaying,
@@ -587,6 +599,10 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
     {
         var vm = _vm!;
         var window = _window!;
+        // The matrix measures the playlist layout, so it starts there: the app now opens on the
+        // hub, and measuring collapsed content would only prove that hidden things are hidden.
+        vm.ShowPlaylistCommand.Execute(null);
+        await SettleAsync();
         foreach (var light in new[] { false, true })
         {
             if (Theme.IsLight != light) vm.ToggleThemeCommand.Execute(null);
@@ -656,8 +672,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         // The playback panel has its own page; every control this section drives lives there.
         vm.ShowSettingsCommand.Execute(null);
         await SettleAsync();
-        Check("sections.panelOverContent", vm.IsSettingsOpen && (vm.IsPlaylistPage || vm.IsYouTubePage),
-            $"IsSettingsOpen={vm.IsSettingsOpen}, IsPlaylistPage={vm.IsPlaylistPage}.");
+          Check("sections.panelOverContent", vm.IsSettingsOpen && (vm.IsHomePage || vm.IsPlaylistPage || vm.IsYouTubePage),
+            $"IsSettingsOpen={vm.IsSettingsOpen}, IsHomePage={vm.IsHomePage}, IsPlaylistPage={vm.IsPlaylistPage}.");
         CheckVisualTree(window, $"settings.{Theme.CurrentCode}.ru");
         var sections = new (string Key, string Summary, Func<bool> Expanded, int Count)[]
         {
@@ -2589,27 +2605,28 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         shell.ShowPlaylistCommand.Execute(null);
         await SettleAsync();
         bool Shows(string key) => Descendants<TextBlock>(window).Any(text => text.IsVisible && text.Text == Loc.T(key));
-        int VisibleTabs() => Descendants<Button>(window).Count(button => button.IsVisible &&
-            (ReferenceEquals(button.Command, shell.ShowYouTubeCommand) ||
-             ReferenceEquals(button.Command, shell.ShowTikTokCommand) ||
-             ReferenceEquals(button.Command, shell.ShowSettingsCommand)));
+        bool ShowsCommand(RelayCommand command) => Descendants<Button>(window)
+            .Any(button => button.IsVisible && ReferenceEquals(button.Command, command));
         var privacyBefore = Shows("L_PrivacyTitle");
-        var tabsBefore = VisibleTabs();
+        var homeBefore = ShowsCommand(shell.ShowHomeCommand);
         var startButton = Descendants<Button>(window).FirstOrDefault(button => ReferenceEquals(button.Command, shell.StartCommand));
 
         shell.ToggleFocusModeCommand.Execute(null);
         await SettleAsync();
-        Check("focus.hidesTheTabs",
-            tabsBefore >= 3 && VisibleTabs() == 0,
-            $"Tabs on screen: {tabsBefore} before, {VisibleTabs()} after.");
+        // The way home is the one thing focus mode must not hide: the mode is a room, and a room
+        // without a door is the trap this whole screen was built to avoid.
+        Check("focus.keepsTheWayHome",
+            homeBefore && ShowsCommand(shell.ShowHomeCommand),
+            $"Home button before={homeBefore}, after={ShowsCommand(shell.ShowHomeCommand)}.");
         Check("focus.hidesTheCardsAndAdvice",
             privacyBefore && !Shows("L_PrivacyTitle") &&
             shell.TabStripVisible == Visibility.Collapsed &&
             shell.FocusChromeVisible == Visibility.Collapsed,
             $"Privacy card before={privacyBefore}, after={Shows("L_PrivacyTitle")}.");
         Check("focus.showsItsOwnPage",
-            Shows("L_FocusHint") && shell.FocusPanelVisible == Visibility.Visible,
-            $"Focus page visible={shell.FocusPanelVisible}, hint shown={Shows("L_FocusHint")}.");
+            Shows("L_FocusHint") && shell.FocusPanelVisible == Visibility.Visible &&
+            shell.HomePageVisible == Visibility.Collapsed,
+            $"Focus page visible={shell.FocusPanelVisible}, hub={shell.HomePageVisible}, hint shown={Shows("L_FocusHint")}.");
         Check("focus.keepsTheTransport",
             startButton is { IsVisible: true },
             startButton is null ? "The Start button was not found." : $"Start visible={startButton.IsVisible}.");
@@ -2618,15 +2635,117 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         shell.ToggleFocusModeCommand.Execute(null);
         await SettleAsync();
         Check("focus.leavingRestoresTheWindow",
-            VisibleTabs() >= 3 && Shows("L_PrivacyTitle") &&
-            shell.FocusPanelVisible == Visibility.Collapsed &&
-            shell.TabStripVisible == Visibility.Visible,
-            $"After leaving: tabs={VisibleTabs()}, privacy={Shows("L_PrivacyTitle")}.");
+            Shows("L_PrivacyTitle") && shell.FocusPanelVisible == Visibility.Collapsed &&
+            shell.TabStripVisible == Visibility.Visible && shell.IsPlaylistPage,
+            $"After leaving: page={shell.CurrentModeTitle}, privacy={Shows("L_PrivacyTitle")}.");
         Check("focus.buttonIsOnScreen",
             Descendants<Button>(window).Any(button => button.IsVisible &&
                 ReferenceEquals(button.Command, shell.ToggleFocusModeCommand)),
             "The mode has a button in the window.");
     }
+    /// <summary>
+    /// The start screen replaced the tab strip, so these checks are about what it answers and what
+    /// it must never become: a page of tabs under another name.
+    /// </summary>
+    private async Task HomeAsync()
+    {
+        var vm = _vm ?? throw new InvalidOperationException("The window's view model is required here.");
+        var window = _window ?? throw new InvalidOperationException("The window is required here.");
+        vm.ShowHomeCommand.Execute(null);
+        await SettleAsync();
+        Check("home.opensAsTheStartScreen",
+            vm.IsHomePage && !vm.IsPlaylistPage && !vm.IsYouTubePage && !vm.IsTikTokPage &&
+            vm.HomePageVisible == Visibility.Visible,
+            $"IsHomePage={vm.IsHomePage}, visible={vm.HomePageVisible}.");
+        Check("home.hasNoTabStrip",
+            vm.TabStripVisible == Visibility.Visible && vm.HomeButtonVisible == Visibility.Collapsed,
+            "On the hub there is nowhere to go back to, so the way back is not offered.");
+
+        // The greeting is the only text that changes by itself. Every boundary is checked, because
+        // an off-by-one here shows "Good morning" at midnight and nobody notices for months.
+        var boundaries = new (TimeSpan At, string Key)[]
+        {
+            (new TimeSpan(0, 0, 0), "L_GreetNight"),
+            (new TimeSpan(4, 59, 0), "L_GreetNight"),
+            (new TimeSpan(5, 0, 0), "L_GreetMorning"),
+            (new TimeSpan(11, 59, 0), "L_GreetMorning"),
+            (new TimeSpan(12, 0, 0), "L_GreetAfternoon"),
+            (new TimeSpan(17, 59, 0), "L_GreetAfternoon"),
+            (new TimeSpan(18, 0, 0), "L_GreetEvening"),
+            (new TimeSpan(22, 59, 0), "L_GreetEvening"),
+            (new TimeSpan(23, 0, 0), "L_GreetNight")
+        };
+        var wrong = boundaries.Where(boundary => MainViewModel.GreetingKey(boundary.At) != boundary.Key).ToArray();
+        Check("home.greetingFollowsTheClock",
+            wrong.Length == 0 && vm.GreetingText == Loc.T(MainViewModel.GreetingKey(DateTime.Now.TimeOfDay)),
+            wrong.Length == 0
+                ? $"All {boundaries.Length} boundaries pick the right greeting; now '{vm.GreetingText}'."
+                : "Wrong: " + string.Join(", ", wrong.Select(b => $"{b.At} -> {MainViewModel.GreetingKey(b.At)}")));
+        Check("home.greetingIsTranslated",
+            Loc.T("L_GreetMorning") != Loc.T("L_GreetNight") &&
+            Loc.T("L_GreetAfternoon") != Loc.T("L_GreetEvening"),
+            "All four greetings are distinct strings.");
+
+        // The tiles are the only navigation, so each one has to lead somewhere different.
+        Check("home.tilesShowWhatWaits",
+            vm.HomeTracksMeta == Loc.F("L_HomeTracksMeta", vm.Tracks.Count) &&
+            vm.HomeYouTubeMeta == Loc.F("L_HomeCachedMeta", vm.YouTube.Downloaded.Count) &&
+            vm.HomeTikTokMeta == Loc.F("L_HomeCachedMeta", vm.TikTok.Tracks.Count),
+            $"'{vm.HomeTracksMeta}', '{vm.HomeYouTubeMeta}', '{vm.HomeTikTokMeta}'.");
+        Check("home.startIsNotOfferedOnTheHub",
+            vm.StartButtonVisible == Visibility.Collapsed && vm.HasSomethingToPlay == vm.Tracks.Count > 0,
+            $"Start visible={vm.StartButtonVisible} on the hub: it is a chooser, not a remote.");
+
+        Check("home.statusNamesTheScreen",
+            vm.StatusText == Loc.T("L_HomeStatusHint") && vm.StatusText != Loc.T("L_ReadyToType"),
+            $"Status={vm.StatusText}, running={vm.IsRunning}.");
+        var rendered = Descendants<Button>(window).Where(button => button.IsVisible).ToArray();
+        Button Tile(RelayCommand command) => rendered.FirstOrDefault(button => ReferenceEquals(button.Command, command));
+        Check("home.tilesAreRealButtons",
+            Tile(vm.ShowPlaylistCommand) is not null && Tile(vm.ShowYouTubeCommand) is not null &&
+            Tile(vm.ShowTikTokCommand) is not null && Tile(vm.ToggleFocusModeCommand) is not null,
+            "Every source, focus and settings have a tile that is really rendered.");
+        SaveScreenshot(window, $"home-{Theme.CurrentCode}-{Loc.CurrentCode}.png");
+
+        foreach (var (command, page, name) in new (RelayCommand Command, Func<bool> Page, string Name)[]
+        {
+            (vm.ShowPlaylistCommand, () => vm.IsPlaylistPage, "playlist"),
+            (vm.ShowYouTubeCommand, () => vm.IsYouTubePage, "youtube"),
+            (vm.ShowTikTokCommand, () => vm.IsTikTokPage, "tiktok")
+        })
+        {
+            vm.ShowHomeCommand.Execute(null);
+            await SettleAsync();
+            command.Execute(null);
+            await SettleAsync();
+            Check($"home.tileOpens.{name}",
+                page() && vm.HomePageVisible == Visibility.Collapsed &&
+                vm.HomeButtonVisible == Visibility.Visible && vm.StartButtonVisible == Visibility.Visible,
+                $"Opened {name}: page ok={page()}, hub hidden={vm.HomePageVisible}, " +
+                $"home shown={vm.HomeButtonVisible}, start shown={vm.StartButtonVisible}.");
+        }
+
+        // The way back must exist in every mode, or a mode is a one-way door.
+        vm.ShowHomeCommand.Execute(null);
+        await SettleAsync();
+        Check("home.wayBackReturnsToTheHub",
+            vm.IsHomePage && vm.HomePageVisible == Visibility.Visible && vm.HomeButtonVisible == Visibility.Collapsed,
+            $"After Home: IsHomePage={vm.IsHomePage}, visible={vm.HomePageVisible}.");
+        // The crumb names the mode, and the hub is not a mode: there it stays hidden, so "Home"
+        // never appears as a label for a screen that is already home.
+        vm.ShowYouTubeCommand.Execute(null);
+        await SettleAsync();
+        var modeName = vm.CurrentModeTitle;
+        var modeCrumb = vm.ModeTitleVisible;
+        vm.ShowHomeCommand.Execute(null);
+        await SettleAsync();
+        Check("home.modeTitleNamesThePlace",
+            modeName == Loc.T("L_HomeYouTube") && modeCrumb == Visibility.Visible &&
+            vm.CurrentModeTitle == Loc.T("L_Home") && vm.ModeTitleVisible == Visibility.Collapsed,
+            $"In YouTube the crumb read '{modeName}' ({modeCrumb}); on the hub '{vm.CurrentModeTitle}' " +
+            $"({vm.ModeTitleVisible}).");
+    }
+
     private async Task Section(string name, Func<Task> action)
     {
         try { await action(); }

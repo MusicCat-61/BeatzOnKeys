@@ -327,9 +327,17 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     /// The tile captions say how much music is waiting, not how much work was done: the first is a
     /// reason to press a tile, the second is a score.
     /// </summary>
-    public string HomeTracksMeta => Loc.F("L_HomeTracksMeta", Tracks.Count);
-    public string HomeYouTubeMeta => Loc.F("L_HomeCachedMeta", YouTube.Downloaded.Count);
-    public string HomeTikTokMeta => Loc.F("L_HomeCachedMeta", TikTok.Tracks.Count);
+    public string HomeTracksMeta => Meta(Tracks.Count, "L_HomeFilesEmpty");
+    public string HomeYouTubeMeta => Meta(YouTube.Downloaded.Count, "L_HomeCacheEmpty");
+    public string HomeTikTokMeta => Meta(TikTok.Tracks.Count, "L_HomeCacheEmpty");
+
+    /// <summary>
+    /// One measure for every tile: a track count. Two of the tiles used to count a cache while
+    /// the first counted tracks, so the eye compared numbers that meant different things. An
+    /// empty tile says what can be done there instead of reading like a dead end.
+    /// </summary>
+    private static string Meta(int count, string emptyKey) =>
+        count > 0 ? Loc.F("L_HomeTracksMeta", count) : Loc.T(emptyKey);
 
     /// <summary>
     /// Focus mode hides everything that asks the user to choose something — tabs, caches, counters,
@@ -403,6 +411,19 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public Visibility NowPlayingCardVisible =>
         IsRunning && _playbackController?.CurrentTrack is not null ? Visibility.Visible : Visibility.Collapsed;
     public string FocusToggleTooltip => _isFocusMode ? Loc.T("L_FocusExit") : Loc.T("L_FocusEnter");
+
+    /// <summary>
+    /// The hub fills its lower half with the one action that needs no decision: pick up the track
+    /// that is already selected. It appears only while nothing plays, so it never competes with
+    /// the card that names what is playing.
+    /// </summary>
+    public Visibility ContinueCardVisible =>
+        !IsRunning && ContinueTrackText.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>The name of the track Start would play right now, or empty when there is none.</summary>
+    public string ContinueTrackText => SelectedTrack is { IsAvailable: true } chosen
+        ? chosen.FileName
+        : Tracks.FirstOrDefault(track => track.IsAvailable)?.FileName ?? string.Empty;
 
     /// <summary>The button says what pressing it will do, so the mode is never a guess.</summary>
     public string FocusToggleText => Loc.T(_isFocusMode ? "L_FocusExit" : "L_FocusEnter");
@@ -1407,6 +1428,9 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         // local file. A preview belongs to no list and is named after the section it came from.
         // A missing quarter was shown raw as "Now playing · {0}": the format string cannot stand in
         // for the sentence it is only half of, so the idle case gets its own complete label.
+        OnPropertyChanged(nameof(NowPlayingCardVisible));
+        OnPropertyChanged(nameof(ContinueCardVisible));
+        OnPropertyChanged(nameof(ContinueTrackText));
         PlayingSourceText = active
             ? Loc.F("L_NowPlayingCard", SourceNameFor(playing!.Id))
             : Loc.T("L_NowPlayingIdle");

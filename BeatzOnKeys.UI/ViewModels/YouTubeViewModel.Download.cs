@@ -188,6 +188,7 @@ public sealed partial class YouTubeViewModel
             }
             // The count now lives in the badge beside the list heading, so repeating it here would
             // say the same thing twice. Only the empty answer still needs a sentence.
+            _hasSearched = true;
             StatusText = found.Count == 0 ? Loc.T("L_YtNotFound") : string.Empty;
             // Results are fetched right away, so pressing play works at once and the user hears
             // what the row actually is before deciding to keep it.

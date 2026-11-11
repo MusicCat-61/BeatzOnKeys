@@ -664,24 +664,6 @@ public partial class MainWindow : Window
         MessageDialog.Notify(this, message, Loc.T("L_AppName"));
     }
 
-    /// <summary>The cache is deleted only after the user confirms; the playlist is never touched.</summary>
-    /// <summary>Opens the recommended circumvention front-end; the app itself stays neutral.</summary>
-    private void ZapretOpenClick(object sender, RoutedEventArgs eventArgs)
-    {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "https://github.com/Asterlike/zapret2UI",
-                UseShellExecute = true
-            });
-        }
-        catch (Exception exception)
-        {
-            BeatzOnKeys.Core.Services.AppLogger.Error("ui", "Could not open the Zapret2UI page.", exception);
-        }
-    }
-
     // ---- Playlist drag-and-drop -------------------------------------------------------------
     // A row is dragged with the left button held; the target row shows a line where the drop will
     // land. The move goes through the view model, so playback order follows the new layout and the

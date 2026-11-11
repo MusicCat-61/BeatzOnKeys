@@ -230,7 +230,10 @@ public sealed class TikTokViewModel : ObservableObject
     public string TrackCountNumber => Tracks.Count.ToString(System.Globalization.CultureInfo.CurrentUICulture);
 
     /// <summary>The folder the files land in, spelled out so nobody has to guess.</summary>
-    public string CacheHintText => Loc.F("L_TikTokCacheHint", _options.MusicDirectory);
+    public string CacheHintText => Loc.T("L_YtCacheHintShort");
+
+    /// <summary>The path is a tooltip detail, not a headline in the card.</summary>
+    public string CachePathText => Loc.F("L_TikTokCacheHint", _options.MusicDirectory);
 
     private YouTubeTrackViewModel? _selected;
 

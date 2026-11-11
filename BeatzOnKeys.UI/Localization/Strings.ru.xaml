@@ -33,7 +33,7 @@
     <sys:String x:Key="L_Resume">Продолжить</sys:String>
     <sys:String x:Key="L_PauseHint">Заглушить музыку, запомнив место. «Продолжить» вернётся ровно в ту же точку трека.</sys:String>
     <sys:String x:Key="L_ResumeHint">Продолжить трек с того места, где остановились, а не с начала.</sys:String>
-    <sys:String x:Key="L_StatusPaused">Пауза — трек стоит на месте, «Продолжить» вернёт его с той же секунды</sys:String>
+    <sys:String x:Key="L_StatusPaused">Пауза — «Продолжить» вернёт с той же секунды</sys:String>
     <sys:String x:Key="L_AutoAdvance">Автоперелистывание треков</sys:String>
     <sys:String x:Key="L_AutoAdvanceHint">Трек кончился — включается следующий в этом списке</sys:String>
     <sys:String x:Key="L_Loop">Зацикливать воспроизведение</sys:String>
@@ -99,6 +99,10 @@
     <sys:String x:Key="L_GreetMorning">Доброе утро</sys:String>
     <sys:String x:Key="L_HomeHint">Вернуться к выбору источника</sys:String>
     <sys:String x:Key="L_HomeTracksMeta">Треков: {0}</sys:String>
+    <sys:String x:Key="L_HomeFilesEmpty">Треков пока нет — добавьте файлы</sys:String>
+    <sys:String x:Key="L_HomeCacheEmpty">В кеше пусто — можно искать</sys:String>
+    <sys:String x:Key="L_HomeContinue">Продолжить с того же места</sys:String>
+    <sys:String x:Key="L_HomeContinueHint">Продолжить с выбранного трека</sys:String>
     <sys:String x:Key="L_HomeYouTubeHint">Ссылка или поиск — трек в кеш и в очередь.</sys:String>
     <sys:String x:Key="L_HomeSettingsHint">Громкость, реакция, поведение</sys:String>
     <sys:String x:Key="L_HomeStatusHint">Выберите источник — музыка начнётся там</sys:String>
@@ -107,9 +111,9 @@
     <sys:String x:Key="L_HomeFocus">Фокус</sys:String>
     <sys:String x:Key="L_HomeCachedMeta">В кеше: {0}</sys:String>
     <sys:String x:Key="L_HomeTikTokHint">Ссылка на клип, звук остаётся у тебя.</sys:String>
-    <sys:String x:Key="L_ReadyToType">Готово — нажмите «Старт»: музыка играет непрерывно, набор управляет громкостью</sys:String>
-    <sys:String x:Key="L_StatusListening">Играет — печатайте в любом приложении, повышая громкость</sys:String>
-    <sys:String x:Key="L_StatusIdlePaused">Пауза при простое — печатайте, чтобы продолжить отсюда на максимальной громкости</sys:String>
+    <sys:String x:Key="L_ReadyToType">Готово — нажмите «Старт»</sys:String>
+    <sys:String x:Key="L_StatusListening">Играет — печатайте, чтобы поднять громкость</sys:String>
+    <sys:String x:Key="L_StatusIdlePaused">Пауза при простое — печатайте, чтобы продолжить</sys:String>
     <sys:String x:Key="L_StatusRestoring">Восстановление треков…</sys:String>
     <sys:String x:Key="L_PlaybackStopped">Воспроизведение остановлено.</sys:String>
     <sys:String x:Key="L_TrackEnded">Трек закончился — нажмите «Стоп», затем «Старт», или выберите другой трек</sys:String>
@@ -299,6 +303,7 @@
     <sys:String x:Key="L_YtCacheEnabled">Кешировать треки</sys:String>
     <sys:String x:Key="L_YtQueryProgressFormat">Скачивание: {0}%</sys:String>
     <sys:String x:Key="L_YtCacheHint">Файлы лежат в {0} и переживают переустановку.</sys:String>
+    <sys:String x:Key="L_YtCacheHintShort">Папка с музыкой переживает переустановку и обновление</sys:String>
     <sys:String x:Key="L_YtSettingsTitle">yt-dlp</sys:String>
     <sys:String x:Key="L_YtInstall">Скачать/Обновить yt-dlp</sys:String>
     <sys:String x:Key="L_YtInstalledFormat">yt-dlp установлен: {0}</sys:String>

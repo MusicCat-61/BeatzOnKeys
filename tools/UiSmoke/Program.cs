@@ -298,12 +298,12 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         // The cache folder picker was removed on purpose: the cache now always lives in
         // <Root>\Music, so a leftover property or command would be dead UI code.
         var youTubeType = typeof(YouTubeViewModel);
-        var removed = new[] { "CachePath", "CachePathText", "ChooseCacheFolderCommand" }
+        var removed = new[] { "ChooseCacheFolderCommand" }
             .Where(name => youTubeType.GetProperty(name) is not null ||
                 youTubeType.GetMethod(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance) is not null)
             .ToArray();
         Check("storage.cacheFolderPickerRemoved", removed.Length == 0,
-            removed.Length == 0 ? "CachePath and the folder command are gone." : "Still present: " + string.Join(", ", removed));
+            removed.Length == 0 ? "The folder button and the inline path text are gone." : "Still present: " + string.Join(", ", removed));
         // The log folder is created in every mode, and the storage step must not have overridden
         // the paths this harness pinned for itself.
         Check("storage.modePinned", AppPaths.Mode == StorageMode.LocalAppData &&
@@ -1304,10 +1304,11 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         // The downloaded tab carries the same counter as the local list and a chip per row.
         // The cache hint used to be a hardcoded %LOCALAPPDATA% path; with a movable root it must
         // read the folder the app is actually using.
-        Check("storage.cacheHintUsesRealPath",
-            vm.YouTube.CacheHintText.Contains(AppPaths.MusicDirectory, StringComparison.OrdinalIgnoreCase) &&
-            !vm.YouTube.CacheHintText.Contains("%LOCALAPPDATA%", StringComparison.Ordinal),
-            $"Hint='{vm.YouTube.CacheHintText}', MusicDirectory='{AppPaths.MusicDirectory}'.");
+        Check("storage.cachePathLivesInTheTooltip",
+            vm.YouTube.CachePathText.Contains(AppPaths.MusicDirectory, StringComparison.OrdinalIgnoreCase) &&
+            !vm.YouTube.CachePathText.Contains("%LOCALAPPDATA%", StringComparison.Ordinal) &&
+            !vm.YouTube.CacheHintText.Contains(AppPaths.MusicDirectory, StringComparison.OrdinalIgnoreCase),
+            $"Text='{vm.YouTube.CacheHintText}', tooltip='{vm.YouTube.CachePathText}'.");
         Check("youtube.downloadedCounter", vm.YouTube.TrackCount == 2 && vm.YouTube.TrackCountNumber == "2",
             $"TrackCount={vm.YouTube.TrackCount}, text='{vm.YouTube.TrackCountNumber}'.");
         Check("youtube.statusChips", vm.YouTube.Downloaded.All(track => track.IsChipReady) &&
@@ -2599,6 +2600,37 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("focus.emptyLineBelongsToTheMode",
             empty.FocusNeedsMusicVisible == Visibility.Collapsed,
             "Outside focus mode the line is gone.");
+        // The reported question: entering focus must start the track chosen beforehand, not the
+        // first row of whichever list was last open. The answer is measured, not assumed.
+        var chooser = Own(new MainViewModel(new AppSettings { Language = "en", PauseOnIdle = false },
+            MakeSettingsService(Path.Combine(session, "focus-choice.json")), new FakeKeyboardHook(),
+            new ContinuousAudioPlayer()));
+        await chooser.InitializeAsync();
+        await chooser.AddFilesAsync(new[] { _fixtures[3], _fixtures[1] });
+        chooser.ShowPlaylistCommand.Execute(null);
+        await SettleAsync();
+        var wanted = chooser.Tracks[1];
+        chooser.SelectedTrack = wanted;
+        await SettleAsync();
+        chooser.ShowHomeCommand.Execute(null);
+        await SettleAsync();
+        chooser.ToggleFocusModeCommand.Execute(null);
+        await SettleAsync();
+        Check("focus.keepsTheChosenTrack",
+            ReferenceEquals(chooser.SelectedTrack, wanted) && chooser.IsPlaylistPage &&
+            chooser.StartCommand.CanExecute(null),
+            $"After Home then focus: selected='{chooser.SelectedTrackText}', page=playlist " +
+            $"{chooser.IsPlaylistPage}, start allowed={chooser.StartCommand.CanExecute(null)}.");
+        chooser.StartCommand.Execute(null);
+        await UntilAsync(() => chooser.IsRunning, 8000, "focus start from the chosen track");
+        await SettleAsync();
+        Check("focus.startsTheChosenTrack",
+            chooser.PlayingTrackText == wanted.FileName && chooser.PlayingTrackText != chooser.Tracks[0].FileName,
+            $"Started '{chooser.PlayingTrackText}', expected '{wanted.FileName}' " +
+            $"(first row is '{chooser.Tracks[0].FileName}').");
+        await StopAsync(chooser);
+        await chooser.DisposeAsync();
+        _ownedModels.Remove(chooser);
         await empty.DisposeAsync();
         _ownedModels.Remove(empty);
 
@@ -2613,7 +2645,11 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             .Any(button => button.IsVisible && ReferenceEquals(button.Command, command));
         var privacyBefore = Shows("L_PrivacyTitle");
         var homeBefore = ShowsCommand(shell.ShowHomeCommand);
-        var startButton = Descendants<Button>(window).FirstOrDefault(button => ReferenceEquals(button.Command, shell.StartCommand));
+        // The hub has its own Start-bound button, so the transport is identified by its label.
+        Button? TransportStart() => Descendants<Button>(window).FirstOrDefault(button => button.IsVisible &&
+            ReferenceEquals(button.Command, shell.StartCommand) &&
+            button.Content is string label && label == Loc.T("L_Start"));
+        var startButton = TransportStart();
 
         shell.ToggleFocusModeCommand.Execute(null);
         await SettleAsync();
@@ -2635,8 +2671,8 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             shell.HomePageVisible == Visibility.Collapsed,
             $"Focus page visible={shell.FocusPanelVisible}, hub={shell.HomePageVisible}, hint shown={Shows("L_FocusHint")}.");
         Check("focus.keepsTheTransport",
-            startButton is { IsVisible: true },
-            startButton is null ? "The Start button was not found." : $"Start visible={startButton.IsVisible}.");
+            TransportStart() is { IsVisible: true } transport,
+            $"Start visible={TransportStart()?.IsVisible}, page={shell.CurrentModeTitle}, focus={shell.IsFocusMode}.");
         SaveScreenshot(window, $"focus-{Loc.CurrentCode}.png");
 
         shell.ToggleFocusModeCommand.Execute(null);
@@ -2709,8 +2745,12 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         // The tiles are the only navigation, so each one has to lead somewhere different.
         Check("home.tilesShowWhatWaits",
             vm.HomeTracksMeta == Loc.F("L_HomeTracksMeta", vm.Tracks.Count) &&
-            vm.HomeYouTubeMeta == Loc.F("L_HomeCachedMeta", vm.YouTube.Downloaded.Count) &&
-            vm.HomeTikTokMeta == Loc.F("L_HomeCachedMeta", vm.TikTok.Tracks.Count),
+            (vm.YouTube.Downloaded.Count == 0
+                ? vm.HomeYouTubeMeta == Loc.T("L_HomeCacheEmpty")
+                : vm.HomeYouTubeMeta == Loc.F("L_HomeTracksMeta", vm.YouTube.Downloaded.Count)) &&
+            (vm.TikTok.Tracks.Count == 0
+                ? vm.HomeTikTokMeta == Loc.T("L_HomeCacheEmpty")
+                : vm.HomeTikTokMeta == Loc.F("L_HomeTracksMeta", vm.TikTok.Tracks.Count)),
             $"'{vm.HomeTracksMeta}', '{vm.HomeYouTubeMeta}', '{vm.HomeTikTokMeta}'.");
         Check("home.startIsNotOfferedOnTheHub",
             vm.StartButtonVisible == Visibility.Collapsed && vm.HasSomethingToPlay == vm.Tracks.Count > 0,
@@ -2719,6 +2759,20 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("home.statusNamesTheScreen",
             vm.StatusText == Loc.T("L_HomeStatusHint") && vm.StatusText != Loc.T("L_ReadyToType"),
             $"Status={vm.StatusText}, running={vm.IsRunning}.");
+        // The YouTube page used to hide its list behind two inner tabs, which put the tabs back
+        // one floor below the screen that removed them. One list, one search, no inner tabs.
+        Check("home.noInnerTabs",
+            !Descendants<Button>(window).Any(button => button.IsVisible &&
+                (ReferenceEquals(button.Command, vm.YouTube.ShowSearchTabCommand) ||
+                 ReferenceEquals(button.Command, vm.YouTube.ShowDownloadedTabCommand))),
+            "No search/downloaded tab buttons are rendered anywhere.");
+        // The lower half of the hub is not decoration: it offers the selected track.
+        Check("home.offersToContinue",
+            vm.ContinueCardVisible == Visibility.Visible && vm.ContinueTrackText.Length > 0 &&
+            Descendants<Button>(window).Any(button => button.IsVisible &&
+                ReferenceEquals(button.Command, vm.StartCommand) &&
+                button.Content is string text && text == Loc.T("L_HomeContinue")),
+            $"Continue card={vm.ContinueCardVisible}, track='{vm.ContinueTrackText}'.");
         var rendered = Descendants<Button>(window).Where(button => button.IsVisible).ToArray();
         Button Tile(RelayCommand command) => rendered.FirstOrDefault(button => ReferenceEquals(button.Command, command));
         Check("home.tilesAreRealButtons",

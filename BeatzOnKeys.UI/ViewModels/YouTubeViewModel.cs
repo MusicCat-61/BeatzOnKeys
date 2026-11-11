@@ -51,6 +51,8 @@ public sealed partial class YouTubeViewModel : ObservableObject
     private bool _isSearchTab = true;
     /// <summary>Set when the user cleared the field and its results, so the empty list can explain itself.</summary>
     private bool _resultsClearedByUser;
+    /// <summary>True once a search has run, so "nothing found" only describes a real search.</summary>
+    private bool _hasSearched;
 
     public YouTubeViewModel(
         YouTubeTrackService service,
@@ -284,7 +286,10 @@ public sealed partial class YouTubeViewModel : ObservableObject
     /// The real cache folder, not a hardcoded one: the root follows the storage mode now, so a
     /// fixed "%LOCALAPPDATA%" hint would lie as soon as the data moved anywhere else.
     /// </summary>
-    public string CacheHintText => Loc.F("L_YtCacheHint", AppPaths.MusicDirectory);
+    public string CacheHintText => Loc.T("L_YtCacheHintShort");
+
+    /// <summary>The path is a tooltip detail: three lines of a system path are noise in a card.</summary>
+    public string CachePathText => Loc.F("L_YtCacheHint", AppPaths.MusicDirectory);
 
     /// <summary>Space the previews take; reported on its own line.</summary>
     public long SearchCacheBytes => _searchCacheBytes;
@@ -376,8 +381,12 @@ public sealed partial class YouTubeViewModel : ObservableObject
     /// </summary>
     public bool ShowResultsClearedHint => !IsSearching && Results.Count == 0 && _resultsClearedByUser;
 
-    /// <summary>The list is empty after a search that really returned nothing.</summary>
-    public bool ShowEmptyResults => !IsSearching && Results.Count == 0 && !_resultsClearedByUser;
+    /// <summary>
+    /// The list is empty after a search that really returned nothing. The flag exists because an
+    /// empty list before the first search is not a failed search, and saying so would be a lie
+    /// on a freshly opened page.
+    /// </summary>
+    public bool ShowEmptyResults => !IsSearching && Results.Count == 0 && _hasSearched && !_resultsClearedByUser;
 
     /// <summary>Two different sentences, because a cleared list is not a failed search.</summary>
     public Visibility ResultsClearedHintVisible => ShowResultsClearedHint ? Visibility.Visible : Visibility.Collapsed;

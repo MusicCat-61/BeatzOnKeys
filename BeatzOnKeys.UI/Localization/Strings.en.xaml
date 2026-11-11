@@ -33,7 +33,7 @@
     <sys:String x:Key="L_Resume">Resume</sys:String>
     <sys:String x:Key="L_PauseHint">Silence the music and remember the spot. Resume returns to the exact same point of the track.</sys:String>
     <sys:String x:Key="L_ResumeHint">Continue the track where it stopped instead of starting over.</sys:String>
-    <sys:String x:Key="L_StatusPaused">Paused — the track stays put, and Resume returns to the same second</sys:String>
+    <sys:String x:Key="L_StatusPaused">Paused — Resume continues from here</sys:String>
     <sys:String x:Key="L_AutoAdvance">Auto-advance tracks</sys:String>
     <sys:String x:Key="L_AutoAdvanceHint">When a track ends, the next one in this list plays</sys:String>
     <sys:String x:Key="L_Loop">Loop playback</sys:String>
@@ -99,6 +99,10 @@
     <sys:String x:Key="L_GreetMorning">Good morning</sys:String>
     <sys:String x:Key="L_HomeHint">Back to the source chooser</sys:String>
     <sys:String x:Key="L_HomeTracksMeta">Tracks: {0}</sys:String>
+    <sys:String x:Key="L_HomeFilesEmpty">No tracks yet — add files</sys:String>
+    <sys:String x:Key="L_HomeCacheEmpty">Cache is empty — you can search</sys:String>
+    <sys:String x:Key="L_HomeContinue">Pick up where you left off</sys:String>
+    <sys:String x:Key="L_HomeContinueHint">Pick up the selected track</sys:String>
     <sys:String x:Key="L_HomeYouTubeHint">A link or a search — the track is cached and queued.</sys:String>
     <sys:String x:Key="L_HomeSettingsHint">Volume, reaction, behaviour</sys:String>
     <sys:String x:Key="L_HomeStatusHint">Choose a source — the music starts there</sys:String>
@@ -107,9 +111,9 @@
     <sys:String x:Key="L_HomeFocus">Focus</sys:String>
     <sys:String x:Key="L_HomeCachedMeta">Cached: {0}</sys:String>
     <sys:String x:Key="L_HomeTikTokHint">A clip link; the sound stays with you.</sys:String>
-    <sys:String x:Key="L_ReadyToType">Ready — press Start for continuous music controlled by typing</sys:String>
-    <sys:String x:Key="L_StatusListening">Playing — type anywhere to raise the volume</sys:String>
-    <sys:String x:Key="L_StatusIdlePaused">Paused while idle — type to resume here at maximum volume</sys:String>
+    <sys:String x:Key="L_ReadyToType">Ready — press Start</sys:String>
+    <sys:String x:Key="L_StatusListening">Playing — type to raise the volume</sys:String>
+    <sys:String x:Key="L_StatusIdlePaused">Paused while idle — type to resume</sys:String>
     <sys:String x:Key="L_StatusRestoring">Restoring tracks…</sys:String>
     <sys:String x:Key="L_PlaybackStopped">Playback stopped.</sys:String>
     <sys:String x:Key="L_TrackEnded">Track ended — press Stop, then Start, or select another track</sys:String>
@@ -299,6 +303,7 @@ Details: {1}</sys:String>
     <sys:String x:Key="L_YtCacheEnabled">Cache tracks</sys:String>
     <sys:String x:Key="L_YtQueryProgressFormat">Downloading: {0}%</sys:String>
     <sys:String x:Key="L_YtCacheHint">Files live in {0} and survive a reinstall.</sys:String>
+    <sys:String x:Key="L_YtCacheHintShort">The music folder survives reinstalls and updates</sys:String>
     <sys:String x:Key="L_YtSettingsTitle">yt-dlp</sys:String>
     <sys:String x:Key="L_YtInstall">Download/Update yt-dlp</sys:String>
     <sys:String x:Key="L_YtInstalledFormat">yt-dlp is installed: {0}</sys:String>

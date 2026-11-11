@@ -58,9 +58,42 @@ public partial class MessageDialog : Window
     public static void Notify(Window? owner, string message, string title) =>
         Notify(owner, message, title, null);
 
+    /// <summary>
+    /// Replaced by the smoke harness so a modal window cannot block an automated run. Null in the
+    /// shipped app, where the dialog itself is the behaviour. This mirrors
+    /// <see cref="MainViewModel.TikTokServiceFactory"/>: a seam for tests, not a feature.
+    /// </summary>
+    public static Action<string, string>? NoticePresenter { get; set; }
+
+    /// <summary>
+    /// Shows a notice that does not block its caller. Startup hints and the tray explanation are
+    /// information, not questions: a modal window there stopped the app from finishing its own
+    /// startup until the user dismissed it, which the watchdog caught as a hang.
+    /// </summary>
+    public static void ShowNotice(Window? owner, string message, string title, string? okLabel)
+    {
+        if (NoticePresenter is { } presenter)
+        {
+            presenter(message, title);
+            return;
+        }
+
+        var dialog = new MessageDialog(message, title, showYesNo: false);
+        if (!string.IsNullOrWhiteSpace(okLabel)) { dialog.BtnYes.Content = okLabel; }
+        if (owner is not null && owner.IsVisible) { dialog.Owner = owner; }
+        else { dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen; }
+        dialog.Show();
+    }
+
     /// <summary>A single-button notice whose button says what happens next.</summary>
     public static void Notify(Window? owner, string message, string title, string? okLabel)
     {
+        if (NoticePresenter is { } presenter)
+        {
+            presenter(message, title);
+            return;
+        }
+
         var dialog = new MessageDialog(message, title, showYesNo: false);
         if (!string.IsNullOrWhiteSpace(okLabel)) { dialog.BtnYes.Content = okLabel; }
         dialog.Run(owner);

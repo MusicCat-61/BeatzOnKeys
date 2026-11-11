@@ -195,6 +195,10 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             var settingsService = MakeSettingsService(SettingsPath);
             _vm = Own(new MainViewModel(new AppSettings { Language = "en" }, settingsService, _hook, _player));
             _vm.UserMessageRequested += message => _messages.Add(message);
+        // A modal window blocks an automated run for ever, and the tray notice is modal on purpose:
+        // it is the only explanation the user gets when the window disappears. The harness replaces
+        // the presenter and records what would have been shown.
+        MessageDialog.NoticePresenter = (message, title) => _messages.Add("Dialog: " + title + " — " + message);
             await _vm.InitializeAsync();
             Check("defaults.loop", _vm.Loop, "A fresh VM keeps Loop=true.");
             Check("defaults.sections", _vm.IsVolumeExpanded && !_vm.IsReactionExpanded && !_vm.IsBehaviorExpanded &&
@@ -2613,11 +2617,14 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
 
         shell.ToggleFocusModeCommand.Execute(null);
         await SettleAsync();
-        // The way home is the one thing focus mode must not hide: the mode is a room, and a room
-        // without a door is the trap this whole screen was built to avoid.
-        Check("focus.keepsTheWayHome",
-            homeBefore && ShowsCommand(shell.ShowHomeCommand),
-            $"Home button before={homeBefore}, after={ShowsCommand(shell.ShowHomeCommand)}.");
+        // Focus mode hides the way home: it has its own exit in the title bar, and two doors out
+        // of one room is a choice to make rather than a kindness. The exit must be the one left.
+        Check("focus.hidesTheWayHome",
+            homeBefore && !ShowsCommand(shell.ShowHomeCommand) &&
+            Descendants<Button>(window).Any(button => button.IsVisible &&
+                ReferenceEquals(button.Command, shell.ToggleFocusModeCommand)),
+            $"Home button before={homeBefore}, after={ShowsCommand(shell.ShowHomeCommand)}; " +
+            "the mode keeps its own exit button.");
         Check("focus.hidesTheCardsAndAdvice",
             privacyBefore && !Shows("L_PrivacyTitle") &&
             shell.TabStripVisible == Visibility.Collapsed &&
@@ -2731,6 +2738,38 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("home.wayBackReturnsToTheHub",
             vm.IsHomePage && vm.HomePageVisible == Visibility.Visible && vm.HomeButtonVisible == Visibility.Collapsed,
             $"After Home: IsHomePage={vm.IsHomePage}, visible={vm.HomePageVisible}.");
+
+        // The reported bug: with nothing playing the hub still showed "Now playing · local" and a
+        // file name at 00:00, because the controller keeps its track after Stop and the label did
+        // not ask whether sound was coming out. A card is a claim about sound, not a selection.
+        await StopAsync(vm);
+        Check("home.silenceShowsNoCard",
+            vm.NowPlayingCardVisible == Visibility.Collapsed &&
+            vm.PlayingTrackText == Loc.T("L_NothingPlaying") &&
+            vm.PlayingSourceText == Loc.T("L_NowPlayingIdle") &&
+            vm.NowPlayingText.Length == 0,
+            $"Stopped: card={vm.NowPlayingCardVisible}, track='{vm.PlayingTrackText}', " +
+            $"source='{vm.PlayingSourceText}', now='{vm.NowPlayingText}'.");
+        vm.ShowPlaylistCommand.Execute(null);
+        await SettleAsync();
+        var firstLocal = vm.Tracks.FirstOrDefault(track => track.IsAvailable);
+        if (firstLocal is not null)
+        {
+            await vm.PlayPlaylistTrackAsync(firstLocal);
+            await UntilAsync(() => vm.IsRunning, 8000, "local playback for the card check");
+            await SettleAsync();
+            Check("home.soundShowsTheCard",
+                vm.NowPlayingCardVisible == Visibility.Visible && vm.PlayingTrackText.Length > 0 &&
+                vm.PlayingSourceText != Loc.T("L_NowPlayingIdle"),
+                $"Playing: card={vm.NowPlayingCardVisible}, track='{vm.PlayingTrackText}', " +
+                $"source='{vm.PlayingSourceText}'.");
+            await StopAsync(vm);
+            Check("home.stoppingHidesItAgain",
+                vm.NowPlayingCardVisible == Visibility.Collapsed,
+                $"After Stop the card is {vm.NowPlayingCardVisible}.");
+        }
+        vm.ShowHomeCommand.Execute(null);
+        await SettleAsync();
         // The crumb names the mode, and the hub is not a mode: there it stays hidden, so "Home"
         // never appears as a label for a screen that is already home.
         vm.ShowYouTubeCommand.Execute(null);

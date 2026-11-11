@@ -300,12 +300,12 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public bool IsPlaylistPage => _page == AppPage.Playlist;
 
     /// <summary>
-    /// The way back is on screen in every mode, because a screen without an exit is a trap. Focus
-    /// mode keeps it too — that room needs a door most of all. Only the hub hides it, because on
-    /// the hub it would go nowhere.
+    /// The way back to the start screen. Focus mode hides it: that screen keeps its own exit
+    /// ("Leave focus mode") in the title bar, and two doors out of one room is a choice, not a
+    /// kindness. On the hub itself there is nowhere to go back to, so it is hidden there too.
     /// </summary>
     public Visibility HomeButtonVisible =>
-        _page == AppPage.Home && !_isFocusMode ? Visibility.Collapsed : Visibility.Visible;
+        _isFocusMode || _page == AppPage.Home ? Visibility.Collapsed : Visibility.Visible;
 
     /// <summary>
     /// The greeting is the only thing on the start screen that changes by itself, and it is chosen
@@ -397,12 +397,11 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         _page == AppPage.Home && !_isFocusMode ? Visibility.Visible : Visibility.Collapsed;
 
     /// <summary>
-    /// The hub shows what is playing only when something really is. The label itself always has a
-    /// value — "Nothing playing" — so the card asks the controller, not the text.
+    /// The hub and the focus page show what is playing only while it really plays: the controller
+    /// remembers its track after Stop, and a card for a silent app is a lie about sound.
     /// </summary>
     public Visibility NowPlayingCardVisible =>
-        _playbackController?.CurrentTrack is not null ? Visibility.Visible : Visibility.Collapsed;
-
+        IsRunning && _playbackController?.CurrentTrack is not null ? Visibility.Visible : Visibility.Collapsed;
     public string FocusToggleTooltip => _isFocusMode ? Loc.T("L_FocusExit") : Loc.T("L_FocusEnter");
 
     /// <summary>The button says what pressing it will do, so the mode is never a guess.</summary>
@@ -1391,18 +1390,22 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             _audioPlayer.IsPaused || _audioPlayer.IsIdlePaused);
         var playingName = playing is null ? string.Empty :
             _friendlyNames.TryGetValue(playing.Id, out var friendly) ? friendly : playing.Name;
-        NowPlayingText = playing is null ? string.Empty :
-            Loc.F("L_NowPlayingFormat", playingName, FormatPosition(position), FormatPosition(duration));
-        PlayingTrackText = playing is null ? Loc.T("L_NothingPlaying") : playingName;
-        OnPropertyChanged(nameof(NowPlayingCardVisible));
+        // "Now playing" is a claim about sound, not about a selection. The controller keeps its
+        // track after Stop, so an ungated label told the user that a stopped app was playing a
+        // file at 00:00 — reported as "nothing is running, but it says it is playing".
+        var active = IsRunning && playing is not null;
+        NowPlayingText = active
+            ? Loc.F("L_NowPlayingFormat", playingName, FormatPosition(position), FormatPosition(duration))
+            : string.Empty;
+        PlayingTrackText = active ? playingName : Loc.T("L_NothingPlaying");
         // The source is read from the lists themselves, not remembered per click: an auto-advance
         // never passes through the play path, so a remembered set would call the next TikTok row a
         // local file. A preview belongs to no list and is named after the section it came from.
         // A missing quarter was shown raw as "Now playing · {0}": the format string cannot stand in
         // for the sentence it is only half of, so the idle case gets its own complete label.
-        PlayingSourceText = playing is null
-            ? Loc.T("L_NowPlayingIdle")
-            : Loc.F("L_NowPlayingCard", SourceNameFor(playing.Id));
+        PlayingSourceText = active
+            ? Loc.F("L_NowPlayingCard", SourceNameFor(playing!.Id))
+            : Loc.T("L_NowPlayingIdle");
         if (IsRunning)
         {
             // A paused run is not an ended one: the position stays short of the duration.

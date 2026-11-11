@@ -14,31 +14,47 @@
 
 **English** · [Русский](<README.md>)
 
-**An audio player that plays continuously, gets louder while you type, and becomes quieter when you stop. After a few seconds of inactivity, the track pauses.**
+**BeatzOnKeys is a focus player that follows your rhythm.** Listen to your own music. Work. While you type, the track comes alive. When you stop, it fades. You never switch tracks or reach for pause. The music adapts to your rhythm, not the other way round.
 
-Add an MP3 track (PCM WAV is also supported) and press **Start**: playback begins immediately at `0:00`. Typing controls the volume, not the playback position. Idle pausing is enabled by default and can be switched off for continuous quiet playback.
+This is not a player with a gimmick; it is a tool for working. It removes the decisions that stand between you and starting. One screen to choose where the music comes from. One button for sound. After that, you just type.
 
-BeatzOnKeys is written in C# with .NET 10 and WPF, with NAudio for decoding and Windows audio output. The portable release is self-contained: no installer, administrator rights, or separately installed .NET runtime are required.
+## Who this is for
+
+- **People whom music helps to concentrate, but loud and continuous music gets in the way of thinking.** A quiet bed that rises only while you are working.
+- **People with ADHD** who need an outside cue to start and to hold focus: the sound becomes feedback that says "I am here, I am working" — with no numbers, no scores and no guilt.
+- **Anyone who listens to YouTube or TikTok while working** and wants the music not to get in the way of thinking.
+
+**BeatzOnKeys does not sell music and needs no subscription.** It works with your files and your links: MP3 and WAV from your computer, tracks from YouTube and sound from TikTok. No account, no catalogue, no payment.
+
+BeatzOnKeys is a tool, not medical care: it is not treatment or therapy, it is a way to remove unnecessary decisions from the path to work.
+
+## Privacy in two sentences
+
+**BeatzOnKeys does not read text, does not log key presses and does not send data anywhere.** The keyboard hook exists only to know that you are working: the app learns that a key was pressed and nothing else — no character, no window title, no application name. What is stored and where lives in the [Privacy](#privacy) section.
 
 ## What is inside
 
-| | |
+Value first, mechanics second.
+
+| Value | What stands behind it |
 |---|---|
-| 🎹 **Typing-reactive volume** | Smooth volume changes between quiet and typing levels; Shift, Ctrl, and Alt alone are ignored |
-| 🎧 **Continuous playback** | The selected MP3 or PCM WAV plays normally from its beginning |
-| ⏸ **Optional idle pause** | Pause after a configurable timeout; the first key resumes at the same position |
-| 🔁 **Advance and loop** | Continue to the next track, repeat one track, or loop the complete list |
-| 🪟 **Mica window** | Native Windows 11 backdrop, custom frameless title bar, and a solid Windows 10 fallback |
+| 🎯 **Focus mode** | One button removes lists, caches, counters, advice plates and settings. What is left is what is playing plus the transport. The queue never runs dry there: a track ends and the next one starts |
+| 🚪 **Start screen** | One question instead of four tabs: where does the music come from today. The greeting follows the time of day |
+| 🎹 **Music that knows when you work** | Volume follows your typing: it rises on a key press and falls when you stop. Shift, Ctrl and Alt alone do not count |
+| ⏸ **Idle pause** | You looked away and the track froze. The first key brings it back at the same position |
+| 🔁 **Never silent** | Next track, repeat one, or loop the list: silence never arrives by surprise |
+| 🎧 **Continuous playback** | MP3 and PCM WAV play normally; typing controls the volume, not the position |
 | 🌗 **Frost themes** | Dark and light MusicCatRGB-inspired palettes switch without a restart |
 | 🌐 **Two languages** | English and Russian switch instantly; first launch follows the system language |
-| 🔕 **Tray mode** | The window stays open after Start and hides only when you explicitly close it to the tray |
-| 💾 **Saved preferences** | Playlist, selection, volume levels, idle options, language, theme, auto-advance, and loop |
+| 🪟 **Mica window** | Native Windows 11 backdrop, custom frameless title bar, and a solid Windows 10 fallback |
+| 💾 **Saved preferences** | Playlist and selection in `library.json`, volume levels, idle options, language, theme, auto-advance and loop |
 | 🥁 **Music-reactive extras** | Punch attack on transients, bass boost, stereo pulse, and a quiet level that follows the track |
 | 🎛 **Playlist controls** | Move a track up or down, remove one, or clear the whole list without touching the files |
-| 🗒 **Logs and updates** | Daily UTF-8 diagnostics, quiet update checks, and a verified in-place updater that replaces the executable itself |
-| ▶️ **YouTube section** | A separate tab with search by name, direct links, a cache in `%LOCALAPPDATA%\BeatzOnKeys\Music` and a disk-usage figure |
-| 🎵 **TikTok section** | A third tab: a link to a clip and the audio lands in `Music\TikTok`, with its own cache, its own list and a cancel button |
-| 📖 **Built-in guide** | One window explains every button, slider, switch, tray action, status, and path — open it with F1 |
+| 🔕 **Tray mode** | The window hides only on an explicit press; a dialog now explains where it went |
+| 🗒 **Logs and updates** | Daily UTF-8 diagnostics, quiet update checks, and a verified in-place updater |
+| ▶️ **YouTube as a music source** | Its own section: search by name, direct links, a cache in `%LOCALAPPDATA%\BeatzOnKeys\Music` and a disk-usage figure |
+| 🎵 **TikTok as a music source** | A link to a clip and the audio lands in `Music\TikTok`, with its own cache, list and cancel button |
+| 📖 **Built-in guide** | One window explains every button, slider, switch, tray action and path — open it with F1 |
 
 ## How it works
 
@@ -122,21 +138,25 @@ No installer, administrator rights, or separate .NET runtime are required. **Upg
 
 ## Usage
 
-1. Drag MP3 or PCM WAV files onto the drop area, or use **Add files**; select a track. The arrows in a row reorder the playlist and **Clear all** empties it.
-2. Set the quiet and maximum volume levels, idle timeout, and **Pause on idle**. Choose **Auto-advance** and **Loop** as needed.
-3. Click **Start**. The track starts immediately from the beginning and the window stays open.
-4. Type in any application to raise the volume; stop typing to lower it. If idle pausing is enabled, the first key after a pause resumes the track at the same position.
-5. Use the title-bar close button to hide the window to the tray. Double-click the tray icon to reopen it, or use **Stop playback** / **Exit** in its menu.
+1. On the start screen, choose a source: **My files**, **YouTube** or **TikTok**. The greeting at the top follows the time of day, and the counters on the tiles say how much music is already waiting.
+2. In **My files**, drag MP3 or PCM WAV files onto the drop area, or use **Add files**; select a track. The arrows in a row reorder the playlist and **Clear all** empties it.
+3. Set the quiet and maximum volume levels, idle timeout, and **Pause on idle**. Choose **Auto-advance** and **Loop** as needed.
+4. Click **Start**. The track starts immediately from the beginning and the window stays open.
+5. Type in any application to raise the volume; stop typing to lower it. If idle pausing is enabled, the first key after a pause resumes the track at the same position.
+6. Press **Focus mode** (in the title bar or from the start screen tile) when everything except the music should leave the screen. The **Home** button is present in every section and in focus mode itself: a screen without an exit is a trap.
+7. Use the title-bar close button to hide the window to the tray. Double-click the tray icon to reopen it, or use **Stop playback** / **Exit** in its menu.
 
 **Reset** removes imported entries and saved settings. It never deletes the original audio files.
 
-**The queue belongs to the tab.** A track started on YouTube advances to the next YouTube track, not into the local playlist; **Loop** wraps inside the tab, and switching tabs never stops what is playing. A preview never joins the queue.
+**Focus mode is a view, not a setting.** It writes nothing to `settings.json`: auto-advance and loop are switched on in the controller's memory only, and leaving the mode hands back exactly the switches you chose yourself. The queue never runs dry there: a track ends and the next one from that section starts.
+
+**The queue belongs to the source.** A track started on YouTube advances to the next YouTube track, not into the local playlist; **Loop** wraps inside that section, and opening another section never stops what is playing. A preview never joins the queue.
 
 **The window remembers its size**: it reopens at the size you dragged it to. The size only ever grows — a temporarily smaller window does not become permanent, and a maximised window is not recorded as a size.
 
 ## YouTube
 
-The **YouTube** tab in the title bar opens a section of its own: downloaded tracks live there and **never enter the local playlist**.
+**Your YouTube as a music source for focus.** The YouTube tile on the start screen opens a section of its own: tracks from YouTube live there and **never mix with the local playlist**. This is not "one more feature" — it is a second way to get music, next to files from your computer and TikTok.
 
 - **Search.** Type a name and press **Search** for up to ten results; the **Download** button on a row saves that track.
 - **Filter in the downloaded list.** The field above the list searches the tracks you already saved, and its cross clears the field. The filter only hides rows: the counter, clearing and the queue keep working on the full list.
@@ -152,7 +172,7 @@ Limits: one link at a time, playlists and live streams are refused with an expla
 The format is M4A (AAC), decoded by Media Foundation. On Windows without that component (the "N" editions) the app converts to WAV through an `ffmpeg.exe` placed in `%LOCALAPPDATA%\BeatzOnKeys\bin`. ffmpeg is never downloaded automatically: the compact builds cannot be redistributed, and the properly licensed ones are larger than the application itself.
 ## TikTok
 
-The **TikTok** tab opens a third section: one field, one button. Paste a link to a clip and press **Download** — the audio track lands in `Music\TikTok`.
+**TikTok is another music source.** The TikTok tile on the start screen opens a section with one field and one button. Paste a link to a clip and press **Download** — the audio track lands in `Music\TikTok` and joins the queue of that source.
 
 - **Short links.** `vm.tiktok.com/…` and `vt.tiktok.com/…` work: the program follows the short link to the real address of the clip first and only then fetches the audio. Pasting the same link again does not add a second copy.
 - **Cancel.** While a download runs, **Cancel** appears next to the field and stops exactly that download.
@@ -172,11 +192,11 @@ The title-bar `EN | RU` switch changes the language immediately; the sun/moon bu
 
 [About dialog](<assets/about-ru.png>) · [Light About dialog](<assets/about-light-ru.png>) · [Guide, English](<assets/guide-en.png>) · [Guide, Russian](<assets/guide-ru.png>)
 
-YouTube tab: [search with listening](<assets/youtube-search-ru.png>) · [downloaded tracks](<assets/youtube-downloaded-ru.png>) · [search in progress](<assets/youtube-searching-ru.png>)
+YouTube source: [search with listening](<assets/youtube-search-ru.png>) · [downloaded tracks](<assets/youtube-downloaded-ru.png>) · [search in progress](<assets/youtube-searching-ru.png>)
 
 Settings sections: [Volume](<assets/section-volume.png>) · [Music reaction](<assets/section-reaction.png>) · [Behaviour](<assets/section-behavior.png>) · [all collapsed](<assets/section-collapsed.png>)
 
-TikTok tab: [empty section](<assets/tiktok-empty-ru.png>) · [a downloaded clip](<assets/tiktok-track-ru.png>) · [a download with cancel](<assets/tiktok-cancel-ru.png>) · [the provider plate](<assets/tiktok-provider-ru.png>)
+TikTok source: [empty section](<assets/tiktok-empty-ru.png>) · [a downloaded clip](<assets/tiktok-track-ru.png>) · [a download with cancel](<assets/tiktok-cancel-ru.png>) · [the provider plate](<assets/tiktok-provider-ru.png>)
 
 Matching documentation is available in [English](<README.en.md>) and [Russian](<README.md>).
 
@@ -281,3 +301,14 @@ publish.bat            self-contained publisher
 - The troubleshooting notes recommend [**Zapret2UI**](https://github.com/Asterlike/zapret2UI); the app does not bundle, download or run it.
 
 BeatzOnKeys is distributed under the [MIT License](<LICENSE>). Required MusicCatRGB and NAudio notices are retained in [THIRD-PARTY-NOTICES.md](<THIRD-PARTY-NOTICES.md>).
+
+## What changed in 1.5
+
+- **The app is presented as a focus player.** The headline, the opening paragraph, the "Who this is for" section and the source descriptions are rewritten around the job rather than the mechanism: value first, mechanics second.
+- **A start screen instead of tabs.** One question — where does the music come from today — plus source tiles with counters. The greeting follows the time of day. Every section carries a **Home** button.
+- **Focus mode.** One button removes lists, caches, counters, advice plates and settings; the track and the transport stay. The queue never runs dry there, and no setting is touched: leaving the mode hands your switches back.
+- **Notifications became dialogs.** Hiding to the tray and the low-system-volume warning are shown as windows instead of Windows balloons: a balloon is easy to miss and can be switched off entirely.
+- **Larger type.** The smallest text is raised from 10.5–12 to 12.5 px, body text to 15–15.5, headings to 16–17.
+- **The README is rewritten** for the new positioning: "Who this is for", privacy near the top, and music sources described as sources rather than features.
+
+BeatzOnKeys is a tool, not medical care: it is not treatment or therapy.

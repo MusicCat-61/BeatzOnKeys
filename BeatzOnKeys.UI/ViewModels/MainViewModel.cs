@@ -1369,10 +1369,14 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
 
     private void RefreshPlaybackProgress()
     {
-        var position = _audioPlayer.Position.TotalSeconds;
-        var duration = _audioPlayer.Duration.TotalSeconds;
+        // A stopped player keeps its position, so the card showed "00:04.60 / 04:03.38" under the
+        // words "Nothing playing" and a progress bar for a track that was not running. The timers
+        // are a claim about sound, so they go to zero with the sound.
+        var running = IsRunning;
+        var position = running ? _audioPlayer.Position.TotalSeconds : 0;
+        var duration = running ? _audioPlayer.Duration.TotalSeconds : 0;
         position = Math.Max(0, double.IsFinite(position) ? position : 0);
-        duration = double.IsFinite(duration) && duration > 0 ? duration : SelectedTrack?.Duration.TotalSeconds ?? 0;
+        duration = double.IsFinite(duration) && duration > 0 ? duration : running ? SelectedTrack?.Duration.TotalSeconds ?? 0 : 0;
         if (_positionSeconds != position || _durationSeconds != duration)
         {
             _positionSeconds = position;

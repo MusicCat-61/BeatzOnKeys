@@ -2645,10 +2645,23 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             Shows("L_PrivacyTitle") && shell.FocusPanelVisible == Visibility.Collapsed &&
             shell.TabStripVisible == Visibility.Visible && shell.IsPlaylistPage,
             $"After leaving: page={shell.CurrentModeTitle}, privacy={Shows("L_PrivacyTitle")}.");
-        Check("focus.buttonIsOnScreen",
-            Descendants<Button>(window).Any(button => button.IsVisible &&
+        // The way in is the hub tile; the way out is a button under the focus card. Neither may
+        // live in the title bar: the mode owns its own door.
+        Check("focus.noButtonInTheTitleBar",
+            !Descendants<Button>(window).Any(button => button.IsVisible &&
                 ReferenceEquals(button.Command, shell.ToggleFocusModeCommand)),
-            "The mode has a button in the window.");
+            "Outside the mode there is no focus button at all, which is what the title bar lost.");
+        shell.ToggleFocusModeCommand.Execute(null);
+        await SettleAsync();
+        var exitButton = Descendants<Button>(window).FirstOrDefault(button => button.IsVisible &&
+            ReferenceEquals(button.Command, shell.ToggleFocusModeCommand));
+        Check("focus.exitButtonIsLargeAndLabelled",
+            exitButton is { IsEnabled: true } && exitButton.ActualHeight >= 34 &&
+            string.Concat(Descendants<TextBlock>(exitButton).Select(text => text.Text)) == Loc.T("L_FocusExit"),
+            exitButton is null ? "No exit button was rendered."
+                : $"Exit is {exitButton.ActualWidth}x{exitButton.ActualHeight}, label={exitButton.Content}.");
+        shell.ToggleFocusModeCommand.Execute(null);
+        await SettleAsync();
     }
     /// <summary>
     /// The start screen replaced the tab strip, so these checks are about what it answers and what
@@ -2743,6 +2756,11 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         // file name at 00:00, because the controller keeps its track after Stop and the label did
         // not ask whether sound was coming out. A card is a claim about sound, not a selection.
         await StopAsync(vm);
+        // The timers were the same lie in numbers: a stopped app still showed "00:04.60 /
+        // 04:03.38" and a progress bar under the words "Nothing playing".
+        Check("home.silenceResetsTheTimers",
+            vm.PlaybackPositionText == "00:00.00 / 00:00.00" && vm.PlaybackProgress == 0,
+            $"Stopped: position='{vm.PlaybackPositionText}', progress={vm.PlaybackProgress}.");
         Check("home.silenceShowsNoCard",
             vm.NowPlayingCardVisible == Visibility.Collapsed &&
             vm.PlayingTrackText == Loc.T("L_NothingPlaying") &&

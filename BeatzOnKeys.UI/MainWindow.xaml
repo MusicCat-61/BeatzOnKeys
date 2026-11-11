@@ -78,10 +78,6 @@
 
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                <Button Command="{Binding ToggleFocusModeCommand}" Content="{Binding FocusToggleText}"
-                        Style="{StaticResource SubtleButtonStyle}" Padding="10,5" Margin="0,0,10,0"
-                        ToolTip="{Binding FocusToggleTooltip}"
-                        AutomationProperties.Name="{Binding FocusToggleText}"/>
                 <Border Background="{DynamicResource ControlBackgroundBrush}"
                         BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
                         CornerRadius="6" Padding="2" Margin="0,0,10,0"
@@ -2247,33 +2243,39 @@
             </Border>
         </Grid>
 
-        <!-- Focus mode: nothing to choose, only what is happening. The transport stays in the
-             footer, so this panel is the whole page. A page with nothing to play says so here
-             instead of offering Start that would do nothing. -->
+        <!-- Focus mode: nothing to choose, only what is happening. The way in is the tile on the
+             start screen; the way out sits directly under the card, where the eye already is. -->
         <Grid Grid.Row="1" Panel.ZIndex="5" Margin="20,4,20,8" Visibility="{Binding FocusPanelVisible}">
-            <Border Style="{StaticResource CardStyle}" Padding="28" MaxWidth="720"
-                    HorizontalAlignment="Center" VerticalAlignment="Center">
-                <StackPanel>
-                    <TextBlock Text="{Binding PlayingSourceText}" FontSize="15" HorizontalAlignment="Center"
-                               Foreground="{DynamicResource TextTertiaryBrush}"/>
-                    <TextBlock Text="{Binding PlayingTrackText}" FontSize="24" FontWeight="SemiBold"
-                               TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0"
-                               Foreground="{DynamicResource TextPrimaryBrush}"/>
-                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding PlaybackProgress, Mode=OneWay}"
-                                 Height="5" Margin="0,18,0,0"/>
-                    <TextBlock Text="{Binding PlaybackPositionText}" FontSize="14.5" Margin="0,8,0,0"
-                               HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
-                    <TextBlock Text="{DynamicResource L_FocusHint}" FontSize="16" TextWrapping="Wrap"
-                               TextAlignment="Center" Margin="0,18,0,0"
-                               Foreground="{DynamicResource TextTertiaryBrush}"/>
-                    <!-- A dead end is named, not clicked into: Start is already disabled here, and
-                         this line explains why without leaving the scene. -->
-                    <TextBlock Text="{DynamicResource L_FocusNeedMusic}" FontSize="18" TextWrapping="Wrap"
-                               TextAlignment="Center" Margin="0,18,0,0"
-                               Foreground="{DynamicResource AccentBrush}"
-                               Visibility="{Binding FocusNeedsMusicVisible}"/>
-                </StackPanel>
-            </Border>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border Style="{StaticResource CardStyle}" Padding="28" MaxWidth="720">
+                    <StackPanel>
+                        <TextBlock Text="{Binding PlayingSourceText}" FontSize="15" HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        <TextBlock Text="{Binding PlayingTrackText}" FontSize="24" FontWeight="SemiBold"
+                                   TextWrapping="Wrap" TextAlignment="Center" Margin="0,8,0,0"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+                        <ProgressBar Minimum="0" Maximum="100" Value="{Binding PlaybackProgress, Mode=OneWay}"
+                                     Height="5" Margin="0,18,0,0"/>
+                        <TextBlock Text="{Binding PlaybackPositionText}" FontSize="14.5" Margin="0,8,0,0"
+                                   HorizontalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}"/>
+                        <TextBlock Text="{DynamicResource L_FocusHint}" FontSize="16" TextWrapping="Wrap"
+                                   TextAlignment="Center" Margin="0,18,0,0"
+                                   Foreground="{DynamicResource TextTertiaryBrush}"/>
+                        <!-- A dead end is named, not clicked into: Start is already disabled here,
+                             and this line explains why without leaving the scene. -->
+                        <TextBlock Text="{DynamicResource L_FocusNeedMusic}" FontSize="18" TextWrapping="Wrap"
+                                   TextAlignment="Center" Margin="0,18,0,0"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   Visibility="{Binding FocusNeedsMusicVisible}"/>
+                    </StackPanel>
+                </Border>
+                <!-- The exit sits under the card, not in the title bar: leaving a mode is part of
+                     that mode, not part of the window. -->
+                <Button Command="{Binding ToggleFocusModeCommand}" Content="{DynamicResource L_FocusExit}"
+                        Style="{StaticResource SubtleButtonStyle}" FontSize="16" Padding="18,10"
+                        HorizontalAlignment="Center" Margin="0,16,0,0"
+                        AutomationProperties.Name="{DynamicResource L_FocusExit}"/>
+            </StackPanel>
         </Grid>
 
         <Grid Grid.Row="2" Margin="20,0,20,7">
@@ -2311,9 +2313,9 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="18,0" HorizontalAlignment="Stretch">
-                <TextBlock Text="{Binding StatusText}" FontSize="13.5" TextTrimming="CharacterEllipsis"
-                           Foreground="{DynamicResource TextSecondaryBrush}"/>
-                <TextBlock Text="{Binding NowPlayingText}" FontSize="13" Margin="0,2,0,0"
+                <TextBlock Text="{Binding StatusText}" FontSize="15.5" TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource TextPrimaryBrush}"/>
+                <TextBlock Text="{Binding NowPlayingText}" FontSize="13.5" Margin="0,3,0,0"
                            Foreground="{DynamicResource TextTertiaryBrush}" TextTrimming="CharacterEllipsis"/>
             </StackPanel>
 

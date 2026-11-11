@@ -4,9 +4,13 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.4.0.9-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Version](https://img.shields.io/badge/version-1.5.0.0-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#requirements)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
+
+![BeatzOnKeys start screen](<assets/home-light-en.png>)
+
+*The start screen; [the My files section](<assets/preview-en.png>).*
 
 ![BeatzOnKeys English interface](<assets/preview-en.png>)
 
@@ -128,7 +132,7 @@ Choosing another track starts that track from its beginning.
 
 Only one copy can run at a time: launching it again restores the window of the running copy.
 
-No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.4.0.9 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
+No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.5.0.0 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
 
 ### Requirements
 
@@ -192,11 +196,13 @@ The title-bar `EN | RU` switch changes the language immediately; the sun/moon bu
 
 [About dialog](<assets/about-ru.png>) · [Light About dialog](<assets/about-light-ru.png>) · [Guide, English](<assets/guide-en.png>) · [Guide, Russian](<assets/guide-ru.png>)
 
+Focus mode: [just the player](<assets/focus-en.png>)
+
 YouTube source: [search with listening](<assets/youtube-search-ru.png>) · [downloaded tracks](<assets/youtube-downloaded-ru.png>) · [search in progress](<assets/youtube-searching-ru.png>)
 
 Settings sections: [Volume](<assets/section-volume.png>) · [Music reaction](<assets/section-reaction.png>) · [Behaviour](<assets/section-behavior.png>) · [all collapsed](<assets/section-collapsed.png>)
 
-TikTok source: [empty section](<assets/tiktok-empty-ru.png>) · [a downloaded clip](<assets/tiktok-track-ru.png>) · [a download with cancel](<assets/tiktok-cancel-ru.png>) · [the provider plate](<assets/tiktok-provider-ru.png>)
+TikTok source: [empty section](<assets/tiktok-empty-ru.png>) · [a downloaded clip](<assets/tiktok-track-ru.png>) · [a download with cancel](<assets/tiktok-cancel-ru.png>)
 
 Matching documentation is available in [English](<README.en.md>) and [Russian](<README.md>).
 
@@ -243,14 +249,14 @@ dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Create the **1.4.0.9** portable self-contained folder in Windows **cmd**:
+Create the **1.5.0.0** portable self-contained folder in Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.4.0.9
+set BOK_VERSION=1.5.0.0
 publish.bat
 ```
 
-The publisher now defaults to `BOK_VERSION=1.4.0.9`; setting it explicitly makes the intended release version clear.
+The publisher now defaults to `BOK_VERSION=1.5.0.0`; setting it explicitly makes the intended release version clear.
 
 The publisher validates its `Build_Output` cleanup target, publishes `BeatzOnKeys.UI` self-contained for `win-x64`, and copies both READMEs, release notes, screenshots, the license, and third-party notices. It stops on any required publish/copy failure. The resulting `Build_Output` directory is the portable product.
 

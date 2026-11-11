@@ -4,9 +4,13 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.4.0.9-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Version](https://img.shields.io/badge/version-1.5.0.0-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#требования)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
+
+![Стартовый экран BeatzOnKeys](<assets/home-light-en.png>)
+
+*Стартовый экран; [раздел «Мои файлы»](<assets/preview-ru.png>).*
 
 ![Русский интерфейс BeatzOnKeys](<assets/preview-ru.png>)
 
@@ -127,7 +131,7 @@ BeatzOnKeys — инструмент, а не медицинская помощ�
 
 Одновременно может работать только одна копия: повторный запуск возвращает окно уже работающей.
 
-Установщик, права администратора и отдельный .NET Runtime не нужны. **Обновление с 1.0.x:** закройте старую программу, скачайте 1.4.0.9 вручную и замените старую папку, не используя старый встроенный установщик. Настройки перенесутся автоматически, как описано [выше](#настройки).
+Установщик, права администратора и отдельный .NET Runtime не нужны. **Обновление с 1.0.x:** закройте старую программу, скачайте 1.5.0.0 вручную и замените старую папку, не используя старый встроенный установщик. Настройки перенесутся автоматически, как описано [выше](#настройки).
 
 ### Требования
 
@@ -189,11 +193,13 @@ BeatzOnKeys — инструмент, а не медицинская помощ�
 
 [Светлая тема, EN](<assets/preview-light-en.png>) · [Светлая тема, RU](<assets/preview-light-ru.png>) · [«О программе»](<assets/about-ru.png>) · [уведомление об обновлении](<assets/update-notice-ru.png>) · [Светлое «О программе»](<assets/about-light-ru.png>) · [Гайд, RU](<assets/guide-ru.png>) · [Гайд, EN](<assets/guide-en.png>)
 
+Режим фокуса: [только плеер](<assets/focus-en.png>)
+
 Источник YouTube: [поиск с прослушиванием](<assets/youtube-search-ru.png>) · [скачанные треки](<assets/youtube-downloaded-ru.png>) · [идущий поиск](<assets/youtube-searching-ru.png>)
 
 Разделы панели настроек: [«Громкость»](<assets/section-volume.png>) · [«Реакция на музыку»](<assets/section-reaction.png>) · [«Поведение»](<assets/section-behavior.png>) · [все свёрнуты](<assets/section-collapsed.png>)
 
-Источник TikTok: [пустой раздел](<assets/tiktok-empty-ru.png>) · [скачанный ролик](<assets/tiktok-track-ru.png>) · [скачивание с отменой](<assets/tiktok-cancel-ru.png>) · [плашка про провайдера](<assets/tiktok-provider-ru.png>)
+Источник TikTok: [пустой раздел](<assets/tiktok-empty-ru.png>) · [скачанный ролик](<assets/tiktok-track-ru.png>) · [скачивание с отменой](<assets/tiktok-cancel-ru.png>)
 
 Совпадающая документация доступна на [английском](<README.en.md>) и [русском](<README.md>).
 
@@ -240,14 +246,14 @@ dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Создайте портативную самодостаточную папку **1.4.0.9** в Windows **cmd**:
+Создайте портативную самодостаточную папку **1.5.0.0** в Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.4.0.9
+set BOK_VERSION=1.5.0.0
 publish.bat
 ```
 
-Теперь скрипт по умолчанию использует `BOK_VERSION=1.4.0.9`; явное указание переменной делает целевую версию релиза однозначной.
+Теперь скрипт по умолчанию использует `BOK_VERSION=1.5.0.0`; явное указание переменной делает целевую версию релиза однозначной.
 
 Скрипт проверяет цель очистки `Build_Output`, публикует `BeatzOnKeys.UI` как self-contained `win-x64` и копирует оба README, примечания к релизу, скриншоты, лицензию и сторонние уведомления. Любая обязательная ошибка публикации/копирования останавливает сборку. Итоговый `Build_Output` — портативный продукт.
 

@@ -38,6 +38,14 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     /// listening, so the pause keeps working there.
     /// </summary>
     private Guid? _previewTrackId;
+    /// <summary>
+    /// The last track the user actually started, with the section it came from. "Continue" must
+    /// offer that track: the selection only ever points at the local playlist, so a TikTok track
+    /// stopped a minute ago used to be replaced by whatever local file happened to be selected.
+    /// </summary>
+    private Guid? _lastPlayedId;
+    private AppPage _lastPlayedPage = AppPage.Playlist;
+    private string _lastPlayedTitle = string.Empty;
     private bool _idlePauseSuppressed;
     private string _playingTrackText = string.Empty;
     private string _playingSourceText = string.Empty;
@@ -413,20 +421,76 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
     public string FocusToggleTooltip => _isFocusMode ? Loc.T("L_FocusExit") : Loc.T("L_FocusEnter");
 
     /// <summary>
-    /// The hub fills its lower half with the one action that needs no decision: pick up the track
-    /// that is already selected. It appears only while nothing plays, so it never competes with
-    /// the card that names what is playing.
+    /// The hub offers the last track only while nothing plays, so it never competes with the card
+    /// that names what is playing right now.
     /// </summary>
     public Visibility ContinueCardVisible =>
         !IsRunning && ContinueTrackText.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
-    /// <summary>The name of the track Start would play right now, or empty when there is none.</summary>
-    public string ContinueTrackText => SelectedTrack is { IsAvailable: true } chosen
-        ? chosen.FileName
-        : Tracks.FirstOrDefault(track => track.IsAvailable)?.FileName ?? string.Empty;
+    /// <summary>
+    /// The hub fills its lower half with the one action that needs no decision: pick up the track
+    /// that really played last. It appears only while nothing plays, so it never competes with the
+    /// card that names what is playing.
+    /// </summary>
+    public string ContinueTrackText => _lastPlayedTitle.Length > 0
+        ? _lastPlayedTitle
+        : SelectedTrack is { IsAvailable: true } chosen
+            ? chosen.FileName
+            : Tracks.FirstOrDefault(track => track.IsAvailable)?.FileName ?? string.Empty;
+
+    /// <summary>
+    /// Where the offered track lives. The selection alone only ever points at the local playlist,
+    /// so without this a TikTok track stopped a minute ago was offered as a local file.
+    /// </summary>
+    public string ContinueSourceText => _lastPlayedTitle.Length > 0
+        ? Loc.T(_lastPlayedPage switch
+        {
+            AppPage.YouTube => "L_HomeYouTube",
+            AppPage.TikTok => "L_HomeTikTok",
+            _ => "L_HomeMyFiles"
+        })
+        : Loc.T("L_HomeMyFiles");
 
     /// <summary>The button says what pressing it will do, so the mode is never a guess.</summary>
     public string FocusToggleText => Loc.T(_isFocusMode ? "L_FocusExit" : "L_FocusEnter");
+    /// <summary>
+    /// "Continue" starts the track that really played last, wherever it lives. It cannot reuse the
+    /// Start command: that one starts whatever the visible page holds, and on the hub that is the
+    /// local playlist — which is exactly how a stopped TikTok track became a local file.
+    /// </summary>
+    public AsyncRelayCommand ContinueCommand =>
+        _continueCommand ??= new AsyncRelayCommand(ContinueLastAsync, () => !IsRunning && ContinueTrackText.Length > 0);
+
+    private AsyncRelayCommand? _continueCommand;
+
+    private async Task ContinueLastAsync()
+    {
+        if (_lastPlayedId is Guid id)
+        {
+            if (YouTube.Downloaded.FirstOrDefault(track => track.Id == id) is { } youTube)
+            {
+                YouTube.SelectTrack(youTube);
+                await PlayCachedAsync(youTube, isPreview: false).ConfigureAwait(true);
+                return;
+            }
+
+            if (TikTok.Tracks.FirstOrDefault(track => track.Id == id) is { } tikTok)
+            {
+                TikTok.SelectTrack(tikTok);
+                await PlayCachedAsync(tikTok, isPreview: false).ConfigureAwait(true);
+                return;
+            }
+
+            if (Tracks.FirstOrDefault(track => track.Id == id) is { } local)
+            {
+                await PlayPlaylistTrackAsync(local).ConfigureAwait(true);
+                return;
+            }
+        }
+
+        // Nothing has played yet in this run: fall back to whatever Start would do.
+        await StartPlaybackAsync().ConfigureAwait(true);
+    }
 
     public RelayCommand ToggleFocusModeCommand => _toggleFocusMode ??= new RelayCommand(ToggleFocusMode);
 
@@ -443,7 +507,12 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             if (_page == AppPage.Home) { SetPage(_lastModePage); }
         }
 
+        var leaving = _isFocusMode;
         IsFocusMode = !_isFocusMode;
+        // Leaving focus mode goes home, not back into the section: the mode was entered from the
+        // start screen, so that is where it ends. A section is a place you choose, not a place you
+        // are dropped into after finishing something.
+        if (leaving) { SetPage(AppPage.Home); }
         AppLogger.Info("ui", $"Focus mode {(_isFocusMode ? "entered" : "left")}.");
     }
 
@@ -1571,6 +1640,16 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
             // The preview is remembered before the first note, so a short idle time cannot be armed
             // and fire a moment later; a downloaded track clears it and keeps the pause working.
             _previewTrackId = isPreview ? playback.Id : null;
+            // Remembered here, not in the click handlers: an auto-advance never passes through them.
+            if (!isPreview)
+            {
+                _lastPlayedId = playback.Id;
+                _lastPlayedPage = PageOf(playback.Id);
+                _lastPlayedTitle = string.IsNullOrWhiteSpace(title) ? playback.Name : title;
+                OnPropertyChanged(nameof(ContinueCardVisible));
+                OnPropertyChanged(nameof(ContinueTrackText));
+                OnPropertyChanged(nameof(ContinueSourceText));
+            }
             if (!_typingPlayback.SelectTrack(playback.Id, restart: true)) { return; }
             if (!IsRunning)
             {
@@ -1626,6 +1705,13 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(FocusToggleText));
         OnPropertyChanged(nameof(FocusToggleTooltip));
         OnPropertyChanged(nameof(GreetingText));
+        OnPropertyChanged(nameof(ContinueSourceText));
+        OnPropertyChanged(nameof(ContinueTrackText));
+        OnPropertyChanged(nameof(HomeTracksMeta));
+        OnPropertyChanged(nameof(HomeYouTubeMeta));
+        OnPropertyChanged(nameof(HomeTikTokMeta));
+        OnPropertyChanged(nameof(FocusNeedsMusicVisible));
+        OnPropertyChanged(nameof(CurrentModeTitle));
         YouTube.RefreshLocalization();
         TikTok.RefreshLocalization();
         RefreshPlaybackProgress();
@@ -1657,6 +1743,7 @@ public sealed class MainViewModel : ObservableObject, IAsyncDisposable
         OnPropertyChanged(nameof(CanClearPlaylist));
         AddFilesCommand.NotifyCanExecuteChanged();
         StartCommand.NotifyCanExecuteChanged();
+        ContinueCommand.NotifyCanExecuteChanged();
         StopCommand.NotifyCanExecuteChanged();
         TogglePauseCommand.NotifyCanExecuteChanged();
         RemoveTrackCommand.NotifyCanExecuteChanged();

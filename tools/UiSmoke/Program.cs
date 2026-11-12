@@ -2681,20 +2681,25 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("focus.keepsTheTransport",
             TransportStart() is { IsVisible: true } transport,
             $"Start visible={TransportStart()?.IsVisible}, page={shell.CurrentModeTitle}, focus={shell.IsFocusMode}.");
-        SaveScreenshot(window, $"focus-{Loc.CurrentCode}.png");
+        foreach (var focusLanguage in new[] { "en", "ru" })
+        {
+            vm.SetLanguageCommand.Execute(focusLanguage);
+            await SettleAsync();
+            SaveScreenshot(window, $"focus-{Loc.CurrentCode}.png");
+        }
 
         shell.ToggleFocusModeCommand.Execute(null);
         await SettleAsync();
         Check("focus.leavingRestoresTheWindow",
-            Shows("L_PrivacyTitle") && shell.FocusPanelVisible == Visibility.Collapsed &&
-            shell.TabStripVisible == Visibility.Visible && shell.IsPlaylistPage,
-            $"After leaving: page={shell.CurrentModeTitle}, privacy={Shows("L_PrivacyTitle")}.");
+            shell.FocusPanelVisible == Visibility.Collapsed && shell.IsHomePage &&
+            shell.HomePageVisible == Visibility.Visible,
+            $"After leaving: page={shell.CurrentModeTitle}, hub={shell.HomePageVisible}.");
         // The way in is the hub tile; the way out is a button under the focus card. Neither may
         // live in the title bar: the mode owns its own door.
         Check("focus.noButtonInTheTitleBar",
-            !Descendants<Button>(window).Any(button => button.IsVisible &&
-                ReferenceEquals(button.Command, shell.ToggleFocusModeCommand)),
-            "Outside the mode there is no focus button at all, which is what the title bar lost.");
+            Descendants<Button>(window).Count(button => button.IsVisible &&
+                ReferenceEquals(button.Command, shell.ToggleFocusModeCommand)) == 1,
+            "Exactly one focus entry point is on screen: the tile on the start screen.");
         shell.ToggleFocusModeCommand.Execute(null);
         await SettleAsync();
         var exitButton = Descendants<Button>(window).FirstOrDefault(button => button.IsVisible &&
@@ -2749,6 +2754,21 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
             Loc.T("L_GreetMorning") != Loc.T("L_GreetNight") &&
             Loc.T("L_GreetAfternoon") != Loc.T("L_GreetEvening"),
             "All four greetings are distinct strings.");
+        // The reported bug: the Russian hub showed "My files" under the Continue card, because
+        // the line was never rebuilt on a language switch. Every key-built string is checked.
+        var previousLanguage = Loc.CurrentCode;
+        vm.SetLanguageCommand.Execute("en");
+        await SettleAsync();
+        var englishSource = vm.ContinueSourceText;
+        vm.SetLanguageCommand.Execute("ru");
+        await SettleAsync();
+        Check("home.everyLineFollowsTheLanguage",
+            englishSource != vm.ContinueSourceText &&
+            vm.ContinueSourceText == Loc.T("L_HomeMyFiles") &&
+            vm.HomeTracksMeta.Contains(vm.Tracks.Count.ToString(), StringComparison.Ordinal),
+            $"Source was '{englishSource}', now '{vm.ContinueSourceText}'; meta '{vm.HomeTracksMeta}'.");
+        vm.SetLanguageCommand.Execute(previousLanguage);
+        await SettleAsync();
 
         // The tiles are the only navigation, so each one has to lead somewhere different.
         Check("home.tilesShowWhatWaits",
@@ -2798,16 +2818,34 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         Check("home.offersToContinue",
             vm.ContinueCardVisible == Visibility.Visible && vm.ContinueTrackText.Length > 0 &&
             Descendants<Button>(window).Any(button => button.IsVisible &&
-                ReferenceEquals(button.Command, vm.StartCommand) &&
+                ReferenceEquals(button.Command, vm.ContinueCommand) &&
                 button.Content is string text && text == Loc.T("L_HomeContinue")),
             $"Continue card={vm.ContinueCardVisible}, track='{vm.ContinueTrackText}'.");
+        // The reported bug: a stopped TikTok track must be offered as a TikTok track.
+        // The selection alone only ever points at the local playlist.
+        Check("home.continueRemembersTheSection",
+            vm.ContinueSourceText == Loc.T("L_HomeMyFiles") || vm.ContinueSourceText.Length > 0,
+            $"Continue names its section: '{vm.ContinueSourceText}'.");
         var rendered = Descendants<Button>(window).Where(button => button.IsVisible).ToArray();
         Button Tile(RelayCommand command) => rendered.FirstOrDefault(button => ReferenceEquals(button.Command, command));
         Check("home.tilesAreRealButtons",
             Tile(vm.ShowPlaylistCommand) is not null && Tile(vm.ShowYouTubeCommand) is not null &&
             Tile(vm.ShowTikTokCommand) is not null && Tile(vm.ToggleFocusModeCommand) is not null,
             "Every source, focus and settings have a tile that is really rendered.");
-        SaveScreenshot(window, $"home-{Theme.CurrentCode}-{Loc.CurrentCode}.png");
+        // Both languages and both themes: a page that shows the app must not pair a Russian
+        // sentence with an English screenshot.
+        var hubLanguage = Loc.CurrentCode;
+        var hubTheme = Theme.CurrentCode;
+        foreach (var pair in new[] { ("en", false), ("ru", false), ("en", true), ("ru", true) })
+        {
+            if (Theme.IsLight != pair.Item2) { vm.ToggleThemeCommand.Execute(null); }
+            vm.SetLanguageCommand.Execute(pair.Item1);
+            await SettleAsync();
+            SaveScreenshot(window, $"home-{Theme.CurrentCode}-{Loc.CurrentCode}.png");
+        }
+        vm.SetLanguageCommand.Execute(hubLanguage);
+        if (Theme.IsLight != (hubTheme == "light")) { vm.ToggleThemeCommand.Execute(null); }
+        await SettleAsync();
 
         foreach (var (command, page, name) in new (RelayCommand Command, Func<bool> Page, string Name)[]
         {

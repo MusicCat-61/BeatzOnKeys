@@ -4,17 +4,17 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.5.0.0-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Version](https://img.shields.io/badge/version-1.5.0.1-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#requirements)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
 ![BeatzOnKeys start screen](<assets/home-light-en.png>)
 
-*The start screen; [the My files section](<assets/preview-en.png>).*
+**he start screen; [the My files section](<assets/preview-en.png>).T
 
 ![BeatzOnKeys English interface](<assets/preview-en.png>)
 
-*English interface · the Russian one is shown on the [Russian page](<README.md>).*
+TEnglish interface · the Russian one is shown on the [Russian page](<README.md>).T
 
 **English** · [Русский](<README.md>)
 
@@ -42,7 +42,7 @@ Value first, mechanics second.
 
 | Value | What stands behind it |
 |---|---|
-| 🎯 **Focus mode** | One button removes lists, caches, counters, advice plates and settings. What is left is what is playing plus the transport. The queue never runs dry there: a track ends and the next one starts |
+| 🎯 **Focus mode** | One tile removes lists, caches, counters, advice plates and settings. What is left is what is playing, the transport and an exit button under the card. The queue never runs dry there: a track ends and the next one starts |
 | 🚪 **Start screen** | One question instead of four tabs: where does the music come from today. The greeting follows the time of day |
 | 🎹 **Music that knows when you work** | Volume follows your typing: it rises on a key press and falls when you stop. Shift, Ctrl and Alt alone do not count |
 | ⏸ **Idle pause** | You looked away and the track froze. The first key brings it back at the same position |
@@ -132,7 +132,7 @@ Choosing another track starts that track from its beginning.
 
 Only one copy can run at a time: launching it again restores the window of the running copy.
 
-No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.5.0.0 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
+No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.5.0.1 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
 
 ### Requirements
 
@@ -147,12 +147,12 @@ No installer, administrator rights, or separate .NET runtime are required. **Upg
 3. Set the quiet and maximum volume levels, idle timeout, and **Pause on idle**. Choose **Auto-advance** and **Loop** as needed.
 4. Click **Start**. The track starts immediately from the beginning and the window stays open.
 5. Type in any application to raise the volume; stop typing to lower it. If idle pausing is enabled, the first key after a pause resumes the track at the same position.
-6. Press **Focus mode** (in the title bar or from the start screen tile) when everything except the music should leave the screen. The **Home** button is present in every section and in focus mode itself: a screen without an exit is a trap.
+6. Press the **Focus** tile on the start screen when everything except the music should leave the screen. The way out is **Leave focus mode**, a button directly under the track card; it returns to the start screen. The **Home** button is present in every section except focus mode itself, which has its own exit.
 7. Use the title-bar close button to hide the window to the tray. Double-click the tray icon to reopen it, or use **Stop playback** / **Exit** in its menu.
 
 **Reset** removes imported entries and saved settings. It never deletes the original audio files.
 
-**Focus mode is a view, not a setting.** It writes nothing to `settings.json`: auto-advance and loop are switched on in the controller's memory only, and leaving the mode hands back exactly the switches you chose yourself. The queue never runs dry there: a track ends and the next one from that section starts.
+**Focus mode is a view, not a setting.** It writes nothing to `settings.json`: auto-advance and loop are switched on in the controller's memory only, and leaving the mode hands back exactly the switches you chose yourself. The queue never runs dry there: a track ends and the next one from that section starts. Leaving focus mode goes back to the **start screen**, not into a section: the mode begins with choosing a source and ends there too.
 
 **The queue belongs to the source.** A track started on YouTube advances to the next YouTube track, not into the local playlist; **Loop** wraps inside that section, and opening another section never stops what is playing. A preview never joins the queue.
 
@@ -249,14 +249,14 @@ dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Create the **1.5.0.0** portable self-contained folder in Windows **cmd**:
+Create the **1.5.0.1** portable self-contained folder in Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.5.0.0
+set BOK_VERSION=1.5.0.1
 publish.bat
 ```
 
-The publisher now defaults to `BOK_VERSION=1.5.0.0`; setting it explicitly makes the intended release version clear.
+The publisher now defaults to `BOK_VERSION=1.5.0.1`; setting it explicitly makes the intended release version clear.
 
 The publisher validates its `Build_Output` cleanup target, publishes `BeatzOnKeys.UI` self-contained for `win-x64`, and copies both READMEs, release notes, screenshots, the license, and third-party notices. It stops on any required publish/copy failure. The resulting `Build_Output` directory is the portable product.
 
@@ -318,3 +318,11 @@ BeatzOnKeys is distributed under the [MIT License](<LICENSE>). Required MusicCat
 - **The README is rewritten** for the new positioning: "Who this is for", privacy near the top, and music sources described as sources rather than features.
 
 BeatzOnKeys is a tool, not medical care: it is not treatment or therapy.
+
+## What changed in 1.5.0.1
+
+- **Fields at the top, lists stretched.** The search field and the link field sit at the top of their section, the found list takes the free height, and the kept tracks are a compact card under it. The right-hand block is gone from TikTok: the list uses the full width.
+- **Continue remembers the source.** The card on the start screen used to offer a local file even when you had stopped a TikTok track: the selection only exists for the local playlist. The last track that actually **played** is remembered together with its section, and the card names it.
+- **Leaving focus mode goes home**, not into a section.
+- **Every line follows the language.** The Russian interface showed `My files` under the Continue card: strings built from localisation keys were not rebuilt on a language switch. All of them are now.
+- **The English README is repaired.** It carried `TT` 277 times where `**` belonged, so bold text was broken across the whole file.

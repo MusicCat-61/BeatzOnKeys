@@ -2770,6 +2770,23 @@ internal sealed class SmokeRun(string root, string session, App app, int aborted
         vm.SetLanguageCommand.Execute(previousLanguage);
         await SettleAsync();
 
+        // The reported bug: the cache card kept its Russian sentence under an English checkbox.
+        // Watching the event is what proves it — reading the getter passes either way, because
+        // the getter asks the dictionary again; only the notification repaints the line.
+        var cacheNotified = false;
+        void WatchCache(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(vm.YouTube.CacheHintText)) { cacheNotified = true; }
+        }
+        vm.YouTube.PropertyChanged += WatchCache;
+        vm.SetLanguageCommand.Execute("en");
+        await SettleAsync();
+        vm.YouTube.PropertyChanged -= WatchCache;
+        Check("youtube.cacheCardFollowsTheLanguage", cacheNotified,
+            $"Cache hint notified={cacheNotified}, now '{vm.YouTube.CacheHintText}'.");
+        vm.SetLanguageCommand.Execute(previousLanguage);
+        await SettleAsync();
+
         // The tiles are the only navigation, so each one has to lead somewhere different.
         Check("home.tilesShowWhatWaits",
             vm.HomeTracksMeta == Loc.F("L_HomeTracksMeta", vm.Tracks.Count) &&

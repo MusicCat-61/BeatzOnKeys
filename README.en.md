@@ -324,5 +324,5 @@ BeatzOnKeys is a tool, not medical care: it is not treatment or therapy.
 - **Fields at the top, lists stretched.** The search field and the link field sit at the top of their section, the found list takes the free height, and the kept tracks are a compact card under it. The right-hand block is gone from TikTok: the list uses the full width.
 - **Continue remembers the source.** The card on the start screen used to offer a local file even when you had stopped a TikTok track: the selection only exists for the local playlist. The last track that actually **played** is remembered together with its section, and the card names it.
 - **Leaving focus mode goes home**, not into a section.
-- **Every line follows the language.** The Russian interface showed `My files` under the Continue card: strings built from localisation keys were not rebuilt on a language switch. All of them are now.
+- **Every line follows the language.** The Russian interface showed `My files` under the Continue card, and the English one kept a Russian sentence under the cache checkbox: strings built from localisation keys were not rebuilt on a language switch. All of them are now.
 - **The English README is repaired.** It carried `TT` 277 times where `**` belonged, so bold text was broken across the whole file.

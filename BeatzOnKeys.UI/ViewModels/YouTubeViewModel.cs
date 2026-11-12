@@ -889,6 +889,10 @@ public sealed partial class YouTubeViewModel : ObservableObject
         foreach (var track in Downloaded) { track.RefreshLocalization(); }
         _ = RefreshCacheSizeAsync();
         // Every derived label is recomputed on a language switch, not just the status line.
+        // The cache card is built from keys too: without these two the Russian sentence stayed
+        // under an English checkbox, which is how this was reported.
+        OnPropertyChanged(nameof(CacheHintText));
+        OnPropertyChanged(nameof(CachePathText));
         NotifyBinaryState();
         foreach (var item in Results) { item.RefreshLocalization(); }
         RefreshCommands();

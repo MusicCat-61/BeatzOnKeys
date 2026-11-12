@@ -18,10 +18,10 @@ internal static class UpdateServiceTests
         AssertEx.Equal(1, assemblyVersion.Major);
         AssertEx.Equal(5, assemblyVersion.Minor);
         AssertEx.Equal(0, assemblyVersion.Build);
-        // The patch digit is the revision, so 1.5.0.1 keeps all four parts.
-        AssertEx.Equal(1, assemblyVersion.Revision);
+        // The patch digit is the revision, so 1.5.0.2 keeps all four parts.
+        AssertEx.Equal(2, assemblyVersion.Revision);
         // Display drops a zero revision on purpose, so the four-part build reads as 1.5.0.
-        AssertEx.Equal("1.5.0.1", UpdateService.CurrentVersion.Display);
+        AssertEx.Equal("1.5.0.2", UpdateService.CurrentVersion.Display);
 
         var current = Version("1.1.1");
         var result = UpdateService.ParseRelease(ReleaseJson("v1.1.1"), current);

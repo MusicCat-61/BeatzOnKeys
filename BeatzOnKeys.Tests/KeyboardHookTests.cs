@@ -54,6 +54,52 @@ internal static class KeyboardHookTests
         return Task.CompletedTask;
     }
 
+    public static Task ContendedGateNeverPumpsTheCallerContext()
+    {
+        // The reported failure: on a loaded CI runner Monitor.Enter took its slow path while the
+        // gate was contended, and that path calls SynchronizationContext.Wait — which pumps the
+        // message queue on a thread that has one. Contention is forced here rather than hoped
+        // for: the sequential test above passed on every local run and failed on the runner, so
+        // "it passed" was never evidence.
+        using var native = new FakeNativeApi();
+        using var hook = Create(native);
+        // Holding the gate is what makes contention certain; the type is the gate the hook uses.
+        var gate = (NonPumpingGate)typeof(KeyboardHook)
+            .GetField("_gate", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(hook)!;
+        using var holderInside = new ManualResetEventSlim();
+        using var letHolderGo = new ManualResetEventSlim();
+        var holder = new Thread(() =>
+        {
+            using (gate.Enter())
+            {
+                holderInside.Set();
+                letHolderGo.Wait(TestTimeout);
+            }
+        }) { IsBackground = true };
+        holder.Start();
+        AssertEx.True(holderInside.Wait(TestTimeout), "The helper thread never took the gate.");
+
+        var context = new RejectingSynchronizationContext();
+        Exception? failure = null;
+        var installer = new Thread(() =>
+        {
+            SynchronizationContext.SetSynchronizationContext(context);
+            try { hook.Install(); }
+            catch (Exception exception) { failure = exception; }
+        }) { IsBackground = true };
+        installer.Start();
+        // Long enough for the installer to reach the gate and be turned away by it.
+        Thread.Sleep(250);
+        letHolderGo.Set();
+        AssertEx.True(installer.Join(TestTimeout), "Install never returned after the gate was released.");
+        AssertEx.True(holder.Join(TestTimeout), "The helper thread leaked.");
+        hook.Uninstall();
+
+        AssertEx.True(failure is null, $"Install failed: {failure}");
+        AssertEx.Equal(0, context.Calls, "A contended lifecycle pumped the caller's context.");
+        return Task.CompletedTask;
+    }
+
     public static async Task StartupWaitsForQueueAndNativeInstallation()
     {
         using var native = new FakeNativeApi();

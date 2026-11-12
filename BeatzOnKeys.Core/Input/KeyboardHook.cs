@@ -23,7 +23,7 @@ public sealed class KeyboardHook : IKeyboardHook
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     internal delegate nint LowLevelKeyboardProc(int code, nint wParam, nint lParam);
 
-    private readonly object _gate = new();
+    private readonly NonPumpingGate _gate = new();
     private readonly LowLevelKeyboardProc _callback;
     private readonly INativeApi _native;
     private readonly int _lifecycleTimeoutMilliseconds;
@@ -70,7 +70,7 @@ public sealed class KeyboardHook : IKeyboardHook
         {
             HookSession session;
             bool stopping;
-            lock (_gate)
+            using (_gate.Enter())
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
                 if (Environment.TickCount64 >= deadline)
@@ -98,7 +98,7 @@ public sealed class KeyboardHook : IKeyboardHook
                 }
 
                 WaitForSignal(session.Ready, deadline, "Keyboard hook startup");
-                lock (_gate)
+                using (_gate.Enter())
                 {
                     ObjectDisposedException.ThrowIf(_disposed, this);
                     session.Failure?.Throw();
@@ -130,7 +130,7 @@ public sealed class KeyboardHook : IKeyboardHook
     {
         var deadline = Environment.TickCount64 + _lifecycleTimeoutMilliseconds;
         HookSession? session;
-        lock (_gate)
+        using (_gate.Enter())
         {
             if (dispose)
             {
@@ -195,7 +195,7 @@ public sealed class KeyboardHook : IKeyboardHook
 
             hook = _native.InstallHook(session.Callback);
             if (hook == nint.Zero) { throw new InvalidOperationException("The keyboard hook installation returned no handle."); }
-            lock (_gate)
+            using (_gate.Enter())
             {
                 if (_disposed || Volatile.Read(ref session.StopRequested) != 0) { return; }
                 session.StartupSucceeded = true;
@@ -213,7 +213,7 @@ public sealed class KeyboardHook : IKeyboardHook
         }
         catch (Exception exception)
         {
-            lock (_gate)
+            using (_gate.Enter())
             {
                 session.Failure = ExceptionDispatchInfo.Capture(exception);
                 if (session.StartupSucceeded) { loopFailure = exception; }
@@ -221,7 +221,7 @@ public sealed class KeyboardHook : IKeyboardHook
         }
         finally
         {
-            lock (_gate)
+            using (_gate.Enter())
             {
                 Volatile.Write(ref session.StopRequested, 1);
                 if (ReferenceEquals(_session, session)) { Volatile.Write(ref _isInstalled, 0); }
@@ -234,7 +234,7 @@ public sealed class KeyboardHook : IKeyboardHook
             finally { GC.KeepAlive(session.Callback); }
 
             bool releaseOwner;
-            lock (_gate)
+            using (_gate.Enter())
             {
                 if (!session.StartupSucceeded)
                 {
@@ -258,7 +258,7 @@ public sealed class KeyboardHook : IKeyboardHook
     private void RequestStop(HookSession session)
     {
         Exception? failure = null;
-        lock (_gate)
+        using (_gate.Enter())
         {
             if (!ReferenceEquals(_session, session)) { return; }
             Volatile.Write(ref session.StopRequested, 1);

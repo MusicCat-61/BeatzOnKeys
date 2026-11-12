@@ -40,6 +40,7 @@ internal static class Program
         ("MP3.RapidVolumePulsesNeverInterruptMp3Packets", Mp3ContinuousTests.RapidVolumePulsesNeverInterruptMp3Packets),
         ("MP3.Mp3StartAndIdleResumeKeepOneStream", Mp3ContinuousTests.Mp3StartAndIdleResumeKeepOneStream),
         ("KeyboardHook.NativeLifecycleDoesNotNeedCallerPump", KeyboardHookTests.NativeLifecycleDoesNotNeedCallerPump),
+    ("KeyboardHook.ContendedGateNeverPumpsTheCallerContext", KeyboardHookTests.ContendedGateNeverPumpsTheCallerContext),
         ("KeyboardHook.StartupWaitsForQueueAndNativeInstallation", KeyboardHookTests.StartupWaitsForQueueAndNativeInstallation),
         ("KeyboardHook.InstallationFailurePropagatesAndCanRetry", KeyboardHookTests.InstallationFailurePropagatesAndCanRetry),
         ("KeyboardHook.ConcurrentLifecycleKeepsOneNativeOwner", KeyboardHookTests.ConcurrentLifecycleKeepsOneNativeOwner),

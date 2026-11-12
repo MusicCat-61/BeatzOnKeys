@@ -4,7 +4,7 @@
 [![Download](https://img.shields.io/badge/download-portable%20win--x64-2ea44f?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases/latest)
 [![CI](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MusicCat-61/BeatzOnKeys/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](<LICENSE>)
-[![Version](https://img.shields.io/badge/version-1.5.0.1-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
+[![Version](https://img.shields.io/badge/version-1.5.0.2-4CC2FF?style=flat-square)](https://github.com/MusicCat-61/BeatzOnKeys/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square)](#requirements)
 [![.NET](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square)](https://dotnet.microsoft.com/download/dotnet/10.0)
 
@@ -132,7 +132,7 @@ Choosing another track starts that track from its beginning.
 
 Only one copy can run at a time: launching it again restores the window of the running copy.
 
-No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.5.0.1 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
+No installer, administrator rights, or separate .NET runtime are required. **Upgrading from 1.0.x:** close the old app, download 1.5.0.2 manually, and replace the old folder rather than using the old in-app installer. Existing settings migrate automatically as described [above](#settings).
 
 ### Requirements
 
@@ -249,14 +249,14 @@ dotnet build BeatzOnKeys.sln -c Release
 dotnet run --project BeatzOnKeys.Tests -c Release
 ```
 
-Create the **1.5.0.1** portable self-contained folder in Windows **cmd**:
+Create the **1.5.0.2** portable self-contained folder in Windows **cmd**:
 
 ```bat
-set BOK_VERSION=1.5.0.1
+set BOK_VERSION=1.5.0.2
 publish.bat
 ```
 
-The publisher now defaults to `BOK_VERSION=1.5.0.1`; setting it explicitly makes the intended release version clear.
+The publisher now defaults to `BOK_VERSION=1.5.0.2`; setting it explicitly makes the intended release version clear.
 
 The publisher validates its `Build_Output` cleanup target, publishes `BeatzOnKeys.UI` self-contained for `win-x64`, and copies both READMEs, release notes, screenshots, the license, and third-party notices. It stops on any required publish/copy failure. The resulting `Build_Output` directory is the portable product.
 
@@ -326,3 +326,8 @@ BeatzOnKeys is a tool, not medical care: it is not treatment or therapy.
 - **Leaving focus mode goes home**, not into a section.
 - **Every line follows the language.** The Russian interface showed `My files` under the Continue card, and the English one kept a Russian sentence under the cache checkbox: strings built from localisation keys were not rebuilt on a language switch. All of them are now.
 - **The English README is repaired.** It carried `TT` 277 times where `**` belonged, so bold text was broken across the whole file.
+
+## What changed in 1.5.0.2
+
+- **The keyboard hook no longer pumps the caller's message queue.** A contended `lock` calls `SynchronizationContext.Wait`, and on a thread with a dispatcher that pumps the queue while the hook is still half installed. The gate is a spin lock built on `Interlocked` alone now. `Monitor.TryEnter` was not enough: it also ends up in `Monitor.Enter_Slowpath`, and the contention test failed with the same stack.
+- **A test forces the contention the old one only hoped for**, and it is proved in both directions: with the old behaviour it fails and hangs the run.
